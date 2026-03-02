@@ -1,0 +1,10 @@
+#version 460 core
+layout (location = 0) in vec3 aPos;
+
+out vec2 uv;
+
+void main()
+{
+    uv = aPos.xy; // Zapisujemy współrzędne z ekranu (od -1 do 1)
+    gl_Position = vec4(aPos, 1.0);
+}

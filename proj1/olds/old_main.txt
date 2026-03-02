@@ -1,0 +1,197 @@
+#include "glad/glad.h"
+#include <GLFW/glfw3.h>
+
+
+#include "../src/shader.h"
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
+
+
+int main() {
+
+    if (!glfwInit()) return -1;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow* window = glfwCreateWindow(1024, 768, "Pilka do Koszykowki - EBO i ImGui", NULL, NULL);
+    if (!window) { glfwTerminate(); return -1; }
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSwapInterval(1);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
+
+
+    // 3. shadery
+    Shader shader("src/shaders/raycasting.vs", "src/shaders/raycasting.fs");
+
+
+    // ==========================================
+    // 4. VAO, VBO ORAZ EBO (NOWOŚĆ!)
+    // ==========================================
+    // Zamiast 6 wierzchołków dla dwóch trójkątów, definiujemy tylko 4 UNIKALNE wierzchołki (rogi prostokąta).
+    float vertices[] = {
+            1.0f,  1.0f, 0.0f,  // Indeks 0: Prawy górny
+            1.0f, -1.0f, 0.0f,  // Indeks 1: Prawy dolny
+            -1.0f, -1.0f, 0.0f,  // Indeks 2: Lewy dolny
+            -1.0f,  1.0f, 0.0f   // Indeks 3: Lewy górny
+    };
+
+    // EBO (Element Buffer Object) - tablica indeksów. Mówi karcie graficznej,
+    // w jakiej kolejności łączyć punkty z tablicy 'vertices', by tworzyć trójkąty.
+    unsigned int indices[] = {
+            0, 1, 3,  // Pierwszy trójkąt: połącz punkty (PrawyGórny, PrawyDolny, LewyGórny)
+            1, 2, 3   // Drugi trójkąt: połącz punkty (PrawyDolny, LewyDolny, LewyGórny)
+    };
+
+    unsigned int VBO, VAO, EBO; // Dodaliśmy EBO do zmiennych
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO); // Generujemy ID dla naszego bufora indeksów
+
+    // 1. Aktywujemy VAO (Zaczynamy nagrywanie konfiguracji)
+    glBindVertexArray(VAO);
+
+    // 2. Konfigurujemy VBO (Wgrywamy wierzchołki)
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // 3. Konfigurujemy EBO (Wgrywamy indeksy) - NOWOŚĆ!
+    // Używamy GL_ELEMENT_ARRAY_BUFFER zamiast GL_ARRAY_BUFFER.
+    // VAO automatycznie zapamięta, że podpięliśmy to EBO!
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // 4. Mówimy, jak czytać wierzchołki
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Odpinamy VBO (VAO już zapamiętało jego ustawienia)
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // UWAGA: NIE WOLNO nam odpinać EBO, dopóki VAO jest aktywne!
+    // VAO pamięta podpięcie EBO, więc jeśli odepniemy EBO teraz, zepsujemy konfigurację.
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); <--- Tego NIE ROBIMY!
+
+    // Teraz możemy bezpiecznie odpiąć VAO
+    glBindVertexArray(0);
+
+    // ==========================================
+    // 5. INICJALIZACJA IMGUI
+    // ==========================================
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460 core");
+
+    // Istniejący kolor trójkąta
+    float objectColor[3] = { 1.0f, 0.5f, 0.2f };
+
+// --- NOWE ZMIENNE ---
+// 1. Trzy dodatnie parametry a, b, c
+    float paramA = 1.0f;
+    float paramB = 1.0f;
+    float paramC = 1.0f;
+
+// 2. Parametry oświetlenia (Specular z modelu Phonga)
+    float lightColor[3] = { 1.0f, 1.0f, 1.0f }; // Kolor światła (domyślnie biały)
+    float shininessM = 1.0f;                   // Parametr m (potęga odbicia)
+
+    int pixelSize = 8; // Zaczynamy od "kanciastej" wersji (minimum)
+
+    // ==========================================
+    // 6. GŁÓWNA PĘTLA
+    // ==========================================
+    while (!glfwWindowShouldClose(window))
+    {
+        glfwPollEvents();
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Parametry Kwadryki i Oświetlenia");
+
+        ImGui::Text("Geometria:");
+        ImGui::DragFloat("Parametr a", &paramA, 0.01f, 0.1f, 10.0f);
+        ImGui::DragFloat("Parametr b", &paramB, 0.01f, 0.1f, 10.0f);
+        ImGui::DragFloat("Parametr c", &paramC, 0.01f, 0.1f, 10.0f);
+        ImGui::Separator();
+
+        ImGui::Text("Oswietlenie Phonga:");
+        ImGui::ColorEdit3("Kolor obiektu", objectColor);
+        ImGui::ColorEdit3("Kolor swiatla", lightColor);
+        ImGui::SliderFloat("Potega (m)", &shininessM, 1.0f, 128.0f);
+        ImGui::Separator();
+
+        ImGui::Text("Optymalizacja:");
+        // Od wybranego minimum (np. blok 20x20) do dokładności ekranu (1x1)
+        ImGui::SliderInt("Rozmiar Piksela", &pixelSize, 1, 20);
+        ImGui::End();
+
+
+        glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // --- RYSOWANIE PROSTOKĄTA (Z EBO) ---
+        //glUseProgram(shader.ID);
+
+        // --- WYSYŁANIE DO SHADERA ---
+        shader.use();
+        shader.setFloat("a", paramA);
+        shader.setFloat("b", paramB);
+        shader.setFloat("c", paramC);
+
+        // Wysyłanie kolorów (upewnij się, że masz setVec3 w klasie Shader!)
+        shader.setVec3("objectColor", objectColor[0], objectColor[1], objectColor[2]);
+        shader.setVec3("lightColor", lightColor[0], lightColor[1], lightColor[2]);
+        shader.setFloat("m", shininessM);
+
+        // Wysyłanie parametrów ekranu do adaptacyjnego rysowania
+        shader.setFloat("pixelSize", (float)pixelSize);
+        // glfwGetFramebufferSize zwraca aktualne wymiary okna
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        shader.setVec2("resolution", (float)width, (float)height); // Dopisz setVec2 w Shader.h!
+
+
+        glBindVertexArray(VAO);
+
+        // NOWOŚĆ: Zamiast glDrawArrays, używamy glDrawElements!
+        // Parametry: (Typ, Ilość Indeksów, Typ Indeksów, Przesunięcie)
+        // Mamy 6 indeksów w naszej tablicy (2 trójkąty * 3 punkty)
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // --- RYSOWANIE IMGUI ---
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(window);
+    }
+
+    // ==========================================
+    // 7. SPRZĄTANIE
+    // ==========================================
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO); // Nie zapominamy usunąć EBO!
+    glDeleteProgram(shader.ID);
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwTerminate();
+
+    return 0;
+}
