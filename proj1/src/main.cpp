@@ -28,86 +28,122 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 void renderCPU(std::vector<unsigned char>& buffer, int width, int height, int pixelSize,
                float a, float b, float c,
                Vect3 objectColor, Vect3 lightColor, float m, Mat4 inverseTransformMatrix
-               )
+)
 {
-    // 1. Odwracamy transformacje (Podejście B)
-    Mat4 invTransform = inverseTransformMatrix;//transformMatrix.inverse();
-    Mat4 normalMatrix = invTransform.transpose();
+    // Macierz M^{-1} z równania (2) to nasza inverseTransformMatrix
+    Mat4 invM = inverseTransformMatrix;
+    Mat4 invM_T = invM.transpose(); // (M^{-1})^T
 
-    Vect3 bgColor(0.15f, 0.15f, 0.15f); // Kolor tła
+    // --- BUDOWANIE MACIERZY D (Diagonalna dla elipsoidy) ---
+    Mat4 D(0.0f);
+    // Ustawiamy wartości na przekątnej:
+    // Wiersz 0, Kolumna 0 -> indeks 0*4 + 0 = 0
+    D.table[0]  = a;
+    // Wiersz 1, Kolumna 1 -> indeks 1*4 + 1 = 5
+    D.table[5]  = b;
+    // Wiersz 2, Kolumna 2 -> indeks 2*4 + 2 = 10
+    D.table[10] = c;
+    // Wiersz 3, Kolumna 3 -> indeks 3*4 + 3 = 15
+    D.table[15] = -1.0f;
 
-    // Pętla po ekranie z przeskokiem o "rozmiar piksela" (Optymalizacja!)
+    // D'_M = (M^{-1})^T * D * M^{-1}
+    Mat4 D_M_prime = invM_T * D * invM;
+
+    Vect3 bgColor(0.15f, 0.15f, 0.15f);
+
+    // Aby kod był czytelny i szybki, wyciągamy elementy macierzy D'_M do zmiennych p_ij
+    // Gdzie 'i' to wiersz, a 'j' to kolumna. Indeks w układzie kolumnowym to: j * 4 + i
+
+    // Kolumna 0 (j = 0)
+    float p00 = D_M_prime.table[0];
+    float p10 = D_M_prime.table[1];
+    float p20 = D_M_prime.table[2];
+    float p30 = D_M_prime.table[3];
+
+    // Kolumna 1 (j = 1)
+    float p01 = D_M_prime.table[4];
+    float p11 = D_M_prime.table[5];
+    float p21 = D_M_prime.table[6];
+    float p31 = D_M_prime.table[7];
+
+    // Kolumna 2 (j = 2)
+    float p02 = D_M_prime.table[8];
+    float p12 = D_M_prime.table[9];
+    float p22 = D_M_prime.table[10];
+    float p32 = D_M_prime.table[11];
+
+    // Kolumna 3 (j = 3)
+    float p03 = D_M_prime.table[12];
+    float p13 = D_M_prime.table[13];
+    float p23 = D_M_prime.table[14];
+    float p33 = D_M_prime.table[15];
+
+
     for (int y = 0; y < height; y += pixelSize)
     {
         for (int x = 0; x < width; x += pixelSize)
         {
-
             float px = x + pixelSize * 0.5f;
             float py = height - 1 - (y + pixelSize * 0.5f);
 
-            // 1. Liczymy proporcje ekranu (np. 1024 / 768 = ok. 1.33)
+            // Współrzędne na ekranie (Zależne od skali widoku)
+            float viewScale = 5.0f;
             float aspectRatio = (float)width / (float)height;
 
-// 2. Mnożymy u przez proporcje, żeby rozszerzyć wirtualny ekran w poziomie!
-            float u = ((px / (float)width) * 2.0f - 1.0f) * aspectRatio;
-            float v = (py / (float)height) * 2.0f - 1.0f;
+            // Rzutowanie równoległe - wyznaczamy stałe 'x' i 'y' promienia
+            float rayX = ((px / (float)width) * 2.0f - 1.0f) * aspectRatio * viewScale;
+            float rayY = ((py / (float)height) * 2.0f - 1.0f) * viewScale;
 
-// 3. Dodajemy kontrolę nad perspektywą (Ogniskowa / Zoom)
-// Im wyższa wartość (np. 2.0, 3.0), tym mniejszy kąt widzenia i mniejsze wygięcie przestrzeni
-            float focalLength = 3.5f;
+            // Rozwiązujemy równanie kwadratowe A*z^2 + B*z + C = 0
+            float A = p22;
 
-// Kamera i promień (Teraz z poprawną optyką!)
-            Vect3 rayOriginWorld(0.0f, 0.0f, 3.0f);
-            Vect3 rayDirWorld = Vect3(u, v, -focalLength).normalize();
+            float B = (p02 + p20) * rayX +
+                      (p12 + p21) * rayY +
+                      (p23 + p32) * 1.0f;
 
-            // =========================================================
-            // TRANSFORMACJA PROMIENIA WSTECZ (w=1 dla punktów, w=0 dla kierunków)
-            // =========================================================
-            Vect4 ro4 = invTransform * Vect4(rayOriginWorld.x, rayOriginWorld.y, rayOriginWorld.z, 1.0f);
-            Vect4 rd4 = invTransform * Vect4(rayDirWorld.x, rayDirWorld.y, rayDirWorld.z, 0.0f);
+            float C = p00 * rayX * rayX +
+                      p11 * rayY * rayY +
+                      p33 * 1.0f * 1.0f +
+                      (p01 + p10) * rayX * rayY +
+                      (p03 + p30) * rayX * 1.0f +
+                      (p13 + p31) * rayY * 1.0f;
 
-            Vect3 rayOrigin = ro4.toVect3();
-            Vect3 rayDir = rd4.toVect3().normalize();
-
-            // =========================================================
-            // MATEMATYKA ZDERZENIA Z KWADRYKĄ
-            // =========================================================
-            float Aq = a * rayDir.x * rayDir.x + b * rayDir.y * rayDir.y + c * rayDir.z * rayDir.z;
-            float Bq = 2.0f * (a * rayOrigin.x * rayDir.x + b * rayOrigin.y * rayDir.y + c * rayOrigin.z * rayDir.z);
-            float Cq = a * rayOrigin.x * rayOrigin.x + b * rayOrigin.y * rayOrigin.y + c * rayOrigin.z * rayOrigin.z - 1.0f;
-
-            float delta = Bq * Bq - 4.0f * Aq * Cq;
+            float delta = B * B - 4.0f * A * C;
             Vect3 finalColor = bgColor;
 
             if (delta >= 0.0f)
             {
-                float t = (-Bq - std::sqrt(delta)) / (2.0f * Aq);
-                if (t >= 0.0f)
-                {
-                    // Punkt uderzenia lokalny
-                    Vect3 hitPointLocal = rayOrigin + rayDir * t;
+                float sqrtDelta = std::sqrt(delta);
+                float z1 = (-B - sqrtDelta) / (2.0f * A);
+                float z2 = (-B + sqrtDelta) / (2.0f * A);
 
-                    // Normalna lokalna (z gradientu)
-                    Vect3 localNormal = Vect3(2.0f * a * hitPointLocal.x, 2.0f * b * hitPointLocal.y, 2.0f * c * hitPointLocal.z).normalize();
+                // Wybieramy bliższe rozwiązanie (zależnie od kierunku patrzenia,
+                // zakładamy kamerę na osi +Z patrzącą w stronę -Z, więc bliższe jest większe Z)
+                float hitZ = std::max(z1, z2);
 
-                    // Powrót do świata
-                    Vect3 worldNormal = (normalMatrix * Vect4(localNormal.x, localNormal.y, localNormal.z, 0.0f)).toVect3().normalize();
-                    Vect3 hitPointWorld = rayOriginWorld + rayDirWorld * t;
+                Vect3 hitPointWorld(rayX, rayY, hitZ);
 
-                    // Oświetlenie Phonga (Specular ONLY)
-                    Vect3 viewLightDir = (rayOriginWorld - hitPointWorld).normalize();
+                // --- OBLICZANIE NORMALNEJ ---
+                Vect4 hitPointWorld4(hitPointWorld.x, hitPointWorld.y, hitPointWorld.z, 1.0f);
+                Mat4 D_M_prime_sym = D_M_prime + D_M_prime.transpose();
+                Vect4 normal4 = D_M_prime_sym * hitPointWorld4;
 
-                    float w_dot_n = std::max(Vect3::dot(viewLightDir, worldNormal), 0.0f);
-                    float specularTerm = std::pow(w_dot_n, m);
+                Vect3 worldNormal = Vect3(normal4.x, normal4.y, normal4.z).normalize();
 
-                    // Mieszanie koloru z Phonga (wektor * wektor)
-                    finalColor = (lightColor * specularTerm) * objectColor;
-                }
+                // --- OŚWIETLENIE PHONGA ---
+                // Zgodnie z punktem 4 z instrukcji, źródło światła i obserwator
+                // znajdują się w tym samym miejscu (patrzymy wzdłuż Z).
+                Vect3 viewDir(0.0f, 0.0f, 1.0f);
+                //Vect3 observator(0.0f, 0.0f, 5.0f);
+                //Vect3 viewDir = Vect3(observator.x - hitPointWorld.x, observator.y - hitPointWorld.y, observator.z - hitPointWorld.z).normalize();
+
+                float w_dot_n = std::max(Vect3::dot(viewDir, worldNormal), 0.0f);
+                float specularTerm = std::pow(w_dot_n, m);
+
+                finalColor = (lightColor * specularTerm) * objectColor;
             }
 
-            // =========================================================
-            // ZAPIS KOLORU DO TABLICY W RAM (Pixelation)
-            // =========================================================
+            // --- ZAPIS DO BUFORA ---
             unsigned char cr = (unsigned char)(std::min(finalColor.x, 1.0f) * 255.0f);
             unsigned char cg = (unsigned char)(std::min(finalColor.y, 1.0f) * 255.0f);
             unsigned char cb = (unsigned char)(std::min(finalColor.z, 1.0f) * 255.0f);
@@ -140,7 +176,11 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(1024, 768, "Software Raytracer (CPU)", NULL, NULL);
-    if (!window) { glfwTerminate(); return -1; }
+    if (!window)
+    {
+        glfwTerminate();
+        return -1;
+    }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSwapInterval(1);
@@ -222,7 +262,8 @@ int main() {
         // Sprawdzamy zmianę rozdzielczości okna
         int currentW, currentH;
         glfwGetFramebufferSize(window, &currentW, &currentH);
-        if (currentW > 0 && currentH > 0 && (currentW != winWidth || currentH != winHeight)) {
+        if (currentW > 0 && currentH > 0 && (currentW != winWidth || currentH != winHeight))
+        {
             winWidth = currentW; winHeight = currentH;
             frameBuffer.resize(winWidth * winHeight * 3);
             glBindTexture(GL_TEXTURE_2D, screenTexture);
@@ -259,6 +300,12 @@ int main() {
 
         ImGui::Text("Optymalizacja CPU:");
         ImGui::SliderInt("Rozmiar Piksela", &pixelSize, 1, 30);
+
+
+        ImGui::Separator();
+        ImGui::Text("Wydajnosc: %.1f FPS", ImGui::GetIO().Framerate);
+        ImGui::Text("Czas klatki: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+
         ImGui::End();
 
         // ------------------ MATEMATYKA ------------------
