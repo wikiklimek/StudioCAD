@@ -5,6 +5,6 @@ out vec2 uv;
 
 void main()
 {
-    uv = aPos.xy; // Zapisujemy współrzędne z ekranu (od -1 do 1)
+    uv = aPos.xy; //(-1 do 1)
     gl_Position = vec4(aPos, 1.0);
 }
