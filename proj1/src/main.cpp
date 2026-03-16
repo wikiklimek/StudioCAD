@@ -41,10 +41,11 @@ void renderCPU(std::vector<unsigned char>& buffer, int width, int height, int pi
     float p02 = D_M_prime.table[8]; float p12 = D_M_prime.table[9]; float p22 = D_M_prime.table[10];float p32 = D_M_prime.table[11];
     float p03 = D_M_prime.table[12];float p13 = D_M_prime.table[13];float p23 = D_M_prime.table[14];float p33 = D_M_prime.table[15];
 
-    float viewScale = 5.0f;
+    float viewScale = 1.0f;
     float aspectRatio = (float)width / (float)height;
 
-    Vect3 viewDir(0.0f, 0.0f, 1.0f);
+    //Vect3 viewDir(0.0f, 0.0f, 1.0f);
+    Vect3 cameraPosition(0.0f, 0.0f, 6.0f);
 
     for (int y = 0; y < height; y += pixelSize)
     {
@@ -79,7 +80,10 @@ void renderCPU(std::vector<unsigned char>& buffer, int width, int height, int pi
                 Vect3 worldNormal = Vect3(normal4.x, normal4.y, normal4.z).normalize();
 
 
-                float w_dot_n = std::max(Vect3::dot(viewDir, worldNormal), 0.0f);
+                //float w_dot_n = std::max(Vect3::dot(viewDir, worldNormal), 0.0f);
+
+                Vect3 toObservator = (cameraPosition - hitPointWorld).normalize();
+                float w_dot_n = std::max(Vect3::dot(toObservator, worldNormal), 0.0f);
                 float specularTerm = std::pow(w_dot_n, m);
 
                 finalColor = (lightColor * specularTerm) * objectColor;
@@ -176,7 +180,7 @@ int main()
 
     float objectColor[3] = { 1.0f, 1.0f, 0.0f };
     float lightColor[3] = { 1.0f, 1.0f, 1.0f };
-    float paramA = 1.0f, paramB = 1.0f, paramC = 1.0f;
+    float paramA = 3.0f, paramB = 5.0f, paramC = 1.0f;
     float shininessM = 1.1f;
 
     float position[3] = {0.0f, 0.0f, 0.0f};
@@ -203,10 +207,10 @@ int main()
     float min_rotations = -PI;
     float max_scale = 8.0f;
     float min_scale = 0.1f;
-    float max_trans = 10.0f;
-    float min_trans = -10.0f;
+    float max_trans = 4.0f;
+    float min_trans = -4.0f;
     float min_a = 0.1f;
-    float max_a = 8.0f;
+    float max_a = 20.0f;
     float min_m = 0.01f;
     float max_m = 4.0f;
 
@@ -277,7 +281,7 @@ int main()
 
             //currentSpeed = std::sqrt(dx_screen * dx_screen + dy_screen * dy_screen);
 
-            float viewScale = 5.0f;
+            float viewScale = 1.0f;
             float aspectRatio = (float)winWidth / (float)winHeight;
 
             float dx_world = (dx_screen / (float)winWidth) * 2.0f * aspectRatio * viewScale;
@@ -422,7 +426,7 @@ int main()
 
 
         //ImGui::Text("Rozmiar piksela: %d", currentPixelSize);
-        ImGui::Text("Czas renderu CPU: %.3f ms", lastFrameTime * 1000.0);
+        //ImGui::Text("Czas renderu CPU: %.3f ms", lastFrameTime * 1000.0);
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
         ImGui::End();
 
@@ -490,6 +494,7 @@ int main()
             Mat4 R_inverse = Mat4::rotateX_inverse(rotations[0]) * Mat4::rotateY_inverse(rotations[1]) * Mat4::rotateZ_inverse(rotations[2]);
             Mat4 T_inverse = Mat4::translate_inverse(Vect3(position[0], position[1], position[2]));
             Mat4 invM = S_inverse * R_inverse * T_inverse;
+
 
             Mat4 D(0.0f);
             D.table[0] = paramA;
