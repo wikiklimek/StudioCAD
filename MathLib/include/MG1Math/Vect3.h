@@ -25,7 +25,7 @@ public:
 
 
     static float dot(const Vect3& Vect1, const Vect3& Vect2);
-    //static float cross(Vect3 Vect1, const Vect3& Vect2);
+    static Vect3 cross(const Vect3& a, const Vect3& b);
 
     float length() const;
     Vect3 normalize() const;

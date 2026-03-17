@@ -108,7 +108,14 @@ float Vect3::dot(const Vect3& Vect1, const Vect3& Vect2)
 }
 
 
-//float Vect3::cross(Vect3 Vect1, const Vect3& Vect2){}
+Vect3 Vect3::cross(const Vect3 &a, const Vect3 &b)
+{
+    return Vect3(
+            a.y * b.z - a.z * b.y,
+            a.z * b.x - a.x * b.z,
+            a.x * b.y - a.y * b.x
+    );
+}
 
 
 float Vect3::length() const
@@ -125,3 +132,4 @@ Vect3 Vect3::normalize() const
 
     return {this->x / l, this->y / l, this->z / l};
 }
+

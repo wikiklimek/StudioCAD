@@ -30,7 +30,14 @@ add_executable(${PROJECT_NAME}
         external/glad/src/glad.c
         ${IMGUI_SOURCES}
         src/shader.h
+        src/shapes/headers/torus.h
+        src/shapes/source/torus.cpp
+        src/shapes/headers/matrixesModelViewProjection.h
+        src/shapes/source/matrixesModelViewProjection.cpp
 )
+
+# Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
+target_include_directories(${PROJECT_NAME} PRIVATE src/shapes/headers)
 
 # Łączymy projekt z bibliotekami systemowymi
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL glfw MathLib)
