@@ -34,6 +34,8 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/torus.cpp
         src/shapes/headers/matrixesModelViewProjection.h
         src/shapes/source/matrixesModelViewProjection.cpp
+        src/shapes/headers/grid.h
+        src/shapes/source/grid.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
