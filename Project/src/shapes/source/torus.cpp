@@ -7,15 +7,13 @@ float const PI = (float)M_PI;
 
 void generateTorus(float R, float r, int density_R, int density_r, std::vector<float>& vertices, std::vector<unsigned int>& indices)
 {
-    // Czyszczenie
     vertices.clear();
     indices.clear();
 
-    // Krok kątowy dla obu pętli (od 0 do 2*PI)
     float step_R = 2.0f * (float)M_PI / (float)density_R;
     float step_r = 2.0f * (float)M_PI / (float)density_r;
 
-    // --- GEOMETRIA: Obliczanie wierzchołków ---
+    // GEOMETRIA
     for (int i = 0; i <= density_R; ++i)
     {
         float u = i * step_R;
@@ -53,6 +51,11 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
             // Krawędź pionowa (wzdłuż małego przekroju)
             indices.push_back(p0);
             indices.push_back(p_up);
+
+
+            //przekatna
+            indices.push_back(p_up);
+            indices.push_back(p_right);
         }
     }
 }

@@ -30,7 +30,7 @@ float const PI = (float)M_PI;
 
 #include "torus.h"
 #include "matrixesModelViewProjection.h"
-#include "grid.h"
+#include "axis.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -42,6 +42,7 @@ enum DragMode { NONE, TRANSLATE, ROTATE_X, ROTATE_Y, ROTATE_Z, SCALE, ROTATE_FRE
 
 int main()
 {
+
     if (!glfwInit())
         return -1;
 
@@ -49,7 +50,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    //4x antyaliasing
+    //antyaliasing
     glfwWindowHint(GLFW_SAMPLES, 4);
 
     GLFWwindow* window = glfwCreateWindow(1024, 768, "Torus", NULL, NULL);
@@ -64,14 +65,14 @@ int main()
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         return -1;
 
-    // WAŻNE: Włączamy test głębokości (Depth testing)
+
     glEnable(GL_DEPTH_TEST);
 
-    // TUTAJ DODAJESZ: Włączenie sprzętowego wygładzania krawędzi
+    //  wygładzanie krawędzi
     glEnable(GL_MULTISAMPLE);
     //glLineWidth(1.2f);
 
-    // Tło sceny
+
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     Shader shader("src/shaders/torus.vs", "src/shaders/torus.fs");
@@ -80,22 +81,20 @@ int main()
     float min_camera_distance_view = 0.1f;
     float max_camera_distance_view = 100.0f;
 
-    Vect3 cameraPos = Vect3(0.0f, -25.0f, 20.0f);
+    Vect3 cameraPos = Vect3(5.0f, -25.0f, 20.0f);
     Vect3 target = Vect3(0.0f, 0.0f, 0.0f);
     Vect3 up = Vect3(0.0f, 0.0f, 1.0f);
 
 
-    // 1. Zmienne dla torusa i kamery
-    float R = 3.0f; // Promień główny
-    float r = 1.0f; // Promień przekroju
-    int density_R = 30; // Gęstość siatki
-    int density_r = 15; // Gęstość siatki
-    bool buffersNeedUpdate = true; // Flaga przebudowy VBO/EBO
+
+    float R = 3.0f;
+    float r = 1.0f;
+    int density_R = 30;
+    int density_r = 15;
+    bool buffersNeedUpdate = true;
 
 
     float objectColor[3] = { 1.0f, 1.0f, 0.0f };
-    float lightColor[3] = { 1.0f, 1.0f, 1.0f };
-    float shininessM = 1.1f;
 
     float position[3] = {0.0f, 0.0f, 5.0f};
     float scale  = 1.0f;
@@ -112,9 +111,9 @@ int main()
     float max_r = 5.0f;
     float min_r = 0.1f;
 
-    int max_density_R = 60;
+    int max_density_R = 80;
     int min_density_R = 3;
-    int max_density_r = 60;
+    int max_density_r = 80;
     int min_density_r = 3;
 
 
@@ -124,11 +123,12 @@ int main()
     float min_scale = 0.1f;
     float max_trans = 25.0f;
     float min_trans = -25.0f;
-    float min_m = 0.01f;
-    float max_m = 4.0f;
 
 
     int winWidth = 1024, winHeight = 768;
+
+
+    bool drawTorus2 = false;
 
 
 
@@ -155,6 +155,46 @@ int main()
     glEnableVertexAttribArray(0);
 
 
+
+    // OSIE GLOBALNE
+    float axisPositiveVertices[] = {
+            0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f
+    };
+
+    unsigned int globalAxisVAO, globalAxisVBO;
+    glGenVertexArrays(1, &globalAxisVAO);
+    glGenBuffers(1, &globalAxisVBO);
+    glBindVertexArray(globalAxisVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, globalAxisVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(axisPositiveVertices), axisPositiveVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+
+    // OSIE OBROTU
+    float axisBidirectionalVertices[] = {
+            -1.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, // X
+            0.0f,-1.0f, 0.0f,  0.0f, 1.0f, 0.0f, // Y
+            0.0f, 0.0f,-1.0f,  0.0f, 0.0f, 1.0f  // Z
+    };
+
+    unsigned int localAxisVAO, localAxisVBO;
+    glGenVertexArrays(1, &localAxisVAO);
+    glGenBuffers(1, &localAxisVBO);
+    glBindVertexArray(localAxisVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, localAxisVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(axisBidirectionalVertices), axisBidirectionalVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+
+    bool drawAxes = true;
+    bool drawAxesEuler = true;
+
+
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -172,7 +212,6 @@ int main()
             winWidth = currentW;
             winHeight = currentH;
 
-            //needsRedraw = true;
         }
 
         glfwPollEvents();
@@ -192,7 +231,7 @@ int main()
             if (isClick)
             {
                 isDragging = true;
-                // Rozpoznawanie wciśniętego klawisza modyfikującego
+
                 if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
                 else if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
                 else if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
@@ -352,16 +391,15 @@ int main()
         ImGui::DragFloat3("Obrót (XYZ)", rotations, 0.05f, min_rotations, max_rotations);//) imguiChanged = true;
         ImGui::Separator();
 
-
         ImGui::ColorEdit3("Kolor modelu", objectColor);
-
-
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+        ImGui::Separator();
+        ImGui::Checkbox("Rysuj drugi torus", &drawTorus2);
+
         ImGui::End();
 
 
-
-        // 3. Przebudowa buforów (tylko gdy zmieniły się parametry torusa)
         if (buffersNeedUpdate)
         {
             torusVertices.clear();
@@ -380,24 +418,25 @@ int main()
             buffersNeedUpdate = false;
         }
 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //if (needsRedraw)
-        //{
-            // 4. Renderowanie
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Pamiętaj o włączeniu i czyszczeniu GL_DEPTH_TEST!
+        shader.use();
 
-            shader.use();
-
-
-        //Mat4 M_View  = createViewMatrix(Vect3(0.0f, 0.0f, 15.0f), Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 1.0f, 0.0f));
-        // Kamera jest wycofana na osi Y (-15) i podniesiona na osi Z (10)
-        // Patrzy na środek (0,0,0), a wektorem "góry" jest teraz oś Z (0,0,1)
         Mat4 M_View  = createViewMatrix(cameraPos, target, up);
         Mat4 M_Proj  = createProjectionMatrix(PI / 4.0f, (float)winWidth/winHeight, min_camera_distance_view, max_camera_distance_view );
 
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
+
+        if (drawAxes)
+        {
+            drawGlobalAxes(shader, globalAxisVAO, 100.0f);
+        }
+        if(drawAxesEuler)
+        {
+            drawEulerAxes(shader, localAxisVAO, position, rotations, 100.0f);
+        }
 
         // TORUS
 
@@ -414,16 +453,18 @@ int main()
 
 
         // TORUS 2
-        M_Model = createModelMatrix( position, rotations, scale)
-                * createModelMatrix(Vect3(-3.0f, 0.0f, 0.0f),Vect3(-1.0f, 0.0f, 0.0f), 1.0f);
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, M_Model.table);
-        glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, objectColor);
-        glBindVertexArray(VAO);
-        glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0); // Zmieniono na GL_LINES!
+        if (drawTorus2)
+        {
+            M_Model = createModelMatrix(position, rotations, scale)
+                      * createModelMatrix(Vect3(-3.0f, 0.0f, 0.0f), Vect3(-1.0f, 0.0f, 0.0f), 1.0f);
+            glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, M_Model.table);
+            glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, objectColor);
+            glBindVertexArray(VAO);
+            glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0);
+        }
 
 
 
-        // --- Rysowanie ImGui na końcu ---
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
