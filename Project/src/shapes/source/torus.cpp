@@ -18,16 +18,16 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
     // --- GEOMETRIA: Obliczanie wierzchołków ---
     for (int i = 0; i <= density_R; ++i)
     {
-        float phi = i * step_R; // Kąt po dużym okręgu (wokół głównej osi torusa)
+        float u = i * step_R;
 
         for (int j = 0; j <= density_r; ++j)
         {
-            float theta = j * step_r; // Kąt po małym okręgu (przekrój rury)
+            float v = j * step_r;
 
             // Równania parametryczne torusa
-            float x = (R + r * std::cos(theta)) * std::cos(phi);
-            float y = (R + r * std::cos(theta)) * std::sin(phi);
-            float z = r * std::sin(theta);
+            float x = (R + r * std::cos(v)) * std::cos(u);
+            float y = (R + r * std::cos(v)) * std::sin(u);
+            float z = r * std::sin(v);
 
             vertices.push_back(x);
             vertices.push_back(y);
@@ -40,23 +40,19 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
     {
         for (int j = 0; j < density_r; ++j)
         {
-            // Jeden pełny obwód małego przekroju ma density_r + 1 wierzchołków
             int rowLength = density_r + 1;
 
-            // Obliczanie indeksów 4 wierzchołków tworzących "kwadrat" na powierzchni torusa
             unsigned int p0 = i * rowLength + j;
-            unsigned int p1 = (i + 1) * rowLength + j;
-            unsigned int p2 = (i + 1) * rowLength + (j + 1);
-            unsigned int p3 = i * rowLength + (j + 1);
+            unsigned int p_right = (i + 1) * rowLength + j;     // Kolejny punkt na dużym okręgu
+            unsigned int p_up = i * rowLength + (j + 1);        // Kolejny punkt na małym okręgu
 
-            // Dzielimy kwadrat na dwa trójkąty:
+            // Krawędź pozioma (wzdłuż dużego okręgu)
             indices.push_back(p0);
-            indices.push_back(p1);
-            indices.push_back(p2);
+            indices.push_back(p_right);
 
+            // Krawędź pionowa (wzdłuż małego przekroju)
             indices.push_back(p0);
-            indices.push_back(p2);
-            indices.push_back(p3);
+            indices.push_back(p_up);
         }
     }
 }

@@ -398,26 +398,8 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
-        // ==========================================
-        // ETAP 1: RYSOWANIE SIATKI (PODŁOGI)
-        // ==========================================
 
-        // Siatka leży statycznie na środku, nie reaguje na przesuwanie torusa
-        Mat4 gridModel = createModelMatrix(Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 1.0f);
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, gridModel.table);
-
-        // Ustawienie jasnoszarego koloru dla siatki
-        float gridColor[3] = {0.4f, 0.4f, 0.4f};
-        glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, gridColor);
-
-        // Rysowanie z użyciem GL_LINES (linie, nie trójkąty)
-        glBindVertexArray(gridVAO);
-        glDrawArrays(GL_LINES, 0, gridVertices.size() / 3);
-
-
-        // ==========================================
-        // ETAP 2: RYSOWANIE TORUSA
-        // ==========================================
+        // TORUS
 
         // Macierz modelu dla torusa (zmienia się suwakami/myszą)
         Mat4 M_Model = createModelMatrix(position, rotations, scale);
@@ -428,9 +410,18 @@ int main()
 
         // Rysowanie indeksowane torusa (Twój stary kod)
         glBindVertexArray(VAO);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDrawElements(GL_TRIANGLES, torusIndices.size(), GL_UNSIGNED_INT, 0);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0); // Zmieniono na GL_LINES!
+
+
+        // TORUS 2
+        M_Model = createModelMatrix( position, rotations, scale)
+                * createModelMatrix(Vect3(-3.0f, 0.0f, 0.0f),Vect3(-1.0f, 0.0f, 0.0f), 1.0f);
+        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, M_Model.table);
+        glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, objectColor);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0); // Zmieniono na GL_LINES!
+
+
 
         // --- Rysowanie ImGui na końcu ---
         ImGui::Render();
