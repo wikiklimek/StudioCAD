@@ -68,7 +68,7 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
-    //  wygładzanie krawędzi
+    // wygładzanie krawędzi
     glEnable(GL_MULTISAMPLE);
     //glLineWidth(1.2f);
 
@@ -78,8 +78,13 @@ int main()
     Shader shader("src/shaders/torus.vs", "src/shaders/torus.fs");
 
 
+    int winWidth = 1024, winHeight = 768;
+
     float min_camera_distance_view = 0.1f;
     float max_camera_distance_view = 100.0f;
+
+    float fov = PI / 4.0f;
+    float aspectRatio = (float)winWidth/(float)winHeight;
 
     Vect3 cameraPos = Vect3(5.0f, -25.0f, 20.0f);
     Vect3 target = Vect3(0.0f, 0.0f, 0.0f);
@@ -125,7 +130,6 @@ int main()
     float min_trans = -25.0f;
 
 
-    int winWidth = 1024, winHeight = 768;
 
 
     bool drawTorus2 = false;
@@ -139,20 +143,6 @@ int main()
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-
-
-    std::vector<float> gridVertices;
-    generateGrid(max_camera_distance_view, gridVertices);
-
-    unsigned int gridVAO, gridVBO;
-    glGenVertexArrays(1, &gridVAO);
-    glGenBuffers(1, &gridVBO);
-
-    glBindVertexArray(gridVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
-    glBufferData(GL_ARRAY_BUFFER, gridVertices.size() * sizeof(float), gridVertices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
 
 
@@ -194,7 +184,6 @@ int main()
     bool drawAxesEuler = true;
 
 
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -212,6 +201,7 @@ int main()
             winWidth = currentW;
             winHeight = currentH;
 
+            aspectRatio = (float)winWidth/(float)winHeight;
         }
 
         glfwPollEvents();
@@ -256,7 +246,6 @@ int main()
 
 
                     float viewScale = 1.0f;
-                    float aspectRatio = (float) winWidth / (float) winHeight;
 
                     float dx_world = (dx_screen / (float) winWidth) * 2.0f * aspectRatio * viewScale;
                     float dy_world = (dy_screen / (float) winHeight) * 2.0f * viewScale;
@@ -270,74 +259,26 @@ int main()
                     }
                     else if (currentMode == ROTATE_X)
                     {
-                        float angle = dy_world;
+                        float angle = dy_world * 2.0f;
                         rotations[0] += angle;
                     }
                     else if (currentMode == ROTATE_Y)
                     {
-                        float angle = dx_world;
+                        float angle = dx_world * 2.0f;
                         rotations[1] += angle;
                     }
                     else if (currentMode == ROTATE_Z)
                     {
-                        float x_ndc_old = (2.0f * (float) lastMouseX / (float) winWidth) - 1.0f;
-                        float y_ndc_old = 1.0f - (2.0f * (float) lastMouseY / (float) winHeight);
-
-                        float x_world_old = x_ndc_old * aspectRatio * viewScale;
-                        float y_world_old = y_ndc_old * viewScale;
-
-                        float x_ndc = (2.0f * (float) mouseX / (float) winWidth) - 1.0f;
-                        float y_ndc = 1.0f - (2.0f * (float) mouseY / (float) winHeight);
-
-                        float x_world = x_ndc * aspectRatio * viewScale;
-                        float y_world = y_ndc * viewScale;
-
-
-                        float rel_x_old = x_world_old - position[0];
-                        float rel_y_old = y_world_old + position[1];
-
-                        float rel_x = x_world - position[0];
-                        float rel_y = y_world + position[1];
-
-
-                        // wyznacznik - sinus
-                        float det = rel_x_old * rel_y - rel_y_old * rel_x;
-                        // iloczyn skalarny - cosinus
-                        float dot = rel_x_old * rel_x + rel_y_old * rel_y;
-
-                        float angle = std::atan2(det, dot);
-
-                        rotations[2] -= angle;
+                        rotations[2] += dx_world * 2.0f;
                     }
                     else if (currentMode == SCALE)
                     {
-                        float x_ndc_old = (2.0f * (float) lastMouseX / (float) winWidth) - 1.0f;
-                        float y_ndc_old = 1.0f - (2.0f * (float) lastMouseY / (float) winHeight);
-
-                        float x_world_old = x_ndc_old * aspectRatio * viewScale;
-                        float y_world_old = y_ndc_old * viewScale;
-
-                        float x_ndc = (2.0f * (float) mouseX / (float) winWidth) - 1.0f;
-                        float y_ndc = 1.0f - (2.0f * (float) mouseY / (float) winHeight);
-
-                        float x_world = x_ndc * aspectRatio * viewScale;
-                        float y_world = y_ndc * viewScale;
-
-                        float rel_x_old = x_world_old - position[0];
-                        float rel_y_old = y_world_old + position[1];
-
-                        float rel_x = x_world - position[0];
-                        float rel_y = y_world + position[1];
-
-                        float old_length = std::sqrt(rel_x_old * rel_x_old + rel_y_old * rel_y_old);
-                        float length = std::sqrt(rel_x * rel_x + rel_y * rel_y);
-
-                        float diff = length - old_length;
+                        float diff = (dx_world - dy_world) * 0.9f;
                         scale = std::max(0.01f, scale + diff);
                     }
                     else if (currentMode == ROTATE_FREE)
                     {
-                        float sensitivity = 1.8f;
+                        float sensitivity = 2.0f;
 
                         float angleX = dy_world * sensitivity;
                         rotations[0] += angleX;
@@ -395,6 +336,8 @@ int main()
         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 
         ImGui::Separator();
+        ImGui::Checkbox("Rysuj osie obrotow", &drawAxesEuler);
+        ImGui::Checkbox("Rysuj osie w (0, 0, 0)", &drawAxes);
         ImGui::Checkbox("Rysuj drugi torus", &drawTorus2);
 
         ImGui::End();
@@ -423,7 +366,7 @@ int main()
         shader.use();
 
         Mat4 M_View  = createViewMatrix(cameraPos, target, up);
-        Mat4 M_Proj  = createProjectionMatrix(PI / 4.0f, (float)winWidth/winHeight, min_camera_distance_view, max_camera_distance_view );
+        Mat4 M_Proj  = createProjectionMatrix(fov, aspectRatio, min_camera_distance_view, max_camera_distance_view );
 
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
@@ -439,17 +382,11 @@ int main()
         }
 
         // TORUS
-
-        // Macierz modelu dla torusa (zmienia się suwakami/myszą)
         Mat4 M_Model = createModelMatrix(position, rotations, scale);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, M_Model.table);
-
-        // Wysyłanie właściwego koloru torusa
         glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, objectColor);
-
-        // Rysowanie indeksowane torusa (Twój stary kod)
         glBindVertexArray(VAO);
-        glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0); // Zmieniono na GL_LINES!
+        glDrawElements(GL_LINES, torusIndices.size(), GL_UNSIGNED_INT, 0);
 
 
         // TORUS 2

@@ -22,7 +22,7 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
         {
             float v = j * step_r;
 
-            // Równania parametryczne torusa
+
             float x = (R + r * std::cos(v)) * std::cos(u);
             float y = (R + r * std::cos(v)) * std::sin(u);
             float z = r * std::sin(v);
@@ -33,7 +33,7 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
         }
     }
 
-    // --- TOPOLOGIA: Łączenie wierzchołków w trójkąty ---
+    // TOPOLOGIA
     for (int i = 0; i < density_R; ++i)
     {
         for (int j = 0; j < density_r; ++j)
@@ -41,21 +41,21 @@ void generateTorus(float R, float r, int density_R, int density_r, std::vector<f
             int rowLength = density_r + 1;
 
             unsigned int p0 = i * rowLength + j;
-            unsigned int p_right = (i + 1) * rowLength + j;     // Kolejny punkt na dużym okręgu
-            unsigned int p_up = i * rowLength + (j + 1);        // Kolejny punkt na małym okręgu
+            unsigned int p_right = (i + 1) * rowLength + j;
+            unsigned int p_up = i * rowLength + (j + 1);
 
-            // Krawędź pozioma (wzdłuż dużego okręgu)
+            // pozioma
             indices.push_back(p0);
             indices.push_back(p_right);
 
-            // Krawędź pionowa (wzdłuż małego przekroju)
+            // pionowa
             indices.push_back(p0);
             indices.push_back(p_up);
 
 
             //przekatna
-            indices.push_back(p_up);
-            indices.push_back(p_right);
+            //indices.push_back(p_up);
+            //indices.push_back(p_right);
         }
     }
 }
