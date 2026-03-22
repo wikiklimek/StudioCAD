@@ -145,24 +145,6 @@ int main()
     glGenBuffers(1, &EBO);
 
 
-
-    // OSIE GLOBALNE
-    float axisPositiveVertices[] = {
-            0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f
-    };
-
-    unsigned int globalAxisVAO, globalAxisVBO;
-    glGenVertexArrays(1, &globalAxisVAO);
-    glGenBuffers(1, &globalAxisVBO);
-    glBindVertexArray(globalAxisVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, globalAxisVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(axisPositiveVertices), axisPositiveVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-
     // OSIE OBROTU
     float axisBidirectionalVertices[] = {
             -1.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, // X
@@ -180,7 +162,6 @@ int main()
     glEnableVertexAttribArray(0);
 
 
-    bool drawAxes = true;
     bool drawAxesEuler = true;
 
 
@@ -337,7 +318,6 @@ int main()
 
         ImGui::Separator();
         ImGui::Checkbox("Rysuj osie obrotow", &drawAxesEuler);
-        ImGui::Checkbox("Rysuj osie w (0, 0, 0)", &drawAxes);
         ImGui::Checkbox("Rysuj drugi torus", &drawTorus2);
 
         ImGui::End();
@@ -372,10 +352,6 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
 
-        if (drawAxes)
-        {
-            drawGlobalAxes(shader, globalAxisVAO, 100.0f);
-        }
         if(drawAxesEuler)
         {
             drawEulerAxes(shader, localAxisVAO, position, rotations, 100.0f);

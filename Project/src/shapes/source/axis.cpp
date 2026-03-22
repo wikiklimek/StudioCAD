@@ -36,28 +36,3 @@ void drawEulerAxes(Shader& shader, unsigned int axisVAO, const float position[3]
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, red);
     glDrawArrays(GL_LINES, 0, 2);
 }
-
-
-
-void drawGlobalAxes(Shader& shader, unsigned int axisVAO, float length)
-{
-    Mat4 S = Mat4::scale(Vect3(length, length, length));
-
-    glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, S.table);
-    glBindVertexArray(axisVAO);
-
-    // X - R
-    float red[3] = {0.3f, 0.0f, 0.0f};
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, red);
-    glDrawArrays(GL_LINES, 0, 2);
-
-    // Y - G
-    float green[3] = {0.0f, 0.3f, 0.0f};
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, green);
-    glDrawArrays(GL_LINES, 2, 2);
-
-    // Z - B
-    float blue[3] = {0.0f, 0.0f, 0.3f};
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, blue);
-    glDrawArrays(GL_LINES, 4, 2);
-}
