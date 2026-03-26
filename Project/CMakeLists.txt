@@ -49,6 +49,7 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/screenInteractions.cpp
         src/shapes/headers/quaternion.h
         src/shapes/headers/bakeTransform.h
+        src/shapes/source/cursor.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
