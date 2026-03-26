@@ -30,12 +30,25 @@ add_executable(${PROJECT_NAME}
         external/glad/src/glad.c
         ${IMGUI_SOURCES}
         src/shapes/headers/shader.h
-        src/shapes/headers/torus.h
-        src/shapes/source/torus.cpp
+        src/shapes/headers/torusGrid.h
+        src/shapes/source/torusGrid.cpp
         src/shapes/headers/matrixesModelViewProjection.h
         src/shapes/source/matrixesModelViewProjection.cpp
         src/shapes/headers/axis.h
         src/shapes/source/axis.cpp
+        src/shapes/headers/transformations.h
+        src/shapes/headers/sceneObject.h
+        src/shapes/headers/sceneTorus.h
+        src/shapes/headers/scenePoint.h
+        src/shapes/headers/cursor.h
+        src/shapes/headers/applyTransformations.h
+        src/shapes/source/applyTransformations.cpp
+        src/shapes/source/scenePoint.cpp
+        src/shapes/source/sceneTorus.cpp
+        src/shapes/headers/screenInteractions.h
+        src/shapes/source/screenInteractions.cpp
+        src/shapes/headers/quaternion.h
+        src/shapes/headers/bakeTransform.h
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

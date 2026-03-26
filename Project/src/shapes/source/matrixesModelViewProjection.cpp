@@ -5,18 +5,15 @@
 #include <MG1Math/Mat4.h>
 
 #include "matrixesModelViewProjection.h"
+#include "quaternion.h"
 
-Mat4 createModelMatrix(Vect3 position, Vect3 rotation, float scale)
+Mat4 createModelMatrix(Vect3 position, Quaternion rotation, float scale)
 {
     Mat4 S = Mat4::scale(Vect3(scale, scale, scale));
-
-    Mat4 Rx = Mat4::rotateX(rotation.x);
-    Mat4 Ry = Mat4::rotateY(rotation.y);
-    Mat4 Rz = Mat4::rotateZ(rotation.z);
-
     Mat4 T = Mat4::translate(position);
+    Mat4 R = rotation.toMat4(); // Tu z kwaternionu powstaje macierz
 
-    return T * Rz * Ry * Rx * S;
+    return T * R * S;
 }
 
 Mat4 createProjectionMatrix(float fov, float aspect, float n, float f)

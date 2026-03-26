@@ -1,5 +1,5 @@
 #pragma once
-#include "torus.h"
+#include "torusGrid.h"
 #include <cmath>
 
 #define _USE_MATH_DEFINES
