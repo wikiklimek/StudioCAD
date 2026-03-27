@@ -21,7 +21,3 @@ public:
 
     void Draw(Shader& shader);
 };
-
-// Zmienna globalna lub wewnątrz int main()
-Cursor cursor;
-std::vector<std::shared_ptr<SceneObject>> sceneObjects;

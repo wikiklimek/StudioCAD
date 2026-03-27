@@ -11,7 +11,7 @@ Mat4 createModelMatrix(Vect3 position, Quaternion rotation, float scale)
 {
     Mat4 S = Mat4::scale(Vect3(scale, scale, scale));
     Mat4 T = Mat4::translate(position);
-    Mat4 R = rotation.toMat4(); // Tu z kwaternionu powstaje macierz
+    Mat4 R = rotation.toMat4();
 
     return T * R * S;
 }

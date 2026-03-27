@@ -16,7 +16,7 @@ void drawEulerAxes(Shader& shader, unsigned int axisVAO, const float position[3]
     // Z - B
     Mat4 modelZ = T * S;
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, modelZ.table);
-    float blue[3] = {0.0f, 0.0f, 1.0f};
+    float blue[3] = {0.1f, 0.3f, 0.8f};
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, blue);
     glDrawArrays(GL_LINES, 4, 2);
 
@@ -24,7 +24,7 @@ void drawEulerAxes(Shader& shader, unsigned int axisVAO, const float position[3]
     T *= Rz;
     Mat4 modelY = T * S;
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, modelY.table);
-    float green[3] = {0.0f, 1.0f, 0.0f};
+    float green[3] = {0.0f, 0.5f, 0.0f};
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, green);
     glDrawArrays(GL_LINES, 2, 2);
 
@@ -32,7 +32,7 @@ void drawEulerAxes(Shader& shader, unsigned int axisVAO, const float position[3]
     T *= Ry;
     Mat4 modelX = T * S;
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, modelX.table);
-    float red[3] = {1.0f, 0.0f, 0.0f};
+    float red[3] = {0.5f, 0.0f, 0.0f};
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, red);
     glDrawArrays(GL_LINES, 0, 2);
 }

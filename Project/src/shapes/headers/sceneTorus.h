@@ -9,7 +9,6 @@ class SceneTorus : public SceneObject {
 public:
     float R = 3.0f, r = 1.0f;
     int density_R = 30, density_r = 15;
-    float color[3] = { 1.0f, 1.0f, 0.0f };
 
     std::vector<float> vertices;
     std::vector<unsigned int> indices;

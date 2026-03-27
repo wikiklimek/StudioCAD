@@ -7,7 +7,8 @@
 
 
 
-ScenePoint::ScenePoint(std::string n, Transformations spawnTransform) : SceneObject(std::move(n), spawnTransform) {}
+ScenePoint::ScenePoint(std::string n, Transformations spawnTransform) : SceneObject(std::move(n), spawnTransform), size(6.0f) {}
+ScenePoint::ScenePoint(std::string n, float s, Transformations spawnTransform): SceneObject(std::move(n), spawnTransform), size(s) {}
 
 ScenePoint::~ScenePoint() {
     if (VAO) glDeleteVertexArrays(1, &VAO);
@@ -34,6 +35,6 @@ void ScenePoint::Draw(Shader& shader, Mat4 parentMatrix) {
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
     glBindVertexArray(VAO);
-    glPointSize(10.0f); // Pogrubienie punktu, aby był widoczny
+    glPointSize(size);
     glDrawArrays(GL_POINTS, 0, 1);
 }

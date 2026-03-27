@@ -88,14 +88,14 @@ int main()
     cursor.Init();
     std::vector<std::shared_ptr<SceneObject>> sceneObjects;
 
-    // Zmienne globalne GUI i logiki
-    int transformMode = 0; // 0 = Lokalne, 1 = Wspólny Środek, 2 = Kursor, 3 - cala scena
-    Vect3 centerOfSelection(0.0f, 0.0f, 0.0f);
-    Transformations groupTransform; // Twoja pomocnicza struktura
-    Vect3 currentPivot(0.0f, 0.0f, 0.0f); // Miejsce, wokół którego kręcimy (kursor lub środek)
-    bool isTransformationActive = false; // Flaga określająca, czy jesteśmy w trakcie przeciągania
 
-    // Dodanie domyślnego torusa na start [cite: 10]
+    int transformMode = 0; // 0 = lokalne, 1 = wspólny srodek, 2 = kursor, 3 - cala scena
+    Vect3 centerOfSelection(0.0f, 0.0f, 0.0f);
+    Transformations groupTransform;
+    Vect3 centerOfTransformations(0.0f, 0.0f, 0.0f);
+    bool isTransformationActive = false;
+
+
     auto firstTorus = std::make_shared<SceneTorus>("Torus Startowy", cursor.transform);
     firstTorus->Init();
     sceneObjects.push_back(firstTorus);
@@ -114,10 +114,27 @@ int main()
     Vect3 up = Vect3(0.0f, 0.0f, 1.0f);
 
 
+    bool isBoxSelecting = false;
+    double boxStartX = 0, boxStartY = 0;
+    double boxEndX = 0, boxEndY = 0;
+    double boxSmallestXY = 5.0;
+
     bool isDragging = false;
     DragMode currentMode = NONE;
     double lastMouseX = 0, lastMouseY = 0;
 
+
+    float min_pos = -50.0f;
+    float max_pos = 50.0f;
+
+    float min_scale = 0.01f;
+    float max_scale = 10.0f;
+
+    float min_axis = -1.0f;
+    float max_axis = 1.0f;
+
+    float min_angle = -360;
+    float max_angle = 360;
 
     float max_R = 10.0f;
     float min_R = 0.1f;
@@ -157,6 +174,32 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 460 core");
 
 
+
+    int inputMode = 0; // 0 = Mysz, 1 = GUI
+    int prevInputMode = 0;
+
+    float guiDeltaPos[3] = {0.0f, 0.0f, 0.0f};
+    float guiDeltaScale = 1.0f;
+
+    int guiRotMode = 0; // 0 = Oś+Kąt, 1 = Kwaternion
+    int prevGuiRotMode = 0;
+
+    float guiRotAxis[3] = {0.0f, 1.0f, 0.0f};
+    float guiRotAngle = 0.0f;
+    float guiRotQuat[4] = {1.0f, 0.0f, 0.0f, 0.0f}; // W, X, Y, Z
+
+    // zerowanie transformacji gloablnych z gui
+    auto clearGuiState = [&]() {
+        guiDeltaPos[0] = guiDeltaPos[1] = guiDeltaPos[2] = 0.0f;
+        guiDeltaScale = 1.0f;
+        guiRotAxis[0] = 0.0f; guiRotAxis[1] = 1.0f; guiRotAxis[2] = 0.0f;
+        guiRotAngle = 0.0f;
+        guiRotQuat[0] = 1.0f; guiRotQuat[1] = 0.0f; guiRotQuat[2] = 0.0f; guiRotQuat[3] = 0.0f;
+    };
+
+
+
+
     while (!glfwWindowShouldClose(window))
     {
         // rozmiar okna
@@ -186,190 +229,240 @@ int main()
             bool isLeftClick = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
             bool isRightClick = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
-            // Ustawianie kursora i odznaczanie punktów [cite: 9, 19]
+            // pozycja kursora
             if (isRightClick)
             {
                 Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, cameraPos, target, up, fov);
                 Vect3 intersection = getCursorIntersection(cameraPos, rayDir);
                 cursor.transform.setPosition(intersection);
-                cursor.screenX = (float)mouseX; cursor.screenY = (float)mouseY;
+                cursor.screenX = (float)mouseX;
+                cursor.screenY = (float)mouseY;
             }
 
             // Obsługa klawiszy trybów i kliknięć
             if (isLeftClick)
             {
-                if (!isDragging) { // Wykonaj tylko raz przy kliknięciu (START)
-                    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
-                    else if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
-                    else if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
-                    else if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) currentMode = ROTATE_Y;
-                    else if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) currentMode = ROTATE_Z;
-                    else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) currentMode = SCALE;
-                    else {
+                if (!isDragging)
+                {
+                    if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
+                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
+                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
+                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) currentMode = ROTATE_Y;
+                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) currentMode = ROTATE_Z;
+                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) currentMode = SCALE;
+                    else
+                    {
                         currentMode = NONE;
 
-                        // ZAZNACZANIE OBIEKTÓW (Mouse Picking)
+                        // start rysowania ramki
+                        isBoxSelecting = true;
+                        boxStartX = mouseX;
+                        boxStartY = mouseY;
+                        boxEndX = mouseX;
+                        boxEndY = mouseY;
+                    }
+
+
+                    if (currentMode != NONE)
+                    {
+                        isTransformationActive = true;
+                        if (transformMode == 1)
+                            centerOfTransformations = centerOfSelection;
+                        else if (transformMode == 2)
+                            centerOfTransformations = cursor.transform.getPosition();
+                        else if (transformMode == 3)
+                            centerOfTransformations = Vect3(0.0f, 0.0f, 0.0f);
+                    }
+                }
+
+
+                if (isBoxSelecting)
+                {
+                    boxEndX = mouseX;
+                    boxEndY = mouseY;
+                }
+
+                isDragging = true;
+            }
+            else //musi sie wykonac tylko raz po puszczeniu klawisza! dbac o to!
+            {
+
+                if (isBoxSelecting)
+                {
+                    isBoxSelecting = false;
+
+                    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) != GLFW_PRESS &&
+                        glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) != GLFW_PRESS)
+                        for (auto& obj : sceneObjects)
+                            obj->isSelected = false;
+
+                    // jezeli select box jest malutki to mamy klikniecie (a nie select boxa)
+                    if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
+                    {
                         Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, cameraPos, target, up, fov);
-
-                        // Opcjonalnie: trzymanie Shifta pozwala na zaznaczanie wielu obiektów bez odznaczania innych
-                        bool shiftPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-                                            glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
-
-                        if (!shiftPressed) {
-                            // Jeśli nie trzymamy Shifta, odznaczamy wszystkie
-                            for (auto& obj : sceneObjects) obj->isSelected = false;
-                        }
-
-                        // Szukamy obiektu najbliżej promienia
                         float minDist = 10000.0f;
                         std::shared_ptr<SceneObject> closestObj = nullptr;
 
-                        for (auto& obj : sceneObjects) {
+                        for (auto& obj : sceneObjects)
+                        {
+                            if (!std::dynamic_pointer_cast<ScenePoint>(obj))
+                                continue;
+
                             Vect3 objPos = obj->transformations.getPosition();
-                            // Wektor od kamery do obiektu
                             Vect3 toObj = objPos - cameraPos;
-                            // Rzutujemy wektor na kierunek promienia
                             float projLength = Vect3::dot(toObj, rayDir);
 
-                            // Sprawdzamy, czy obiekt jest przed kamerą
-                            if (projLength > 0.0f) {
-                                // Obliczamy odległość punktu od promienia (Twierdzenie Pitagorasa)
+                            if (projLength > 0.0f)
+                            {
                                 Vect3 projPoint = cameraPos + Vect3(rayDir.x * projLength, rayDir.y * projLength, rayDir.z * projLength);
-                                float distToRay = std::sqrt(std::pow(objPos.x - projPoint.x, 2) +
-                                                            std::pow(objPos.y - projPoint.y, 2) +
-                                                            std::pow(objPos.z - projPoint.z, 2));
+                                float distToRay = std::sqrt((objPos.x - projPoint.x) * (objPos.x - projPoint.x) +
+                                                                    (objPos.y - projPoint.y) * (objPos.y - projPoint.y) +
+                                                                    (objPos.z - projPoint.z) * (objPos.z - projPoint.z));
 
-                                // Jeżeli odległość jest mniejsza niż jakiś próg (np. 1.5 dla torusa, możesz dobrać)
-                                if (distToRay < 1.5f && projLength < minDist) {
+                                if (distToRay < 1.5f && projLength < minDist)
+                                {
                                     minDist = projLength;
                                     closestObj = obj;
                                 }
                             }
                         }
 
-                        // Przełączamy stan zaznaczenia trafionego obiektu
-                        if (closestObj != nullptr) {
+                        if (closestObj != nullptr)
                             closestObj->isSelected = !closestObj->isSelected;
+                    }
+                    else //select box
+                    {
+                        // bez macierzy modelu bo i tak bierzemy opotem pozycje srodka - czyli przesuniecie punktu
+                        Mat4 M_View  = createViewMatrix(cameraPos, target, up);
+                        Mat4 M_Proj  = createProjectionMatrix(fov, aspectRatio, min_camera_distance_view, max_camera_distance_view);
+                        Mat4 VP = M_Proj * M_View;
+
+
+                        float minX = (float)std::min(boxStartX, boxEndX);
+                        float maxX = (float)std::max(boxStartX, boxEndX);
+                        float minY = (float)std::min(boxStartY, boxEndY);
+                        float maxY = (float)std::max(boxStartY, boxEndY);
+
+                        for (auto& obj : sceneObjects)
+                        {
+                            Vect3 pos = obj->transformations.getPosition();
+                            Vect4 pos4(pos.x, pos.y, pos.z, 1.0f);
+                            Vect4 clipSpace = VP * pos4;
+
+                            // w - odleglosc od kamery
+                            if (clipSpace.w > 0.0001f)
+                            {
+                                // [-1, 1]
+                                Vect3 ndc(clipSpace.x / clipSpace.w, clipSpace.y / clipSpace.w, clipSpace.z / clipSpace.w);
+
+                                float screenX = (ndc.x + 1.0f) / 2.0f * (float)winWidth;
+                                float screenY = (1.0f - ndc.y) / 2.0f * (float)winHeight;
+
+
+                                if (screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY)
+                                {
+                                    obj->isSelected = true;
+                                }
+                            }
                         }
                     }
-
-                    // Ustawiamy pivota na start transformacji
-                    if (currentMode != NONE) {
-                        isTransformationActive = true;
-                        if (transformMode == 1) currentPivot = centerOfSelection;
-                        else if (transformMode == 2) currentPivot = cursor.transform.getPosition();
-                        else if (transformMode == 3) currentPivot = Vect3(0.0f, 0.0f, 0.0f); // Cała scena obraca się wokół (0,0,0)
-                    }
                 }
-                isDragging = true;
-            }
-            else
-            {
-                // KONIEC KLIKNIĘCIA: Wypiekamy transformacje, jeśli jakieś były aktywne
-                if (isTransformationActive) {
-                    if (transformMode == 1 || transformMode == 2 || transformMode == 3) {
-                        // Jeśli tryb to 3 (Cała Scena), używamy flagi applyToAll = true
-                        bool applyToAll = (transformMode == 3);
-                        bakeGroupTransform(sceneObjects, groupTransform, currentPivot, applyToAll);
-                    }
+
+                // baking transformation to objects
+                if (isTransformationActive)
+                {
+                    if (transformMode == 1 || transformMode == 2 || transformMode == 3)
+                        bakeGroupTransform(sceneObjects, groupTransform, centerOfTransformations, transformMode == 3);
+
+                    groupTransform = Transformations();
                     isTransformationActive = false;
                 }
+
                 isDragging = false;
                 currentMode = NONE;
             }
 
-            // Transformacja zaznaczonych [cite: 22, 23, 24]
-            // Transformacja obiektów (mysz przeciągana) [cite: 22, 23, 24, 34]
+
             if (isDragging && currentMode != NONE)
             {
                 if (mouseX != lastMouseX || mouseY != lastMouseY)
                 {
-                    // 1. Obliczanie delty ruchu myszy
                     float dx_screen = (float)(mouseX - lastMouseX);
                     float dy_screen = (float)(mouseY - lastMouseY);
 
-                    // Skalowanie ruchu myszy do przestrzeni świata (w oparciu o proporcje ekranu)
+
                     float dx_world = (dx_screen / (float)winWidth) * 2.0f * aspectRatio;
                     float dy_world = (dy_screen / (float)winHeight) * 2.0f;
 
-                    // 2. Inicjalizacja pustych transformacji dla danej klatki
+
                     Vect3 deltaPos(0.0f, 0.0f, 0.0f);
                     float deltaScale = 1.0f;
-                    Quaternion deltaQuat; // Domyślnie brak obrotu (w=1, x=0, y=0, z=0)
+                    Quaternion deltaQuat;
 
-                    // 3. Wyznaczanie parametrów transformacji na podstawie wybranego trybu
+
                     if (currentMode == TRANSLATE)
                     {
-                        deltaPos.x = 10.0f * dx_world;
-                        deltaPos.y = -10.0f * dy_world; // Y rośnie w dół na ekranie, więc odwracamy
+                        deltaPos.x = 15.0f * dx_world;
+                        deltaPos.y = -15.0f * dy_world;
                     }
                     else if (currentMode == ROTATE_X)
                     {
-                        // Oś X (1,0,0), kąt bierze się z ruchu góra-dół (dy_world)
                         deltaQuat = Quaternion::fromAxisAngle(1.0f, 0.0f, 0.0f, dy_world * 2.0f);
                     }
                     else if (currentMode == ROTATE_Y)
                     {
-                        // Oś Y (0,1,0), kąt bierze się z ruchu lewo-prawo (dx_world)
                         deltaQuat = Quaternion::fromAxisAngle(0.0f, 1.0f, 0.0f, dx_world * 2.0f);
                     }
                     else if (currentMode == ROTATE_Z)
                     {
-                        // Oś Z (0,0,1), rotacja w płaszczyźnie ekranu
                         deltaQuat = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, dx_world * 2.0f);
                     }
                     else if (currentMode == SCALE)
                     {
-                        // Różnica w ruchu myszy wpływa na powiększenie/pomniejszenie
                         deltaScale = std::max(0.01f, 1.0f + (dx_world - dy_world) * 0.9f);
                     }
                     else if (currentMode == ROTATE_FREE)
                     {
-                        // Obliczamy całkowitą długość przesunięcia myszy (to jest nasz kąt obrotu)
                         float angle = std::sqrt(dx_world * dx_world + dy_world * dy_world) * 2.0f;
 
-                        if (angle > 0.0001f) {
-                            // W swobodnym obrocie oś obrotu jest prostopadła do wektora przesunięcia myszy!
-                            // Zatem ruch horyzontalny (dx_world) obraca wokół osi Y, a wertykalny (dy_world) wokół osi X.
+                        if (angle > 0.0001f)
+                        {
                             deltaQuat = Quaternion::fromAxisAngle(dy_world, dx_world, 0.0f, angle);
                         }
                     }
 
-                    // 4. Aplikacja wyliczonych transformacji do obiektów
-                    if (transformMode == 0) // [0] TRYB LOKALNY: Transformacja względem środka każdego obiektu z osobna [cite: 22]
+
+                    if (transformMode == 0) // lolaklny tryb, zmiany nanoszone od razu do obiektow
                     {
-                        for (auto& obj : sceneObjects) {
+                        for (auto& obj : sceneObjects)
+                        {
                             if (!obj->isSelected) continue;
 
-                            // Translacja
                             obj->transformations.posX += deltaPos.x;
                             obj->transformations.posY += deltaPos.y;
                             obj->transformations.posZ += deltaPos.z;
 
-                            // Skala
                             obj->transformations.scale *= deltaScale;
 
-                            // Obrót (CZYSTE KWATERNIONY!)
                             obj->transformations.rotation = deltaQuat * obj->transformations.rotation;
                             obj->transformations.rotation.normalize();
                         }
                     }
-                    else // TRYBY GRUPOWE: [1] Wspólny Środek, [2] Kursor, [3] Cała Scena [cite: 23, 24, 34]
+                    else // zmiany nanoszone do strukttury globalnej grupy zaznaczonej
                     {
-                        // W trybach grupowych na razie nie modyfikujemy samych obiektów.
-                        // Zamiast tego akumulujemy zsumowane zmiany w pomocniczej strukturze grupy.
                         groupTransform.posX += deltaPos.x;
                         groupTransform.posY += deltaPos.y;
                         groupTransform.posZ += deltaPos.z;
-                        groupTransform.scale *= deltaScale;
 
-                        // Akumulacja obrotu
                         groupTransform.rotation = deltaQuat * groupTransform.rotation;
                         groupTransform.rotation.normalize();
+
+                        groupTransform.scale *= deltaScale;
                     }
                 }
             }
-            lastMouseX = mouseX; lastMouseY = mouseY;
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
         }
 
 
@@ -380,40 +473,61 @@ int main()
 
         ImGui::Begin("Sterowanie i Obiekty");
 
-        // KURSOR INFO [cite: 8]
-        ImGui::Text("Kursor 3D (Zmień PPM na scenie)");
-        ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f);
-        ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
+        if (isBoxSelecting)
+        {
+            ImGui::GetForegroundDrawList()->AddRect(
+                    ImVec2((float)boxStartX, (float)boxStartY),
+                    ImVec2((float)boxEndX, (float)boxEndY),
+                    IM_COL32(255, 255, 255, 255),
+                    0.0f, 0, 1.5f
+            );
+        }
 
+
+        ImGui::Text("Kursor 3D (Zmień PPM na scenie)");
+        ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f, min_pos, max_pos);
+
+
+        //float cursorQuat[4] = {cursor.transform.rotation.w, cursor.transform.rotation.x, cursor.transform.rotation.y, cursor.transform.rotation.z};
+        //if (ImGui::DragFloat4("Rotacja (WXYZ)##Cursor", cursorQuat, 0.01f, -1.0f, 1.0f)) {
+        //    cursor.transform.rotation.w = cursorQuat[0];
+        //    cursor.transform.rotation.x = cursorQuat[1];
+        //    cursor.transform.rotation.y = cursorQuat[2];
+        //    cursor.transform.rotation.z = cursorQuat[3];
+        //    cursor.transform.rotation.normalize();
+        // }
+
+        ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
         ImGui::Separator();
-        // DODAWANIE OBIEKTÓW [cite: 10, 11, 12]
         if (ImGui::Button("Dodaj Torus"))
         {
             auto t = std::make_shared<SceneTorus>("Torus " + std::to_string(sceneObjects.size()+1), cursor.transform);
-            t->Init(); sceneObjects.push_back(t);
+            t->Init();
+            sceneObjects.push_back(t);
         }
         ImGui::SameLine();
         if (ImGui::Button("Dodaj Punkt"))
         {
             auto p = std::make_shared<ScenePoint>("Punkt " + std::to_string(sceneObjects.size()+1), cursor.transform);
-            p->Init(); sceneObjects.push_back(p);
+            p->Init();
+            sceneObjects.push_back(p);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Usuń Zaznacz."))
-        { // [cite: 13]
+        if (ImGui::Button("Usun Zaznacz."))
+        {
             sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
                                               [](const std::shared_ptr<SceneObject>& o) { return o->isSelected; }), sceneObjects.end());
         }
-
         ImGui::Separator();
-        // ŚRODEK I TRANSFORMACJE [cite: 21, 22, 23, 24]
+
+
         centerOfSelection = Vect3(0,0,0);
         int selCount = 0;
         for (auto& obj : sceneObjects)
         {
             if (obj->isSelected)
             {
-                centerOfSelection = centerOfSelection + obj->transformations.getPosition();
+                centerOfSelection += obj->transformations.getPosition();
                 selCount++;
             }
         }
@@ -432,30 +546,186 @@ int main()
         ImGui::RadioButton("Cała Scena", &transformMode, 3);
 
         ImGui::Separator();
-        // LISTA OBIEKTÓW [cite: 14, 15, 16, 18]
-        ImGui::Text("Lista Obiektów na Scenie:");
-        for (auto& obj : sceneObjects) {
+
+
+        ImGui::Text("Metoda transformacji:");
+
+        if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", &inputMode, 0) && prevInputMode == 1)
+        {
+            clearGuiState();
+        }
+        ImGui::SameLine();
+        ImGui::RadioButton("Wartości z GUI (Live Preview)", &inputMode, 1);
+        prevInputMode = inputMode;
+
+
+        if (inputMode == 1)
+        {
+            ImGui::Separator();
+            ImGui::DragFloat3("Przesunięcie (XYZ)", guiDeltaPos, 0.1f, min_pos, max_pos);
+            if (ImGui::DragFloat("Skala (Mnożnik)", &guiDeltaScale, 0.05f, min_scale, max_scale))
+            {
+                guiDeltaScale = std::max(0.01f, guiDeltaScale);
+            }
+
+            ImGui::Text("Tryb Rotacji:");
+            ImGui::RadioButton("Oś i Kąt", &guiRotMode, 0);
+            ImGui::SameLine();
+            ImGui::RadioButton("Kwaternion", &guiRotMode, 1);
+
+            // zmiana totacji <-> zerowanie rotacji
+            if (guiRotMode != prevGuiRotMode)
+            {
+                guiRotAxis[0] = 0.0f;
+                guiRotAxis[1] = 1.0f;
+                guiRotAxis[2] = 0.0f;
+                guiRotAngle = 0.0f;
+
+                guiRotQuat[0] = 1.0f;
+                guiRotQuat[1] = 0.0f;
+                guiRotQuat[2] = 0.0f;
+                guiRotQuat[3] = 0.0f;
+
+                prevGuiRotMode = guiRotMode;
+            }
+
+
+            if (guiRotMode == 0)
+            {
+                if (ImGui::DragFloat3("Wektor Osi", guiRotAxis, 0.01f, min_axis, max_axis))
+                {
+                    // wektor obrotu NIE może być równy (0,0,0)
+                    if (std::abs(guiRotAxis[0]) < 0.0001f &&
+                        std::abs(guiRotAxis[1]) < 0.0001f &&
+                        std::abs(guiRotAxis[2]) < 0.0001f) {
+                        guiRotAxis[1] = 1.0f;
+                    }
+                }
+                ImGui::DragFloat("Kat (Stopnie)", &guiRotAngle, 1.0f, min_angle, max_angle);
+            }
+            else if (guiRotMode == 1)
+            {
+                if (ImGui::DragFloat4("Kwaternion (WXYZ)", guiRotQuat, 0.01f, -1.0f, 1.0f))
+                {
+                    Quaternion tempQ(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
+                    tempQ.normalize();
+                    guiRotQuat[0] = tempQ.w;
+                    guiRotQuat[1] = tempQ.x;
+                    guiRotQuat[2] = tempQ.y;
+                    guiRotQuat[3] = tempQ.z;
+                }
+            }
+
+            ImGui::Spacing();
+            if (ImGui::Button("Wypiecz Zmiany", ImVec2(150, 30)))
+            {
+                Quaternion previewQuat(1.0f, 0.0f, 0.0f, 0.0f);
+                if (guiRotMode == 0)
+                {
+                    previewQuat = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * PI / 180.0f);
+                }
+                else if (guiRotMode == 1)
+                {
+                    previewQuat = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
+                }
+                previewQuat.normalize();
+
+
+                if (transformMode == 0) // local - aplikujemy bezpośrednio na obiekty
+                {
+                    for (auto& obj : sceneObjects)
+                    {
+                        if (obj->isSelected)
+                        {
+                            obj->transformations.posX += guiDeltaPos[0];
+                            obj->transformations.posY += guiDeltaPos[1];
+                            obj->transformations.posZ += guiDeltaPos[2];
+
+                            obj->transformations.scale = std::max(0.01f, obj->transformations.scale * guiDeltaScale);
+
+                            obj->transformations.rotation = previewQuat * obj->transformations.rotation;
+                            obj->transformations.rotation.normalize();
+                        }
+                    }
+                }
+                else
+                {
+                    // GRUPOWE - używamy funkcji bakeGroupTransform
+                    Vect3 center = (transformMode == 3) ? Vect3(0,0,0) : ((transformMode == 2) ? cursor.transform.getPosition() : centerOfSelection);
+
+                    Transformations tempGroup;
+                    tempGroup.posX = guiDeltaPos[0];
+                    tempGroup.posY = guiDeltaPos[1];
+                    tempGroup.posZ = guiDeltaPos[2];
+                    tempGroup.scale = guiDeltaScale;
+                    tempGroup.rotation = previewQuat;
+
+
+                    bakeGroupTransform(sceneObjects, tempGroup, center, transformMode == 3);
+                }
+                clearGuiState();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Wyczyść", ImVec2(100, 30)))
+            {
+                clearGuiState();
+            }
+        }
+
+
+
+
+        ImGui::Separator();
+        ImGui::Text("Lista Obiektow na Scenie:");
+        for (auto& obj : sceneObjects)
+        {
             ImGui::PushID(obj.get());
-            ImGui::Checkbox("##sel", &obj->isSelected); ImGui::SameLine();
+            ImGui::Checkbox("##sel", &obj->isSelected);
+            ImGui::SameLine();
+
             char nameBuf[128];
             strcpy(nameBuf, obj->name.c_str());
             if (ImGui::InputText("##name", nameBuf, IM_ARRAYSIZE(nameBuf))) obj->name = nameBuf;
 
-            // Opcjonalna edycja parametrów dla torusa po zaznaczeniu na liście
+
             if (obj->isSelected)
             {
+                ImGui::Indent();
+
+                ImGui::ColorEdit3("Kolor", obj->color);
+
+                ImGui::Text("Transformacja obiektu:");
+                ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
+                ImGui::DragFloat("Skala", &obj->transformations.scale, 0.05f, min_scale, max_scale);
+
+                float quatVals[4] = {obj->transformations.rotation.w, obj->transformations.rotation.x, obj->transformations.rotation.y, obj->transformations.rotation.z};
+                if (ImGui::DragFloat4("Rotacja (WXYZ)", quatVals, 0.01f, -1.0f, 1.0f))
+                {
+                    obj->transformations.rotation.w = quatVals[0];
+                    obj->transformations.rotation.x = quatVals[1];
+                    obj->transformations.rotation.y = quatVals[2];
+                    obj->transformations.rotation.z = quatVals[3];
+                    obj->transformations.rotation.normalize();
+                }
+
+
                 if (auto t = std::dynamic_pointer_cast<SceneTorus>(obj))
                 {
-                    ImGui::Indent();
+                    ImGui::Text("Geometria Torusa:");
                     bool needsUpdate = false;
                     needsUpdate |= ImGui::SliderFloat("R", &t->R, min_R, max_R);
                     needsUpdate |= ImGui::SliderFloat("r", &t->r, min_r, max_r);
                     needsUpdate |= ImGui::SliderInt("density R", &t->density_R, min_density_R, max_density_R);
                     needsUpdate |= ImGui::SliderInt("density r", &t->density_r, min_density_r, max_density_r);
                     if (needsUpdate)
+                    {
                         t->UpdateBuffers();
-                    ImGui::Unindent();
+                    }
                 }
+
+                ImGui::Unindent();
+                ImGui::Separator();
             }
             ImGui::PopID();
         }
@@ -474,34 +744,98 @@ int main()
 
 
 
-        // Obliczamy macierz grupy tylko raz na klatkę, jeśli transformacja trwa
-        Mat4 M_group(1.0f);
-        if (isTransformationActive && (transformMode == 1 || transformMode == 2 || transformMode == 3)) {
-            Mat4 T_toOrigin = Mat4::translate_inverse(currentPivot);
-            Mat4 R_group = groupTransform.rotation.toMat4();
-            Mat4 S_group = Mat4::scale(Vect3(groupTransform.scale, groupTransform.scale, groupTransform.scale));
-            Mat4 T_toPos = Mat4::translate(currentPivot + groupTransform.getPosition());
-            M_group = T_toPos * R_group * S_group * T_toOrigin;
+
+        Mat4 M_group_mouse(1.0f);
+        Mat4 M_group_gui(1.0f);
+
+
+        Quaternion previewDeltaQuat(1.0f, 0.0f, 0.0f, 0.0f);
+        if (inputMode == 1)
+        {
+            if (guiRotMode == 0)
+            {
+                previewDeltaQuat = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * PI / 180.0f);
+            }
+            else if (guiRotMode == 1)
+            {
+                previewDeltaQuat = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
+            }
+            previewDeltaQuat.normalize();
         }
 
-        // Rysowanie wszystkich obiektów z listy
-        for (auto& obj : sceneObjects) {
-            // Decydujemy, czy na ten konkretny obiekt nałożyć grupową transformację
-            bool applyGroupMatrix = isTransformationActive &&
-                                    ((obj->isSelected && (transformMode == 1 || transformMode == 2)) || transformMode == 3);
 
-            if (applyGroupMatrix) {
-                obj->Draw(shader, M_group); // Otrzymuje tymczasowy obrót grupy (albo jest zaznaczony, albo tryb to Cała Scena)
-            } else {
-                obj->Draw(shader, Mat4(1.0f)); // Niezaznaczone rysują się normalnie
+        bool applyMousePreview = (inputMode == 0 && isTransformationActive && (transformMode == 1 || transformMode == 2 || transformMode == 3));
+        if (applyMousePreview)
+        {
+            Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
+            Mat4 R_group = groupTransform.rotation.toMat4();
+            Mat4 S_group = Mat4::scale(Vect3(groupTransform.scale, groupTransform.scale, groupTransform.scale));
+            Mat4 T_toPos = Mat4::translate(centerOfTransformations + groupTransform.getPosition());
+            M_group_mouse = T_toPos * R_group * S_group * T_toOrigin;
+        }
+
+
+        bool applyGuiPreviewGroup = (inputMode == 1 && transformMode != 0);
+        if (applyGuiPreviewGroup)
+        {
+            Vect3 center = (transformMode == 3) ? Vect3(0,0,0) : ((transformMode == 2) ? cursor.transform.getPosition() : centerOfSelection);
+            Mat4 T_toOrigin = Mat4::translate_inverse(center);
+            Mat4 R_group = previewDeltaQuat.toMat4();
+            Mat4 S_group = Mat4::scale(Vect3(guiDeltaScale, guiDeltaScale, guiDeltaScale));
+            Mat4 T_toPos = Mat4::translate(center + Vect3(guiDeltaPos[0], guiDeltaPos[1], guiDeltaPos[2]));
+            M_group_gui = T_toPos * R_group * S_group * T_toOrigin;
+        }
+
+
+        for (auto& obj : sceneObjects)
+        {
+            bool isTargetGroup = (transformMode == 3 || obj->isSelected);
+            bool isTargetLocal = (transformMode == 0 && obj->isSelected);
+
+            if (inputMode == 1 && isTargetLocal) //GUI, lokalnie, wybrane
+            {
+                Quaternion oldRot = obj->transformations.rotation;
+
+                // Modifikacja
+                obj->transformations.posX += guiDeltaPos[0];
+                obj->transformations.posY += guiDeltaPos[1];
+                obj->transformations.posZ += guiDeltaPos[2];
+                obj->transformations.scale *= guiDeltaScale;
+
+                obj->transformations.rotation = previewDeltaQuat * obj->transformations.rotation;
+                obj->transformations.rotation.normalize();
+
+
+                obj->Draw(shader, Mat4(1.0f));
+
+                // Cofa Modifikację
+                obj->transformations.posX -= guiDeltaPos[0];
+                obj->transformations.posY -= guiDeltaPos[1];
+                obj->transformations.posZ -= guiDeltaPos[2];
+                obj->transformations.scale /= guiDeltaScale;
+
+                obj->transformations.rotation = oldRot;
+            }
+            else if (applyGuiPreviewGroup && isTargetGroup) //gui, wybrane - czyli preview
+            {
+                obj->Draw(shader, M_group_gui);
+            }
+            else if (applyMousePreview && isTargetGroup) //mysz, wybrane - prewiev
+            {
+                obj->Draw(shader, M_group_mouse);
+            }
+            else // bez preview
+            {
+                obj->Draw(shader, Mat4(1.0f));
             }
         }
 
-        // Rysowanie kursora [cite: 7]
+
         cursor.Draw(shader);
 
-        // Opcjonalnie: rysowanie globalnych osi w środku świata lub na kursorze
-        if(drawAxesEuler) {
+
+        if(drawAxesEuler)
+        {
             float dummyPos[3] = {0,0,0};
             float dummyRot[3] = {0,0,0};
             drawEulerAxes(shader, localAxisVAO, dummyPos, dummyRot, 100.0f);

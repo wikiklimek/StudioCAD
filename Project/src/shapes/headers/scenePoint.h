@@ -8,9 +8,10 @@
 class ScenePoint : public SceneObject {
 public:
     unsigned int VAO, VBO;
-    float color[3] = { 1.0f, 0.0f, 0.0f };
+    float size;
 
     ScenePoint(std::string n, Transformations spawnTransform);
+    ScenePoint(std::string n, float s, Transformations spawnTransform);
     ~ScenePoint() override;
 
     void Init() override;
