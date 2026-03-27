@@ -19,5 +19,6 @@ public:
 
     void Init() override ;
     void UpdateBuffers() ;
+    void Draw(Shader& shader) override;
     void Draw(Shader& shader, Mat4 parentMatrix) override;
 };

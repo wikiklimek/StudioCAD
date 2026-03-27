@@ -25,7 +25,7 @@ Quaternion Quaternion::operator*(const Quaternion& q) const {
 }
 
 
-// Tworzenie kwaternionu z osi i kąta (Axis-Angle)
+
 Quaternion Quaternion::fromAxisAngle(float axisX, float axisY, float axisZ, float angle)
 {
 

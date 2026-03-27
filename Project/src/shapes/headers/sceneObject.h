@@ -15,5 +15,6 @@ public:
     virtual ~SceneObject() = default;
 
     virtual void Init() = 0;
+    virtual void Draw(Shader& shader) = 0;
     virtual void Draw(Shader& shader, Mat4 parentMatrix) = 0;
 };

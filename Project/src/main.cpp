@@ -484,7 +484,7 @@ int main()
         }
 
 
-        ImGui::Text("Kursor 3D (Zmień PPM na scenie)");
+        ImGui::Text("Kursor");
         ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f, min_pos, max_pos);
 
 
@@ -535,15 +535,15 @@ int main()
         if (selCount > 0)
             centerOfSelection = Vect3(centerOfSelection.x/selCount, centerOfSelection.y/selCount, centerOfSelection.z/selCount);
 
-        ImGui::Text("Zaznaczonych: %d | Środek: %.1f, %.1f, %.1f", selCount, centerOfSelection.x, centerOfSelection.y, centerOfSelection.z);
+        ImGui::Text("Zaznaczonych: %d | Srodek: %.1f, %.1f, %.1f", selCount, centerOfSelection.x, centerOfSelection.y, centerOfSelection.z);
 
         ImGui::RadioButton("Zaznacz. Lokalne", &transformMode, 0);
         ImGui::SameLine();
-        ImGui::RadioButton("Wspólny Środek", &transformMode, 1);
+        ImGui::RadioButton("Wspolny Środek", &transformMode, 1);
         ImGui::SameLine();
-        ImGui::RadioButton("Względem Kursora", &transformMode, 2);
+        ImGui::RadioButton("Wzgledem Kursora", &transformMode, 2);
         ImGui::SameLine();
-        ImGui::RadioButton("Cała Scena", &transformMode, 3);
+        ImGui::RadioButton("Cala Scena", &transformMode, 3);
 
         ImGui::Separator();
 
@@ -555,21 +555,21 @@ int main()
             clearGuiState();
         }
         ImGui::SameLine();
-        ImGui::RadioButton("Wartości z GUI (Live Preview)", &inputMode, 1);
+        ImGui::RadioButton("Wartosci z GUI (Live Preview)", &inputMode, 1);
         prevInputMode = inputMode;
 
 
         if (inputMode == 1)
         {
             ImGui::Separator();
-            ImGui::DragFloat3("Przesunięcie (XYZ)", guiDeltaPos, 0.1f, min_pos, max_pos);
-            if (ImGui::DragFloat("Skala (Mnożnik)", &guiDeltaScale, 0.05f, min_scale, max_scale))
+            ImGui::DragFloat3("Przesuniecie (XYZ)", guiDeltaPos, 0.1f, min_pos, max_pos);
+            if (ImGui::DragFloat("Skala (Mnoznik)", &guiDeltaScale, 0.05f, min_scale, max_scale))
             {
                 guiDeltaScale = std::max(0.01f, guiDeltaScale);
             }
 
             ImGui::Text("Tryb Rotacji:");
-            ImGui::RadioButton("Oś i Kąt", &guiRotMode, 0);
+            ImGui::RadioButton("Os i Kat", &guiRotMode, 0);
             ImGui::SameLine();
             ImGui::RadioButton("Kwaternion", &guiRotMode, 1);
 
@@ -617,7 +617,7 @@ int main()
             }
 
             ImGui::Spacing();
-            if (ImGui::Button("Wypiecz Zmiany", ImVec2(150, 30)))
+            if (ImGui::Button("Zachowaj Zmiany", ImVec2(150, 30)))
             {
                 Quaternion previewQuat(1.0f, 0.0f, 0.0f, 0.0f);
                 if (guiRotMode == 0)
@@ -667,7 +667,7 @@ int main()
             }
 
             ImGui::SameLine();
-            if (ImGui::Button("Wyczyść", ImVec2(100, 30)))
+            if (ImGui::Button("Wyczysc", ImVec2(100, 30)))
             {
                 clearGuiState();
             }
@@ -806,7 +806,8 @@ int main()
                 obj->transformations.rotation.normalize();
 
 
-                obj->Draw(shader, Mat4(1.0f));
+                //obj->Draw(shader, Mat4(1.0f));
+                obj->Draw(shader);
 
                 // Cofa Modifikację
                 obj->transformations.posX -= guiDeltaPos[0];
@@ -826,7 +827,8 @@ int main()
             }
             else // bez preview
             {
-                obj->Draw(shader, Mat4(1.0f));
+                //obj->Draw(shader, Mat4(1.0f));
+                obj->Draw(shader);
             }
         }
 

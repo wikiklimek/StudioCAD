@@ -31,9 +31,10 @@ Vect3 getCursorIntersection(Vect3 rayOrigin, Vect3 rayDir)
 {
     if (std::abs(rayDir.z) > 0.0001f)
     {
-        // intersection z ekranem, czyli z = 0
-        // 0 = rayOrigin.z + t * rayDir.z
-        float t = -rayOrigin.z / rayDir.z;
+        // stawiamy obiekty w z = 0
+        float z = 0.0f;
+        // z = rayOrigin.z + t * rayDir.z
+        float t = (z -rayOrigin.z) / rayDir.z;
 
         // czy widzimy intersection
         if (t > 0.0f)
