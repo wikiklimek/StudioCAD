@@ -37,6 +37,7 @@ float const PI = (float)M_PI;
 #include "applyTransformations.h"
 #include "scenePoint.h"
 #include "bakeTransform.h"
+#include "camera.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -45,6 +46,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 
 enum DragMode { BOX, TRANSLATE, ROTATE_X, ROTATE_Y, ROTATE_Z, SCALE, ROTATE_FREE };
+enum CameraDragMode { CAM_NONE, CAM_ORBIT, CAM_ZOOM, CAM_PAN };
+
+
+enum TransformMode { LOCAL, COMMON_CENTER, CURSOR_CENTER, ENTIRE_SCENE };
+enum InputMode { INPUT_MOUSE, INPUT_GUI };
 
 int main()
 {
@@ -89,7 +95,7 @@ int main()
     std::vector<std::shared_ptr<SceneObject>> sceneObjects;
 
 
-    int transformMode = 0; // 0 = lokalne, 1 = wspólny srodek, 2 = kursor, 3 - cala scena
+    TransformMode transformMode = LOCAL; // 0 = lokalne, 1 = wspólny srodek, 2 = kursor, 3 - cala scena
     Vect3 centerOfSelection(0.0f, 0.0f, 0.0f);
     Transformations groupTransform;
     Vect3 centerOfTransformations(0.0f, 0.0f, 0.0f);
@@ -109,9 +115,14 @@ int main()
     float fov = PI / 4.0f;
     float aspectRatio = (float)winWidth/(float)winHeight;
 
-    Vect3 cameraPos = Vect3(5.0f, -25.0f, 20.0f);
-    Vect3 target = Vect3(0.0f, 0.0f, 0.0f);
-    Vect3 up = Vect3(0.0f, 0.0f, 1.0f);
+    Camera camera(Vect3(5.0f, -25.0f, 20.0f), Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 1.0f));
+
+    CameraDragMode camMode = CAM_NONE;
+    bool isCamDragging = false;
+    double startCamMouseX = 0, startCamMouseY = 0;
+
+    float minAngleCameraZ = 0.05f;
+    float maxAngleCameraZ = PI - 0.05f;
 
 
     bool isBoxSelecting = false;
@@ -176,8 +187,8 @@ int main()
 
 
 
-    int inputMode = 0; // 0 = Mysz, 1 = GUI
-    int prevInputMode = 0;
+    InputMode inputMode = INPUT_MOUSE; // 0 = Mysz, 1 = GUI
+    InputMode prevInputMode = INPUT_MOUSE;
 
     float guiDeltaPos[3] = {0.0f, 0.0f, 0.0f};
     float guiDeltaScale = 1.0f;
@@ -230,14 +241,110 @@ int main()
             bool isLeftClick = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
             bool isRightClick = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
-            // pozycja kursora
+
             if (isRightClick)
             {
-                Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, cameraPos, target, up, fov);
-                Vect3 intersection = getCursorIntersection(cameraPos, rayDir);
-                cursor.transform.setPosition(intersection);
-                cursor.screenX = (float)mouseX;
-                cursor.screenY = (float)mouseY;
+                if (!isCamDragging)
+                {
+                    if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+                        camMode = CAM_ORBIT;
+                    else if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+                        camMode = CAM_ZOOM;
+                    else if(glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
+                        camMode = CAM_PAN;
+
+                    if (camMode == CAM_ORBIT || camMode == CAM_ZOOM || camMode ==CAM_PAN)
+                    {
+                        isCamDragging = true;
+                        camera.hasTemporaryChanges = true;
+                        startCamMouseX = mouseX;
+                        startCamMouseY = mouseY;
+                    }
+                    else // przestaw kursor 3D
+                    {
+                        Vect3 activeCamPos(0.0), activeCamTarget(0.0);
+                        camera.getActiveState(activeCamPos, activeCamTarget);
+
+                        Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, activeCamPos, activeCamTarget, camera.up, fov);
+                        Vect3 intersection = getCursorIntersection(activeCamPos, rayDir);
+
+                        cursor.transform.setPosition(intersection);
+                        cursor.screenX = (float)mouseX;
+                        cursor.screenY = (float)mouseY;
+                    }
+                }
+            }
+            else
+            {
+                // Puszczenie prawego przycisku - wypiekamy kamerę
+                if (isCamDragging)
+                {
+                    camera.bake();
+                    isCamDragging = false;
+                    camMode = CAM_NONE;
+                }
+            }
+
+
+            if (isCamDragging)
+            {
+                float dx_screen = (float)(mouseX - startCamMouseX);
+                float dy_screen = (float)(mouseY - startCamMouseY);
+
+                float dx_world = (dx_screen / (float)winWidth) * 2.0f;
+                float dy_world = (dy_screen / (float)winHeight) * 2.0f;
+
+                if (camMode == CAM_ORBIT)
+                {
+                    Quaternion qZ = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, -dx_world * 2.0f);
+
+                    Vect3 dir = camera.getDirectionNotBaked().normalize();
+                    Vect3 right = Vect3::cross(camera.up, dir).normalize();
+
+                    float currentAngleZ = std::acos(dir.z);
+                    float deltaAngleZ = -dy_world * 2.0f;
+
+
+                    //zeby kamera nie byla pionowo/poziomo
+                    if (currentAngleZ + deltaAngleZ < minAngleCameraZ)
+                    {
+                        deltaAngleZ = minAngleCameraZ - currentAngleZ;
+                    }
+                    else if (currentAngleZ + deltaAngleZ > maxAngleCameraZ)
+                    {
+                        deltaAngleZ = maxAngleCameraZ - currentAngleZ;
+                    }
+
+
+                    Quaternion qRight = Quaternion::fromAxisAngle(right.x, right.y, right.z, deltaAngleZ);
+
+                    // skladanie kwaternionow
+                    camera.tempOrbit = qRight * qZ;
+                    camera.tempOrbit.normalize();
+                }
+                else if (camMode == CAM_ZOOM)
+                {
+                    //w górę przybliża, w dół oddala
+                    camera.tempZoom = std::max(0.1f, 1.0f - dy_world * 2.0f);
+                }
+                else if (camMode == CAM_PAN)
+                {
+                    Vect3 dir = camera.getDirectionNotBaked().normalize();
+                    Vect3 right = Vect3::cross(camera.up, dir).normalize();
+                    Vect3 localUp = Vect3::cross(dir, right).normalize();
+
+                    Vect3 direction = camera.getDirectionNotBaked();
+
+                    //dla zachowania odleglosci kamery
+                    float distance = std::sqrt(direction.x * direction.x +
+                            direction.y * direction.y +
+                            direction.z * direction.z);
+
+                    Vect3 panRight = Vect3(right.x * -dx_world * distance, right.y * -dx_world * distance, right.z * -dx_world * distance);
+                    Vect3 panUp = Vect3(localUp.x * dy_world * distance, localUp.y * dy_world * distance, localUp.z * dy_world * distance);
+
+                    camera.tempPan = panRight + panUp;
+                }
             }
 
             // Obsługa klawiszy trybów i kliknięć
@@ -245,12 +352,12 @@ int main()
             {
                 if (!isDragging)
                 {
-                    if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
-                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
-                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
-                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) currentMode = ROTATE_Y;
-                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) currentMode = ROTATE_Z;
-                    else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) currentMode = SCALE;
+                    if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
+                    else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
+                    else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
+                    else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) currentMode = ROTATE_Y;
+                    else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) currentMode = ROTATE_Z;
+                    else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) currentMode = SCALE;
                     else
                     {
                         currentMode = BOX;
@@ -272,11 +379,11 @@ int main()
                         groupTransform = Transformations();
 
 
-                        if (transformMode == 1)
+                        if (transformMode == COMMON_CENTER)
                             centerOfTransformations = centerOfSelection;
-                        else if (transformMode == 2)
+                        else if (transformMode == CURSOR_CENTER)
                             centerOfTransformations = cursor.transform.getPosition();
-                        else if (transformMode == 3)
+                        else if (transformMode == ENTIRE_SCENE)
                             centerOfTransformations = Vect3(0.0f, 0.0f, 0.0f);
                     }
                 }
@@ -305,7 +412,10 @@ int main()
                     // jezeli select box jest malutki to mamy klikniecie (a nie select boxa)
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
-                        Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, cameraPos, target, up, fov);
+                        Vect3 activeCamPos(0.0), activeCamTarget(0.0);
+                        camera.getActiveState(activeCamPos, activeCamTarget);
+
+                        Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, activeCamPos, activeCamTarget, camera.up, fov);
                         float minDist = 10000.0f;
                         std::shared_ptr<SceneObject> closestObj = nullptr;
 
@@ -314,17 +424,21 @@ int main()
                             if (!std::dynamic_pointer_cast<ScenePoint>(obj))
                                 continue;
 
+
                             Vect3 objPos = obj->transformations.getPosition();
-                            Vect3 toObj = objPos - cameraPos;
+                            Vect3 toObj = objPos - activeCamPos;
                             float projLength = Vect3::dot(toObj, rayDir);
 
+                            //czy obiekt jest "z przodu" kamery
                             if (projLength > 0.0f)
                             {
-                                Vect3 projPoint = cameraPos + Vect3(rayDir.x * projLength, rayDir.y * projLength, rayDir.z * projLength);
+                                //rzut obiektu na prosta klikniecia
+                                Vect3 projPoint = activeCamPos + Vect3(rayDir.x * projLength, rayDir.y * projLength, rayDir.z * projLength);
                                 float distToRay = std::sqrt((objPos.x - projPoint.x) * (objPos.x - projPoint.x) +
                                                                     (objPos.y - projPoint.y) * (objPos.y - projPoint.y) +
                                                                     (objPos.z - projPoint.z) * (objPos.z - projPoint.z));
 
+                                // lapiemy ten bardziej z przodu
                                 if (distToRay < 1.5f && projLength < minDist)
                                 {
                                     minDist = projLength;
@@ -339,7 +453,7 @@ int main()
                     else //select box
                     {
                         // bez macierzy modelu bo i tak bierzemy opotem pozycje srodka - czyli przesuniecie punktu
-                        Mat4 M_View  = createViewMatrix(cameraPos, target, up);
+                        Mat4 M_View = camera.getViewMatrix();
                         Mat4 M_Proj  = createProjectionMatrix(fov, aspectRatio, min_camera_distance_view, max_camera_distance_view);
                         Mat4 VP = M_Proj * M_View;
 
@@ -377,7 +491,7 @@ int main()
                 // baking transformation to objects
                 if (isTransformationActive)
                 {
-                    if (transformMode == 0)
+                    if (transformMode == LOCAL)
                     {
                         // Wypalanie dla trybu lokalnego
                         for (auto& obj : sceneObjects)
@@ -392,10 +506,10 @@ int main()
                             obj->transformations.rotation.normalize();
                         }
                     }
-                    else if (transformMode == 1 || transformMode == 2 || transformMode == 3)
+                    else if (transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER || transformMode == ENTIRE_SCENE)
                     {
                         // Wypalanie dla trybów grupowych
-                        bakeGroupTransform(sceneObjects, groupTransform, centerOfTransformations, transformMode == 3);
+                        bakeGroupTransform(sceneObjects, groupTransform, centerOfTransformations, transformMode == ENTIRE_SCENE);
                     }
 
                     groupTransform = Transformations();
@@ -476,15 +590,6 @@ int main()
         ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f, min_pos, max_pos);
 
 
-        //float cursorQuat[4] = {cursor.transform.rotation.w, cursor.transform.rotation.x, cursor.transform.rotation.y, cursor.transform.rotation.z};
-        //if (ImGui::DragFloat4("Rotacja (WXYZ)##Cursor", cursorQuat, 0.01f, -1.0f, 1.0f)) {
-        //    cursor.transform.rotation.w = cursorQuat[0];
-        //    cursor.transform.rotation.x = cursorQuat[1];
-        //    cursor.transform.rotation.y = cursorQuat[2];
-        //    cursor.transform.rotation.z = cursorQuat[3];
-        //    cursor.transform.rotation.normalize();
-        // }
-
         ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
         ImGui::Separator();
         if (ImGui::Button("Dodaj Torus"))
@@ -510,9 +615,12 @@ int main()
 
 
         centerOfSelection = Vect3(0,0,0);
+        Vect3 globalCenter(0,0,0); // Dodajemy zmienną na środek ciężkości całej sceny
         int selCount = 0;
+
         for (auto& obj : sceneObjects)
         {
+            globalCenter += obj->transformations.getPosition();
             if (obj->isSelected)
             {
                 centerOfSelection += obj->transformations.getPosition();
@@ -523,31 +631,54 @@ int main()
         if (selCount > 0)
             centerOfSelection = Vect3(centerOfSelection.x/selCount, centerOfSelection.y/selCount, centerOfSelection.z/selCount);
 
+        if (!sceneObjects.empty())
+            globalCenter = Vect3(globalCenter.x/sceneObjects.size(), globalCenter.y/sceneObjects.size(), globalCenter.z/sceneObjects.size());
+
         ImGui::Text("Zaznaczonych: %d | Srodek: %.1f, %.1f, %.1f", selCount, centerOfSelection.x, centerOfSelection.y, centerOfSelection.z);
 
-        ImGui::RadioButton("Zaznacz. Lokalne", &transformMode, 0);
+
+        if (ImGui::Button("Wysrodkuj obiekty w (0,0,0)"))
+        {
+            clearGuiState();
+
+            bool hasSelection = (selCount > 0);
+            Vect3 offset = hasSelection ? centerOfSelection : globalCenter;
+
+            for (auto& obj : sceneObjects)
+            {
+                if (!hasSelection || obj->isSelected)
+                {
+                    obj->transformations.posX -= offset.x;
+                    obj->transformations.posY -= offset.y;
+                    obj->transformations.posZ -= offset.z;
+                }
+            }
+        }
+
+
+        ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&transformMode), LOCAL);
         ImGui::SameLine();
-        ImGui::RadioButton("Wspolny Środek", &transformMode, 1);
+        ImGui::RadioButton("Wspolny Środek", reinterpret_cast<int *>(&transformMode), COMMON_CENTER);
         ImGui::SameLine();
-        ImGui::RadioButton("Wzgledem Kursora", &transformMode, 2);
+        ImGui::RadioButton("Wzgledem Kursora", reinterpret_cast<int *>(&transformMode), CURSOR_CENTER);
         ImGui::SameLine();
-        ImGui::RadioButton("Cala Scena", &transformMode, 3);
+        ImGui::RadioButton("Cala Scena", reinterpret_cast<int *>(&transformMode), ENTIRE_SCENE);
 
         ImGui::Separator();
 
 
         ImGui::Text("Metoda transformacji:");
 
-        if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", &inputMode, 0) && prevInputMode == 1)
+        if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", reinterpret_cast<int *>(&inputMode), INPUT_MOUSE) && prevInputMode == INPUT_GUI)
         {
             clearGuiState();
         }
         ImGui::SameLine();
-        ImGui::RadioButton("Wartosci z GUI (Live Preview)", &inputMode, 1);
+        ImGui::RadioButton("Wartosci z GUI (Live Preview)", reinterpret_cast<int *>(&inputMode), INPUT_GUI);
         prevInputMode = inputMode;
 
 
-        if (inputMode == 1)
+        if (inputMode == INPUT_GUI)
         {
             ImGui::Separator();
             ImGui::DragFloat3("Przesuniecie (XYZ)", guiDeltaPos, 0.1f, min_pos, max_pos);
@@ -619,7 +750,7 @@ int main()
                 previewQuat.normalize();
 
 
-                if (transformMode == 0) // local - aplikujemy bezpośrednio na obiekty
+                if (transformMode == LOCAL) // local - aplikujemy bezpośrednio na obiekty
                 {
                     for (auto& obj : sceneObjects)
                     {
@@ -639,7 +770,7 @@ int main()
                 else
                 {
                     // GRUPOWE - używamy funkcji bakeGroupTransform
-                    Vect3 center = (transformMode == 3) ? Vect3(0,0,0) : ((transformMode == 2) ? cursor.transform.getPosition() : centerOfSelection);
+                    Vect3 center = (transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
                     Transformations tempGroup;
                     tempGroup.posX = guiDeltaPos[0];
@@ -649,7 +780,7 @@ int main()
                     tempGroup.rotation = previewQuat;
 
 
-                    bakeGroupTransform(sceneObjects, tempGroup, center, transformMode == 3);
+                    bakeGroupTransform(sceneObjects, tempGroup, center, transformMode == ENTIRE_SCENE);
                 }
                 clearGuiState();
             }
@@ -661,23 +792,48 @@ int main()
             }
         }
 
+        ImGui::Separator();
+        if (ImGui::CollapsingHeader("Sterowanie Kamerą"))
+        {
+            // Pobieramy "wypieczony" stan. Niepożądane jest edytowanie wartości z GUI
+            // w trakcie przeciągania myszką (powodowałoby to skoki).
+            if (!isCamDragging)
+            {
+                ImGui::DragFloat3("Pozycja Kamery", &camera.position.x, 0.1f);
+                ImGui::DragFloat3("Cel Kamery (Target)", &camera.target.x, 0.1f);
+
+                if (ImGui::Button("Reset Kamery")) {
+                    camera.position = Vect3(5.0f, -25.0f, 20.0f);
+                    camera.target = Vect3(0.0f, 0.0f, 0.0f);
+                }
+            }
+            else
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Edycja myszką w toku...");
+            }
+        }
 
 
 
         ImGui::Separator();
         ImGui::Text("Lista Obiektow na Scenie:");
-        for (auto& obj : sceneObjects)
-        {
+
+        // rysowanie pojedynczego wiesza gui dla obiektow
+        auto renderObjectGuiRow = [&](std::shared_ptr<SceneObject>& obj) {
             ImGui::PushID(obj.get());
+
             ImGui::Checkbox("##sel", &obj->isSelected);
             ImGui::SameLine();
 
+
             char nameBuf[128];
             strcpy(nameBuf, obj->name.c_str());
+            ImGui::SetNextItemWidth(150);
             if (ImGui::InputText("##name", nameBuf, IM_ARRAYSIZE(nameBuf))) obj->name = nameBuf;
+            ImGui::SameLine();
 
 
-            if (obj->isSelected)
+            if (ImGui::TreeNode("Edytuj"))
             {
                 ImGui::Indent();
 
@@ -711,26 +867,60 @@ int main()
                         t->UpdateBuffers();
                     }
                 }
+                else if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+                {
+                    ImGui::Text("Geometria Punktu:");
+                    ImGui::SliderFloat("Rozmiar", &p->size, 1.0f, 20.0f);
+                }
 
                 ImGui::Unindent();
                 ImGui::Separator();
+                ImGui::TreePop(); // Zamknięcie węzła "Edytuj"
             }
             ImGui::PopID();
+        };
+
+
+        if (ImGui::TreeNodeEx("Obiekty", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            for (auto& obj : sceneObjects)
+            {
+                // na razie tylko jezeli sa torusami
+                if (std::dynamic_pointer_cast<SceneTorus>(obj))
+                {
+                    renderObjectGuiRow(obj);
+                }
+            }
+            ImGui::TreePop();
         }
+
+
+        if (ImGui::TreeNodeEx("Punkty", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            for (auto& obj : sceneObjects)
+            {
+                if (std::dynamic_pointer_cast<ScenePoint>(obj))
+                {
+                    renderObjectGuiRow(obj);
+                }
+            }
+            ImGui::TreePop();
+        }
+
         ImGui::End();
+
 
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.use();
 
-        Mat4 M_View  = createViewMatrix(cameraPos, target, up);
+
+        Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj  = createProjectionMatrix(fov, aspectRatio, min_camera_distance_view, max_camera_distance_view );
 
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-
 
 
         Mat4 M_group_mouse(1.0f);
@@ -738,7 +928,7 @@ int main()
 
 
         Quaternion previewDeltaQuat(1.0f, 0.0f, 0.0f, 0.0f);
-        if (inputMode == 1)
+        if (inputMode == INPUT_GUI)
         {
             if (guiRotMode == 0)
             {
@@ -752,7 +942,7 @@ int main()
         }
 
 
-        bool applyMousePreview = (inputMode == 0 && isTransformationActive && (transformMode == 1 || transformMode == 2 || transformMode == 3));
+        bool applyMousePreview = (inputMode == INPUT_MOUSE && isTransformationActive && (transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER || transformMode == ENTIRE_SCENE));
         if (applyMousePreview)
         {
             Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
@@ -763,10 +953,10 @@ int main()
         }
 
 
-        bool applyGuiPreviewGroup = (inputMode == 1 && transformMode != 0);
+        bool applyGuiPreviewGroup = (inputMode == INPUT_GUI && transformMode != LOCAL);
         if (applyGuiPreviewGroup)
         {
-            Vect3 center = (transformMode == 3) ? Vect3(0,0,0) : ((transformMode == 2) ? cursor.transform.getPosition() : centerOfSelection);
+            Vect3 center = (transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
             Mat4 T_toOrigin = Mat4::translate_inverse(center);
             Mat4 R_group = previewDeltaQuat.toMat4();
             Mat4 S_group = Mat4::scale(Vect3(guiDeltaScale, guiDeltaScale, guiDeltaScale));
@@ -777,14 +967,14 @@ int main()
 
         for (auto& obj : sceneObjects)
         {
-            bool isTargetGroup = (transformMode == 3 || obj->isSelected);
-            bool isTargetLocal = (transformMode == 0 && obj->isSelected);
+            bool isTargetGroup = (transformMode == ENTIRE_SCENE || obj->isSelected);
+            bool isTargetLocal = (transformMode == LOCAL && obj->isSelected);
 
-            // Dodajemy sprawdzanie, czy myszka aktualnie transformuje obiekty lokalnie
-            bool isMouseLocalTransform = (inputMode == 0 && isTransformationActive && isTargetLocal);
 
-            // Aplikujemy tymczasowe zmiany jeśli to GUI ALBO myszka w trybie lokalnym
-            if ((inputMode == 1 && isTargetLocal) || isMouseLocalTransform)
+            bool isMouseLocalTransform = (inputMode == INPUT_MOUSE && isTransformationActive && isTargetLocal);
+
+
+            if ((inputMode == INPUT_GUI && isTargetLocal) || isMouseLocalTransform)
             {
                 Quaternion oldRot = obj->transformations.rotation;
 
