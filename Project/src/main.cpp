@@ -44,7 +44,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 }
 
 
-enum DragMode { NONE, TRANSLATE, ROTATE_X, ROTATE_Y, ROTATE_Z, SCALE, ROTATE_FREE };
+enum DragMode { BOX, TRANSLATE, ROTATE_X, ROTATE_Y, ROTATE_Z, SCALE, ROTATE_FREE };
 
 int main()
 {
@@ -120,8 +120,9 @@ int main()
     double boxSmallestXY = 5.0;
 
     bool isDragging = false;
-    DragMode currentMode = NONE;
+    DragMode currentMode = BOX;
     double lastMouseX = 0, lastMouseY = 0;
+    double startMouseX = 0, startMouseY = 0;
 
 
     float min_pos = -50.0f;
@@ -252,7 +253,7 @@ int main()
                     else if (inputMode == 0 && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) currentMode = SCALE;
                     else
                     {
-                        currentMode = NONE;
+                        currentMode = BOX;
 
                         // start rysowania ramki
                         isBoxSelecting = true;
@@ -263,9 +264,14 @@ int main()
                     }
 
 
-                    if (currentMode != NONE)
+                    if (currentMode != BOX)
                     {
                         isTransformationActive = true;
+                        startMouseX = mouseX;
+                        startMouseY = mouseY;
+                        groupTransform = Transformations();
+
+
                         if (transformMode == 1)
                             centerOfTransformations = centerOfSelection;
                         else if (transformMode == 2)
@@ -371,95 +377,77 @@ int main()
                 // baking transformation to objects
                 if (isTransformationActive)
                 {
-                    if (transformMode == 1 || transformMode == 2 || transformMode == 3)
+                    if (transformMode == 0)
+                    {
+                        // Wypalanie dla trybu lokalnego
+                        for (auto& obj : sceneObjects)
+                        {
+                            if (!obj->isSelected) continue;
+
+                            obj->transformations.posX += groupTransform.posX;
+                            obj->transformations.posY += groupTransform.posY;
+                            obj->transformations.posZ += groupTransform.posZ;
+                            obj->transformations.scale *= groupTransform.scale;
+                            obj->transformations.rotation = groupTransform.rotation * obj->transformations.rotation;
+                            obj->transformations.rotation.normalize();
+                        }
+                    }
+                    else if (transformMode == 1 || transformMode == 2 || transformMode == 3)
+                    {
+                        // Wypalanie dla trybów grupowych
                         bakeGroupTransform(sceneObjects, groupTransform, centerOfTransformations, transformMode == 3);
+                    }
 
                     groupTransform = Transformations();
                     isTransformationActive = false;
                 }
 
                 isDragging = false;
-                currentMode = NONE;
+                currentMode = BOX;
             }
 
 
-            if (isDragging && currentMode != NONE)
+            if (isDragging && currentMode != BOX)
             {
-                if (mouseX != lastMouseX || mouseY != lastMouseY)
+                float dx_screen = (float)(mouseX - startMouseX);
+                float dy_screen = (float)(mouseY - startMouseY);
+
+                float dx_world = (dx_screen / (float)winWidth) * 2.0f * aspectRatio;
+                float dy_world = (dy_screen / (float)winHeight) * 2.0f;
+
+                // zerowanie transformacji
+                groupTransform = Transformations();
+
+                if (currentMode == TRANSLATE)
                 {
-                    float dx_screen = (float)(mouseX - lastMouseX);
-                    float dy_screen = (float)(mouseY - lastMouseY);
-
-
-                    float dx_world = (dx_screen / (float)winWidth) * 2.0f * aspectRatio;
-                    float dy_world = (dy_screen / (float)winHeight) * 2.0f;
-
-
-                    Vect3 deltaPos(0.0f, 0.0f, 0.0f);
-                    float deltaScale = 1.0f;
-                    Quaternion deltaQuat;
-
-
-                    if (currentMode == TRANSLATE)
+                    groupTransform.posX = 15.0f * dx_world;
+                    groupTransform.posY = -15.0f * dy_world;
+                }
+                else if (currentMode == ROTATE_X)
+                {
+                    groupTransform.rotation = Quaternion::fromAxisAngle(1.0f, 0.0f, 0.0f, dy_world * 2.0f);
+                }
+                else if (currentMode == ROTATE_Y)
+                {
+                    groupTransform.rotation = Quaternion::fromAxisAngle(0.0f, 1.0f, 0.0f, dx_world * 2.0f);
+                }
+                else if (currentMode == ROTATE_Z)
+                {
+                    groupTransform.rotation = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, dx_world * 2.0f);
+                }
+                else if (currentMode == SCALE)
+                {
+                    groupTransform.scale = std::max(0.01f, 1.0f + (dx_world - dy_world) * 0.9f);
+                }
+                else if (currentMode == ROTATE_FREE)
+                {
+                    float angle = std::sqrt(dx_world * dx_world + dy_world * dy_world) * 2.0f;
+                    if (angle > 0.0001f)
                     {
-                        deltaPos.x = 15.0f * dx_world;
-                        deltaPos.y = -15.0f * dy_world;
-                    }
-                    else if (currentMode == ROTATE_X)
-                    {
-                        deltaQuat = Quaternion::fromAxisAngle(1.0f, 0.0f, 0.0f, dy_world * 2.0f);
-                    }
-                    else if (currentMode == ROTATE_Y)
-                    {
-                        deltaQuat = Quaternion::fromAxisAngle(0.0f, 1.0f, 0.0f, dx_world * 2.0f);
-                    }
-                    else if (currentMode == ROTATE_Z)
-                    {
-                        deltaQuat = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, dx_world * 2.0f);
-                    }
-                    else if (currentMode == SCALE)
-                    {
-                        deltaScale = std::max(0.01f, 1.0f + (dx_world - dy_world) * 0.9f);
-                    }
-                    else if (currentMode == ROTATE_FREE)
-                    {
-                        float angle = std::sqrt(dx_world * dx_world + dy_world * dy_world) * 2.0f;
-
-                        if (angle > 0.0001f)
-                        {
-                            deltaQuat = Quaternion::fromAxisAngle(dy_world, dx_world, 0.0f, angle);
-                        }
-                    }
-
-
-                    if (transformMode == 0) // lolaklny tryb, zmiany nanoszone od razu do obiektow
-                    {
-                        for (auto& obj : sceneObjects)
-                        {
-                            if (!obj->isSelected) continue;
-
-                            obj->transformations.posX += deltaPos.x;
-                            obj->transformations.posY += deltaPos.y;
-                            obj->transformations.posZ += deltaPos.z;
-
-                            obj->transformations.scale *= deltaScale;
-
-                            obj->transformations.rotation = deltaQuat * obj->transformations.rotation;
-                            obj->transformations.rotation.normalize();
-                        }
-                    }
-                    else // zmiany nanoszone do strukttury globalnej grupy zaznaczonej
-                    {
-                        groupTransform.posX += deltaPos.x;
-                        groupTransform.posY += deltaPos.y;
-                        groupTransform.posZ += deltaPos.z;
-
-                        groupTransform.rotation = deltaQuat * groupTransform.rotation;
-                        groupTransform.rotation.normalize();
-
-                        groupTransform.scale *= deltaScale;
+                        groupTransform.rotation = Quaternion::fromAxisAngle(dy_world, dx_world, 0.0f, angle);
                     }
                 }
+
             }
             lastMouseX = mouseX;
             lastMouseY = mouseY;
@@ -792,42 +780,48 @@ int main()
             bool isTargetGroup = (transformMode == 3 || obj->isSelected);
             bool isTargetLocal = (transformMode == 0 && obj->isSelected);
 
-            if (inputMode == 1 && isTargetLocal) //GUI, lokalnie, wybrane
+            // Dodajemy sprawdzanie, czy myszka aktualnie transformuje obiekty lokalnie
+            bool isMouseLocalTransform = (inputMode == 0 && isTransformationActive && isTargetLocal);
+
+            // Aplikujemy tymczasowe zmiany jeśli to GUI ALBO myszka w trybie lokalnym
+            if ((inputMode == 1 && isTargetLocal) || isMouseLocalTransform)
             {
                 Quaternion oldRot = obj->transformations.rotation;
 
-                // Modifikacja
-                obj->transformations.posX += guiDeltaPos[0];
-                obj->transformations.posY += guiDeltaPos[1];
-                obj->transformations.posZ += guiDeltaPos[2];
-                obj->transformations.scale *= guiDeltaScale;
+                // Wybieramy z którego źródła bierzemy delty
+                float tPosX = isMouseLocalTransform ? groupTransform.posX : guiDeltaPos[0];
+                float tPosY = isMouseLocalTransform ? groupTransform.posY : guiDeltaPos[1];
+                float tPosZ = isMouseLocalTransform ? groupTransform.posZ : guiDeltaPos[2];
+                float tScale = isMouseLocalTransform ? groupTransform.scale : guiDeltaScale;
+                Quaternion tRot = isMouseLocalTransform ? groupTransform.rotation : previewDeltaQuat;
 
-                obj->transformations.rotation = previewDeltaQuat * obj->transformations.rotation;
+                // Aplikujemy na czas rysowania
+                obj->transformations.posX += tPosX;
+                obj->transformations.posY += tPosY;
+                obj->transformations.posZ += tPosZ;
+                obj->transformations.scale *= tScale;
+                obj->transformations.rotation = tRot * obj->transformations.rotation;
                 obj->transformations.rotation.normalize();
 
-
-                //obj->Draw(shader, Mat4(1.0f));
                 obj->Draw(shader);
 
-                // Cofa Modifikację
-                obj->transformations.posX -= guiDeltaPos[0];
-                obj->transformations.posY -= guiDeltaPos[1];
-                obj->transformations.posZ -= guiDeltaPos[2];
-                obj->transformations.scale /= guiDeltaScale;
-
+                // Cofamy modyfikację
+                obj->transformations.posX -= tPosX;
+                obj->transformations.posY -= tPosY;
+                obj->transformations.posZ -= tPosZ;
+                obj->transformations.scale /= tScale;
                 obj->transformations.rotation = oldRot;
             }
-            else if (applyGuiPreviewGroup && isTargetGroup) //gui, wybrane - czyli preview
+            else if (applyGuiPreviewGroup && isTargetGroup) // gui, wybrane - czyli preview
             {
                 obj->Draw(shader, M_group_gui);
             }
-            else if (applyMousePreview && isTargetGroup) //mysz, wybrane - prewiev
+            else if (applyMousePreview && isTargetGroup) // mysz, wybrane - prewiev (dla wspolnego srodka)
             {
                 obj->Draw(shader, M_group_mouse);
             }
             else // bez preview
             {
-                //obj->Draw(shader, Mat4(1.0f));
                 obj->Draw(shader);
             }
         }
