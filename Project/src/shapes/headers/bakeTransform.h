@@ -4,6 +4,9 @@
 #include <vector>
 #include "transformations.h"
 #include "sceneObject.h"
+#include "scenePoint.h"
+#include "sceneTorus.h"
+#include "sceneBezierC0.h"
 
 void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
 {
@@ -16,21 +19,27 @@ void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Tran
 
     for(auto& obj : objects)
     {
-        if(!obj->isSelected && !applyToAll)
-            continue;
+        bool shouldBake = applyToAll || obj->isSelected;
 
+        // Magiczna logika decyzyjna
+        if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+            if (p->selectedCurvesCount > 0) shouldBake = true;
+        } else if (auto t = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+            // jest to Krzywa. Nigdy nie transformuj krzywej.
+            continue;
+        }
+
+        if(!shouldBake)
+            continue;
 
         Vect3 oldPos = obj->transformations.getPosition();
         Vect4 pos4(oldPos.x, oldPos.y, oldPos.z, 1.0f);
         Vect4 newPos4 = M_group * pos4;
         obj->transformations.setPosition(Vect3(newPos4.x, newPos4.y, newPos4.z));
 
-
         obj->transformations.rotation = groupTransform.rotation * obj->transformations.rotation;
         obj->transformations.rotation.normalize();
 
-
         obj->transformations.scale *= groupTransform.scale;
     }
-
 }

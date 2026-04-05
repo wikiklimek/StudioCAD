@@ -38,6 +38,7 @@ float const PI = (float)M_PI;
 #include "scenePoint.h"
 #include "bakeTransform.h"
 #include "camera.h"
+#include "sceneBezierC0.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -88,6 +89,11 @@ int main()
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     Shader shader("src/shaders/torus.vs", "src/shaders/torus.fs");
+
+    Shader bezierShader("src/shaders/bezier.vs", "src/shaders/bezier.fs");
+
+    bool magicMode = false;
+    std::shared_ptr<SceneBezierC0> magicCurve = nullptr;
 
 
     Cursor cursor;
@@ -324,8 +330,15 @@ int main()
                 }
                 else if (camMode == CAM_ZOOM)
                 {
-                    //w górę przybliża, w dół oddala
-                    camera.tempZoom = std::max(0.1f, 1.0f - dy_world * 2.0f);
+                    Vect3 dir = camera.getDirectionNotBaked();
+                    // Obliczamy prawdziwy dystans 3D
+                    float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+
+                    // Bezpiecznik: Minimalny współczynnik zoomu zapobiegający wejściu w target
+                    float minZoom = 0.1f / dist;
+
+                    // w górę przybliża, w dół oddala (blokujemy przed wejściem na <0.1 dystansu)
+                    camera.tempZoom = std::max(minZoom, 1.0f - dy_world * 2.0f);
                 }
                 else if (camMode == CAM_PAN)
                 {
@@ -350,7 +363,28 @@ int main()
             // Obsługa klawiszy trybów i kliknięć
             if (isLeftClick)
             {
-                if (!isDragging)
+                if (magicMode)
+                {
+                    if (!isDragging) // Uruchomi się tylko raz na kliknięcie
+                    {
+                        // 1. Zaktualizuj pozycję kursora natychmiastowo
+                        Vect3 activeCamPos(0.0), activeCamTarget(0.0);
+                        camera.getActiveState(activeCamPos, activeCamTarget);
+                        Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, activeCamPos, activeCamTarget, camera.up, fov);
+                        Vect3 intersection = getCursorIntersection(activeCamPos, rayDir);
+                        cursor.transform.setPosition(intersection);
+                        cursor.screenX = (float)mouseX;
+                        cursor.screenY = (float)mouseY;
+
+                        // 2. Stwórz punkt i dodaj do magicznej krzywej
+                        auto p = std::make_shared<ScenePoint>("Punkt " + std::to_string(sceneObjects.size()+1), cursor.transform);
+                        p->Init();
+                        sceneObjects.push_back(p);
+                        magicCurve->points.push_back(p);
+                    }
+                    isDragging = true;
+                }
+                else if (!isDragging)
                 {
                     if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
                     else if (inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
@@ -403,6 +437,13 @@ int main()
                 if (isBoxSelecting)
                 {
                     isBoxSelecting = false;
+
+                    // Box odznacza WSZYSTKIE krzywe beziera (chyba że mamy Shift, ale prosiłaś bez)
+                    for(auto& obj : sceneObjects) {
+                        if (std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                            obj->isSelected = false;
+                        }
+                    }
 
                     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) != GLFW_PRESS &&
                         glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) != GLFW_PRESS)
@@ -496,7 +537,15 @@ int main()
                         // Wypalanie dla trybu lokalnego
                         for (auto& obj : sceneObjects)
                         {
-                            if (!obj->isSelected) continue;
+                            // NOWY KOD WYPIEKANIA LOCAL
+                            if (std::dynamic_pointer_cast<SceneBezierC0>(obj)) continue; // Krzywe ignorujemy
+
+                            bool shouldBake = obj->isSelected;
+                            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+                                if (p->selectedCurvesCount > 0) shouldBake = true;
+                            }
+
+                            if (!shouldBake) continue;
 
                             obj->transformations.posX += groupTransform.posX;
                             obj->transformations.posY += groupTransform.posY;
@@ -568,9 +617,26 @@ int main()
         }
 
 
+
+        // --- AKTUALIZACJA ZNACZNIKÓW PUNKTÓW ---
+        for (auto& obj : sceneObjects) {
+            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) p->selectedCurvesCount = 0;
+        }
+        for (auto& obj : sceneObjects) {
+            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                if (b->isSelected) {
+                    for (auto& wp : b->points) {
+                        if (auto p = wp.lock()) p->selectedCurvesCount++;
+                    }
+                }
+            }
+        }
+
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
 
 
         ImGui::Begin("Sterowanie i Obiekty");
@@ -604,6 +670,103 @@ int main()
             auto p = std::make_shared<ScenePoint>("Punkt " + std::to_string(sceneObjects.size()+1), cursor.transform);
             p->Init();
             sceneObjects.push_back(p);
+
+            // Auto-dodawanie do zaznaczonych krzywych (Drugi przypadek z Twojego opisu)
+            for(auto& obj : sceneObjects) {
+                if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                    if (b->isSelected) b->points.push_back(p);
+                }
+            }
+        }
+        ImGui::SameLine();
+
+        //zmianna w konkretnej klatce wiec lolanie deklaruje
+        bool isGuiDisabledThisFrame = false;
+
+        // Zmienna statyczna zapamiętująca nasz wybór z listy
+        static int selectedBezierIndex = 0;
+
+        if (!magicMode)
+        {
+            // 1. Zbieramy nazwy wszystkich dostępnych krzywych na scenie
+            std::vector<std::string> bezierNames;
+            std::vector<std::shared_ptr<SceneBezierC0>> bezierPointers;
+            bezierNames.push_back("Nowy Bezier"); // Opcja domyślna
+
+            for (auto& obj : sceneObjects) {
+                if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                    bezierNames.push_back(b->name);
+                    bezierPointers.push_back(b);
+                }
+            }
+            // Zabezpieczenie, gdybyśmy usunęli krzywą z listy
+            if (selectedBezierIndex >= bezierNames.size()) selectedBezierIndex = 0;
+
+            // 2. Rysujemy kontrolkę Combo Box
+            ImGui::SetNextItemWidth(120);
+            if (ImGui::BeginCombo("##bezierCombo", bezierNames[selectedBezierIndex].c_str()))
+            {
+                for (int i = 0; i < bezierNames.size(); i++) {
+                    bool is_selected = (selectedBezierIndex == i);
+                    if (ImGui::Selectable(bezierNames[i].c_str(), is_selected)) {
+                        selectedBezierIndex = i;
+                    }
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
+            ImGui::SameLine();
+
+            // 3. Przycisk Akcji
+            if (ImGui::Button("Stworz/Dodaj"))
+            {
+                std::vector<std::shared_ptr<ScenePoint>> selPts;
+                for(auto& obj : sceneObjects) {
+                    if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+                        if (p->isSelected) selPts.push_back(p);
+                    }
+                }
+
+                if (selectedBezierIndex == 0)
+                {   // TWORZYMY NOWĄ KRZYWĄ [cite: 8]
+                    if (!selPts.empty()) {
+                        auto b = std::make_shared<SceneBezierC0>("Bezier " + std::to_string(sceneObjects.size()+1), Transformations());
+                        b->Init();
+                        for(auto& p : selPts) b->points.push_back(p);
+                        sceneObjects.push_back(b);
+                        magicMode = true;
+                        magicCurve = b;
+                    }
+                }
+                else
+                {   // DODAJEMY DO ISTNIEJĄCEJ KRZYWEJ [cite: 10, 13]
+                    auto b = bezierPointers[selectedBezierIndex - 1];
+                    for(auto& p : selPts) {
+                        // Zabezpieczenie przed dublowaniem węzłów
+                        bool exists = false;
+                        for(auto& wp : b->points) {
+                            if (wp.lock() == p) { exists = true; break; }
+                        }
+                        if (!exists) b->points.push_back(p);
+                    }
+                    magicMode = true;
+                    magicCurve = b;
+                }
+            }
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+            if (ImGui::Button("Zapisz zmiany (Krzywa)")) {
+                magicMode = false;
+                magicCurve = nullptr;
+            }
+            ImGui::PopStyleColor();
+
+            // BLOKADA GUI PODCZAS MAGIC MODE
+            ImGui::BeginDisabled();
+            isGuiDisabledThisFrame = true; // <--- DODAJ TĘ LINIJKĘ
         }
         ImGui::SameLine();
         if (ImGui::Button("Usun Zaznacz."))
@@ -754,7 +917,15 @@ int main()
                 {
                     for (auto& obj : sceneObjects)
                     {
-                        if (obj->isSelected)
+                        // NOWY KOD WYPIEKANIA LOCAL (GUI)
+                        if (std::dynamic_pointer_cast<SceneBezierC0>(obj)) continue; // Krzywe ignorujemy
+
+                        bool shouldBake = obj->isSelected;
+                        if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+                            if (p->selectedCurvesCount > 0) shouldBake = true;
+                        }
+
+                        if (shouldBake)
                         {
                             obj->transformations.posX += guiDeltaPos[0];
                             obj->transformations.posY += guiDeltaPos[1];
@@ -799,12 +970,46 @@ int main()
             // w trakcie przeciągania myszką (powodowałoby to skoki).
             if (!isCamDragging)
             {
-                ImGui::DragFloat3("Pozycja Kamery", &camera.position.x, 0.1f);
-                ImGui::DragFloat3("Cel Kamery (Target)", &camera.target.x, 0.1f);
+                bool camChanged = false; // Flaga monitorująca zmiany
+                camChanged |= ImGui::DragFloat3("Pozycja Kamery", &camera.position.x, 0.1f);
+                camChanged |= ImGui::DragFloat3("Cel Kamery (Target)", &camera.target.x, 0.1f);
 
                 if (ImGui::Button("Reset Kamery")) {
                     camera.position = Vect3(5.0f, -25.0f, 20.0f);
                     camera.target = Vect3(0.0f, 0.0f, 0.0f);
+                    camChanged = true;
+                }
+
+                // ==========================================
+                // ZABEZPIECZENIA WPROWADZANYCH DANYCH
+                // ==========================================
+                if (camChanged)
+                {
+                    Vect3 dir = camera.position - camera.target;
+                    float dist = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+
+                    // 1. Zabezpieczenie przed dystansem mniejszym niż 0.1 (Złączenie punktów)
+                    if (dist < 0.1f)
+                    {
+                        if (dist < 0.0001f) dir = Vect3(0.0f, -1.0f, 0.0f); // Awaryjny wektor awarii
+                        else { dir.x /= dist; dir.y /= dist; dir.z /= dist; }
+
+                        camera.position = camera.target + Vect3(dir.x * 0.1f, dir.y * 0.1f, dir.z * 0.1f);
+                        dir = camera.position - camera.target; // Ponowne przeliczenie po korekcie
+                        dist = 0.1f;
+                    }
+
+                    // 2. Zabezpieczenie przed Gimbal Lock i znikaniem świata (Równoległość do osi Z)
+                    dir.x /= dist; dir.y /= dist; dir.z /= dist; // Normalizacja do długości 1
+
+                    // Iloczyn skalarny z wektorem UP (0,0,1). Jeśli |dot| == 1, patrzymy idealnie w dół/górę
+                    float dot = dir.z;
+                    if (std::abs(dot) > 0.999f)
+                    {
+                        // Dodajemy minimalny dryf do kamery, wybijając ją z niebezpiecznego bieguna
+                        camera.position.x += 0.05f;
+                        camera.position.y += 0.05f;
+                    }
                 }
             }
             else
@@ -822,14 +1027,26 @@ int main()
         auto renderObjectGuiRow = [&](std::shared_ptr<SceneObject>& obj) {
             ImGui::PushID(obj.get());
 
+            // Rysowanie znaczników dla Punktu
+            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+                if (p->selectedCurvesCount > 0) ImGui::TextColored(ImVec4(0, 1, 0, 1), "(O) %d ", p->selectedCurvesCount);
+                else ImGui::TextColored(ImVec4(1, 0, 0, 1), "(O) 0 ");
+                ImGui::SameLine();
+            }
+
             ImGui::Checkbox("##sel", &obj->isSelected);
             ImGui::SameLine();
-
 
             char nameBuf[128];
             strcpy(nameBuf, obj->name.c_str());
             ImGui::SetNextItemWidth(150);
             if (ImGui::InputText("##name", nameBuf, IM_ARRAYSIZE(nameBuf))) obj->name = nameBuf;
+            ImGui::SameLine();
+
+            // NOWY PRZYCISK USUN (DLA WSZYSTKICH)
+            if (ImGui::Button("Usun")) {
+                obj->pendingDelete = true;
+            }
             ImGui::SameLine();
 
 
@@ -839,22 +1056,51 @@ int main()
 
                 ImGui::ColorEdit3("Kolor", obj->color);
 
-                ImGui::Text("Transformacja obiektu:");
-                ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
-                ImGui::DragFloat("Skala", &obj->transformations.scale, 0.05f, min_scale, max_scale);
+                if (!std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                    ImGui::Text("Transformacja obiektu:");
+                    ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
+                    ImGui::DragFloat("Skala", &obj->transformations.scale, 0.05f, min_scale, max_scale);
 
-                float quatVals[4] = {obj->transformations.rotation.w, obj->transformations.rotation.x, obj->transformations.rotation.y, obj->transformations.rotation.z};
-                if (ImGui::DragFloat4("Rotacja (WXYZ)", quatVals, 0.01f, -1.0f, 1.0f))
-                {
-                    obj->transformations.rotation.w = quatVals[0];
-                    obj->transformations.rotation.x = quatVals[1];
-                    obj->transformations.rotation.y = quatVals[2];
-                    obj->transformations.rotation.z = quatVals[3];
-                    obj->transformations.rotation.normalize();
+                    float quatVals[4] = {obj->transformations.rotation.w, obj->transformations.rotation.x,
+                                         obj->transformations.rotation.y, obj->transformations.rotation.z};
+                    if (ImGui::DragFloat4("Rotacja (WXYZ)", quatVals, 0.01f, -1.0f, 1.0f)) {
+                        obj->transformations.rotation.w = quatVals[0];
+                        obj->transformations.rotation.x = quatVals[1];
+                        obj->transformations.rotation.y = quatVals[2];
+                        obj->transformations.rotation.z = quatVals[3];
+                        obj->transformations.rotation.normalize();
+                    }
                 }
 
 
-                if (auto t = std::dynamic_pointer_cast<SceneTorus>(obj))
+                // SPECYFICZNE PARAMETRY BEZIERA
+                if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                    ImGui::Checkbox("Pokaz lamana", &b->showPolygon);
+
+                    if (ImGui::Button("Dodaj nowe punkty")) {
+                        magicMode = true;
+                        magicCurve = b;
+                    }
+
+                    ImGui::Text("Punkty kontrolne:");
+                    // Iteracja ze sprytnym usuwaniem węzła (usun z krzywej)
+                    for (auto it = b->points.begin(); it != b->points.end(); ) {
+                        if (auto ptr = it->lock()) {
+                            ImGui::Text(" - %s", ptr->name.c_str());
+                            ImGui::SameLine();
+                            ImGui::PushID(ptr.get());
+                            if (ImGui::Button("Usun z krzywej")) {
+                                it = b->points.erase(it);
+                            } else {
+                                ++it;
+                            }
+                            ImGui::PopID();
+                        } else {
+                            it = b->points.erase(it); // Usuwanie martwych wskaźników
+                        }
+                    }
+                }
+                else if (auto t = std::dynamic_pointer_cast<SceneTorus>(obj))
                 {
                     ImGui::Text("Geometria Torusa:");
                     bool needsUpdate = false;
@@ -881,12 +1127,21 @@ int main()
         };
 
 
+
+
+
+
+
+
+
+
+
         if (ImGui::TreeNodeEx("Obiekty", ImGuiTreeNodeFlags_DefaultOpen))
         {
             for (auto& obj : sceneObjects)
             {
-                // na razie tylko jezeli sa torusami
-                if (std::dynamic_pointer_cast<SceneTorus>(obj))
+                // jezeli nie jest punktem
+                if (!std::dynamic_pointer_cast<ScenePoint>(obj))
                 {
                     renderObjectGuiRow(obj);
                 }
@@ -907,40 +1162,32 @@ int main()
             ImGui::TreePop();
         }
 
+        // Zdejmujemy blokadę GUI tylko wtedy, gdy faktycznie weszliśmy w magiczny tryb
+        // ZMIENIONY WARUNEK:
+        if (isGuiDisabledThisFrame)
+        {
+            ImGui::EndDisabled();
+        }
         ImGui::End();
+
 
 
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.use();
-
-
         Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj  = createProjectionMatrix(fov, aspectRatio, min_camera_distance_view, max_camera_distance_view );
-
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
 
         Mat4 M_group_mouse(1.0f);
         Mat4 M_group_gui(1.0f);
 
-
         Quaternion previewDeltaQuat(1.0f, 0.0f, 0.0f, 0.0f);
         if (inputMode == INPUT_GUI)
         {
-            if (guiRotMode == 0)
-            {
-                previewDeltaQuat = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * PI / 180.0f);
-            }
-            else if (guiRotMode == 1)
-            {
-                previewDeltaQuat = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
-            }
+            if (guiRotMode == 0) previewDeltaQuat = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * PI / 180.0f);
+            else if (guiRotMode == 1) previewDeltaQuat = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
             previewDeltaQuat.normalize();
         }
-
 
         bool applyMousePreview = (inputMode == INPUT_MOUSE && isTransformationActive && (transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER || transformMode == ENTIRE_SCENE));
         if (applyMousePreview)
@@ -951,7 +1198,6 @@ int main()
             Mat4 T_toPos = Mat4::translate(centerOfTransformations + groupTransform.getPosition());
             M_group_mouse = T_toPos * R_group * S_group * T_toOrigin;
         }
-
 
         bool applyGuiPreviewGroup = (inputMode == INPUT_GUI && transformMode != LOCAL);
         if (applyGuiPreviewGroup)
@@ -965,27 +1211,53 @@ int main()
         }
 
 
-        for (auto& obj : sceneObjects)
-        {
-            bool isTargetGroup = (transformMode == ENTIRE_SCENE || obj->isSelected);
-            bool isTargetLocal = (transformMode == LOCAL && obj->isSelected);
 
+        // Wyciągamy stan transformacji do zmiennych, żeby przekazać je do krzywej:
+        bool isTransforming = (inputMode == INPUT_MOUSE && isTransformationActive) || (inputMode == INPUT_GUI);
+        bool isLocal = (transformMode == LOCAL);
+        Vect3 localDelta = (inputMode == INPUT_MOUSE) ?
+                           Vect3(groupTransform.posX, groupTransform.posY, groupTransform.posZ) :
+                           Vect3(guiDeltaPos[0], guiDeltaPos[1], guiDeltaPos[2]);
+        Mat4 activeGroupMat = (inputMode == INPUT_MOUSE) ? M_group_mouse : M_group_gui;
+
+
+
+        // Rysowanie fizycznych obiektów z podglądem
+        shader.use();
+        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+        for (auto& obj : sceneObjects) {
+            if (std::dynamic_pointer_cast<SceneBezierC0>(obj)) continue;
+
+            bool isTargetGroup = false;
+            bool isTargetLocal = false;
+
+            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
+                if (p->isSelected || p->selectedCurvesCount > 0) {
+                    isTargetGroup = (transformMode == ENTIRE_SCENE || transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER);
+                    isTargetLocal = (transformMode == LOCAL);
+                }
+            } else {
+                if (obj->isSelected) {
+                    isTargetGroup = (transformMode == ENTIRE_SCENE || transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER);
+                    isTargetLocal = (transformMode == LOCAL);
+                }
+            }
+            if (transformMode == ENTIRE_SCENE) isTargetGroup = true;
 
             bool isMouseLocalTransform = (inputMode == INPUT_MOUSE && isTransformationActive && isTargetLocal);
 
-
+            // Aplikacja i cofnięcie podglądu DLA SAMEGO RYSOWANIA (Stary, wydajny sposób)
             if ((inputMode == INPUT_GUI && isTargetLocal) || isMouseLocalTransform)
             {
                 Quaternion oldRot = obj->transformations.rotation;
-
-                // Wybieramy z którego źródła bierzemy delty
                 float tPosX = isMouseLocalTransform ? groupTransform.posX : guiDeltaPos[0];
                 float tPosY = isMouseLocalTransform ? groupTransform.posY : guiDeltaPos[1];
                 float tPosZ = isMouseLocalTransform ? groupTransform.posZ : guiDeltaPos[2];
                 float tScale = isMouseLocalTransform ? groupTransform.scale : guiDeltaScale;
                 Quaternion tRot = isMouseLocalTransform ? groupTransform.rotation : previewDeltaQuat;
 
-                // Aplikujemy na czas rysowania
                 obj->transformations.posX += tPosX;
                 obj->transformations.posY += tPosY;
                 obj->transformations.posZ += tPosZ;
@@ -995,30 +1267,36 @@ int main()
 
                 obj->Draw(shader);
 
-                // Cofamy modyfikację
                 obj->transformations.posX -= tPosX;
                 obj->transformations.posY -= tPosY;
                 obj->transformations.posZ -= tPosZ;
                 obj->transformations.scale /= tScale;
                 obj->transformations.rotation = oldRot;
             }
-            else if (applyGuiPreviewGroup && isTargetGroup) // gui, wybrane - czyli preview
-            {
-                obj->Draw(shader, M_group_gui);
-            }
-            else if (applyMousePreview && isTargetGroup) // mysz, wybrane - prewiev (dla wspolnego srodka)
-            {
-                obj->Draw(shader, M_group_mouse);
-            }
-            else // bez preview
-            {
-                obj->Draw(shader);
+            else if (applyGuiPreviewGroup && isTargetGroup) obj->Draw(shader, M_group_gui);
+            else if (applyMousePreview && isTargetGroup) obj->Draw(shader, M_group_mouse);
+            else obj->Draw(shader);
+        }
+
+        // Rysowanie krzywych Beziera (Z przekazaniem macierzy - TWÓJ POMYSŁ!)
+        // Rysowanie krzywych Beziera (Z przekazaniem flagi transformAll na końcu)
+        for (auto& obj : sceneObjects) {
+            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+                shader.use();
+                b->DrawPolygon(shader, isTransforming, isLocal, localDelta, activeGroupMat, (transformMode == ENTIRE_SCENE));
+
+                bezierShader.use();
+                glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "view"), 1, GL_FALSE, M_View.table);
+                glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+                b->DrawBezier(bezierShader, M_Proj * M_View, winWidth, winHeight, isTransforming, isLocal, localDelta, activeGroupMat, (transformMode == ENTIRE_SCENE));
             }
         }
 
+        // Zresetowanie shadera i rysowanie narzędzi UI
+        shader.use();
 
         cursor.Draw(shader);
-
 
         if(drawAxesEuler)
         {
@@ -1027,13 +1305,13 @@ int main()
             drawEulerAxes(shader, localAxisVAO, dummyPos, dummyRot, 100.0f);
         }
 
-
-
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
         glfwSwapBuffers(window);
 
+        // Skasuj obiekty (w tym puste krzywe)
+        sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
+                                          [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());
     }
 
 

@@ -52,6 +52,8 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/cursor.cpp
         src/shapes/source/quaternion.cpp
         src/shapes/headers/camera.h
+        src/shapes/headers/sceneBezierC0.h
+        src/shapes/source/sceneBezierC0.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

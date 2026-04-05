@@ -7,6 +7,7 @@
 
 class ScenePoint : public SceneObject {
 public:
+    int selectedCurvesCount = 0; // <--- DODAJ TO
     unsigned int VAO, VBO;
     float size;
 
