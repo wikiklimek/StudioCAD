@@ -32,6 +32,25 @@ public:
     float guiRotAngle = 0.0f;
     float guiRotQuat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 
+    Transformations getGuiDelta() const
+    {
+        Transformations t;
+        t.posX = guiDeltaPos[0];
+        t.posY = guiDeltaPos[1];
+        t.posZ = guiDeltaPos[2];
+        t.scale = guiDeltaScale;
+
+        Quaternion q(1.0f, 0.0f, 0.0f, 0.0f);
+        if (guiRotMode == 0)
+            q = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * (float)M_PI / 180.0f);
+        else if (guiRotMode == 1)
+            q = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
+        q.normalize();
+
+        t.rotation = q;
+        return t;
+    }
+
     void clearGuiState();
 
     // PODMIENIONY NAGŁÓWEK FUNKCJI:

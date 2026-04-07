@@ -3,7 +3,9 @@
 #include <memory>
 #include <vector>
 
-inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
+
+// Zmienione: dodane 'const' przed Transformations& groupTransform
+inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, const Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
 {
     Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
     Mat4 R_group = groupTransform.rotation.toMat4();
@@ -14,19 +16,14 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
 
     for(auto& obj : objects)
     {
-        bool shouldBake = applyToAll || obj->isSelected;
+        if (obj->objectType == ObjectType::BezierCurveC0) continue; // Nigdy nie transformuj krzywej
 
-        // Magiczna logika decyzyjna
+        bool shouldBake = applyToAll || obj->isSelected;
         if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
             if (p->selectedCurvesCount > 0) shouldBake = true;
         }
-        else if (obj->objectType == ObjectType::BezierCurveC0)
-        {
-            continue;
-        }
 
-        if(!shouldBake)
-            continue;
+        if(!shouldBake) continue;
 
         Vect3 oldPos = obj->transformations.getPosition();
         Vect4 pos4(oldPos.x, oldPos.y, oldPos.z, 1.0f);
@@ -35,7 +32,40 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
 
         obj->transformations.rotation = groupTransform.rotation * obj->transformations.rotation;
         obj->transformations.rotation.normalize();
-
         obj->transformations.scale *= groupTransform.scale;
+    }
+}
+
+// NOWOŚĆ: Wspólna funkcja wypiekająca dla myszki i GUI!
+inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const Transformations& delta, TransformMode mode, Vect3 centerOfTransformations)
+{
+    if (mode == LOCAL)
+    {
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::BezierCurveC0)
+                continue;
+
+            bool shouldBake = obj->isSelected;
+            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+            {
+                if (p->selectedCurvesCount > 0)
+                    shouldBake = true;
+            }
+
+            if (shouldBake)
+            {
+                obj->transformations.posX += delta.posX;
+                obj->transformations.posY += delta.posY;
+                obj->transformations.posZ += delta.posZ;
+                obj->transformations.scale *= delta.scale;
+                obj->transformations.rotation = delta.rotation * obj->transformations.rotation;
+                obj->transformations.rotation.normalize();
+            }
+        }
+    }
+    else
+    {
+        bakeGroupTransform(sceneObjects, delta, centerOfTransformations, mode == ENTIRE_SCENE);
     }
 }

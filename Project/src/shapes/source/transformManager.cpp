@@ -70,39 +70,10 @@
     // Wypiekanie myszki w jednym miejscu!
     void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
     {
-        if (!isTransformationActive)
-            return;
+        if (!isTransformationActive) return;
 
-        if (transformMode == LOCAL)
-        {
-            for (auto& obj : sceneObjects)
-            {
-                if (obj->objectType == ObjectType::BezierCurveC0)
-                {
-                    continue;
-                }
-
-                bool shouldBake = obj->isSelected;
-                if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
-                {
-                    if (p->selectedCurvesCount > 0)
-                        shouldBake = true;
-                }
-                if (!shouldBake)
-                    continue;
-
-                obj->transformations.posX += mouseDelta.posX;
-                obj->transformations.posY += mouseDelta.posY;
-                obj->transformations.posZ += mouseDelta.posZ;
-                obj->transformations.scale *= mouseDelta.scale;
-                obj->transformations.rotation = mouseDelta.rotation * obj->transformations.rotation;
-                obj->transformations.rotation.normalize();
-            }
-        }
-        else if (transformMode == COMMON_CENTER || transformMode == CURSOR_CENTER || transformMode == ENTIRE_SCENE)
-        {
-            bakeGroupTransform(sceneObjects, mouseDelta, centerOfTransformations, transformMode == ENTIRE_SCENE);
-        }
+        // UŻYWAMY NOWEJ UNIWERSALNEJ FUNKCJI!
+        bakeTransformations(sceneObjects, mouseDelta, transformMode, centerOfTransformations);
 
         mouseDelta = Transformations();
         isTransformationActive = false;

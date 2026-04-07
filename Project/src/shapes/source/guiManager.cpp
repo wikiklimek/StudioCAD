@@ -296,54 +296,11 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         ImGui::Spacing();
         if (ImGui::Button("Zachowaj Zmiany", ImVec2(150, 30)))
         {
-            Quaternion previewQuat(1.0f, 0.0f, 0.0f, 0.0f);
-            if (guiRotMode == 0)
-                previewQuat = Quaternion::fromAxisAngle(guiRotAxis[0], guiRotAxis[1], guiRotAxis[2], guiRotAngle * (float)M_PI / 180.0f);
-            else if (guiRotMode == 1)
-                previewQuat = Quaternion(guiRotQuat[0], guiRotQuat[1], guiRotQuat[2], guiRotQuat[3]);
-            previewQuat.normalize();
+            Vect3 center = (tm.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((tm.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
-            if (tm.transformMode == LOCAL)
-            {
-                for (auto& obj : sceneObjects)
-                {
-                    if (std::dynamic_pointer_cast<SceneBezierC0>(obj))
-                        continue;
+            // JEDNA LINIJKA WYPIEKANIA!
+            bakeTransformations(sceneObjects, getGuiDelta(), tm.transformMode, center);
 
-                    bool shouldBake = obj->isSelected;
-                    if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
-                    {
-                        if (p->selectedCurvesCount > 0)
-                            shouldBake = true;
-                    }
-
-                    if (shouldBake)
-                    {
-                        obj->transformations.posX += guiDeltaPos[0];
-                        obj->transformations.posY += guiDeltaPos[1];
-                        obj->transformations.posZ += guiDeltaPos[2];
-
-                        obj->transformations.scale = std::max(0.01f, obj->transformations.scale * guiDeltaScale);
-
-                        obj->transformations.rotation = previewQuat * obj->transformations.rotation;
-                        obj->transformations.rotation.normalize();
-                    }
-                }
-            }
-            else
-            {
-                Vect3 center = (tm.transformMode == ENTIRE_SCENE) ?
-                               Vect3(0,0,0) :
-                               ((tm.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
-
-                Transformations tempGroup;
-                tempGroup.posX = guiDeltaPos[0];
-                tempGroup.posY = guiDeltaPos[1];
-                tempGroup.posZ = guiDeltaPos[2];
-                tempGroup.scale = guiDeltaScale;
-                tempGroup.rotation = previewQuat;
-                bakeGroupTransform(sceneObjects, tempGroup, center, tm.transformMode == ENTIRE_SCENE);
-            }
             clearGuiState();
         }
         ImGui::SameLine();

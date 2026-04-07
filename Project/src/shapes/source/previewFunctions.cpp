@@ -60,29 +60,25 @@ PreviewContext buildPreviewContext(const TransformManager& tm, const GuiManager&
 
     if (!ctx.isTransforming) return ctx;
 
-    Vect3 center = (tm.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((tm.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
+    // Magia Unifikacji - jedna zmienna dla obu wejść!
+    Transformations activeDelta;
+    Vect3 center(0.0);
 
-    // Kto steruje w tej klatce? Myszka czy GUI?
     if (tm.inputMode == INPUT_MOUSE)
     {
-        ctx.localDeltaPos = tm.mouseDelta.getPosition();
-        ctx.localDeltaScale = tm.mouseDelta.scale;
-        ctx.localDeltaRot = tm.mouseDelta.rotation;
-        center = tm.centerOfTransformations;
+        activeDelta = tm.mouseDelta;
+        center = tm.centerOfTransformations; // Manager myszki sam pilnuje dobrego środka
     }
     else
     {
-        ctx.localDeltaPos = Vect3(gui.guiDeltaPos[0], gui.guiDeltaPos[1], gui.guiDeltaPos[2]);
-        ctx.localDeltaScale = gui.guiDeltaScale;
-
-        Quaternion previewQuat(1.0f, 0.0f, 0.0f, 0.0f);
-        if (gui.guiRotMode == 0)
-            previewQuat = Quaternion::fromAxisAngle(gui.guiRotAxis[0], gui.guiRotAxis[1], gui.guiRotAxis[2], gui.guiRotAngle * (float)M_PI / 180.0f);
-        else if (gui.guiRotMode == 1)
-            previewQuat = Quaternion(gui.guiRotQuat[0], gui.guiRotQuat[1], gui.guiRotQuat[2], gui.guiRotQuat[3]);
-        previewQuat.normalize();
-        ctx.localDeltaRot = previewQuat;
+        activeDelta = gui.getGuiDelta();     // Manager GUI zwraca ustandaryzowaną paczkę
+        center = (tm.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((tm.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
     }
+
+    // Wspólne przypisanie
+    ctx.localDeltaPos = activeDelta.getPosition();
+    ctx.localDeltaScale = activeDelta.scale;
+    ctx.localDeltaRot = activeDelta.rotation;
 
     // Wyliczenie macierzy grupowej tylko raz dla wszystkich!
     if (!ctx.isLocal)
