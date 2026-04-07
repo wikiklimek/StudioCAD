@@ -60,6 +60,7 @@ add_executable(${PROJECT_NAME}
         src/shapes/headers/transformManager.h
         src/shapes/source/guiManager.cpp
         src/shapes/source/transformManager.cpp
+        src/shapes/headers/appState.h
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

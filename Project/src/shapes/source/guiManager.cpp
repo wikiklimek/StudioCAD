@@ -21,7 +21,7 @@ void GuiManager::clearGuiState()
 
 void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                       Cursor& cursor, Camera& camera,
-                      TransformManager& tm, // <---- WSZYSTKIE 3 ENUMY ZASTĄPIONE TYM!
+                      AppState& state, // <---- WSZYSTKIE 3 ENUMY ZASTĄPIONE TYM!
                       bool isBoxSelecting, double boxStartX, double boxStartY, double boxEndX, double boxEndY,
                       bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve,
                       bool isCamDragging, Vect3& centerOfSelection)
@@ -229,24 +229,24 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         }
     }
 
-    ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&tm.transformMode), LOCAL);
-    ImGui::SameLine(); ImGui::RadioButton("Wspolny Środek", reinterpret_cast<int *>(&tm.transformMode), COMMON_CENTER);
-    ImGui::SameLine(); ImGui::RadioButton("Wzgledem Kursora", reinterpret_cast<int *>(&tm.transformMode), CURSOR_CENTER);
-    ImGui::SameLine(); ImGui::RadioButton("Cala Scena", reinterpret_cast<int *>(&tm.transformMode), ENTIRE_SCENE);
+    ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&state.transformMode), LOCAL);
+    ImGui::SameLine(); ImGui::RadioButton("Wspolny Środek", reinterpret_cast<int *>(&state.transformMode), COMMON_CENTER);
+    ImGui::SameLine(); ImGui::RadioButton("Wzgledem Kursora", reinterpret_cast<int *>(&state.transformMode), CURSOR_CENTER);
+    ImGui::SameLine(); ImGui::RadioButton("Cala Scena", reinterpret_cast<int *>(&state.transformMode), ENTIRE_SCENE);
 
     ImGui::Separator();
     ImGui::Text("Metoda transformacji:");
 
-    if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", reinterpret_cast<int *>(&tm.inputMode), INPUT_MOUSE) && tm.prevInputMode == INPUT_GUI)
+    if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", reinterpret_cast<int *>(&state.inputMode), INPUT_MOUSE) && state.prevInputMode == INPUT_GUI)
     {
         clearGuiState();
     }
     ImGui::SameLine();
-    ImGui::RadioButton("Wartosci z GUI (Live Preview)", reinterpret_cast<int *>(&tm.inputMode), INPUT_GUI);
+    ImGui::RadioButton("Wartosci z GUI (Live Preview)", reinterpret_cast<int *>(&state.inputMode), INPUT_GUI);
 
-    tm.prevInputMode = tm.inputMode;
+    state.prevInputMode = state.inputMode;
 
-    if (tm.inputMode == INPUT_GUI)
+    if (state.inputMode == INPUT_GUI)
     {
         ImGui::Separator();
         ImGui::DragFloat3("Przesuniecie (XYZ)", guiDeltaPos, 0.1f, min_pos, max_pos);
@@ -296,10 +296,12 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         ImGui::Spacing();
         if (ImGui::Button("Zachowaj Zmiany", ImVec2(150, 30)))
         {
-            Vect3 center = (tm.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((tm.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
+            Vect3 center = (state.transformMode == ENTIRE_SCENE) ?
+                    Vect3(0,0,0) :
+                    ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
             // JEDNA LINIJKA WYPIEKANIA!
-            bakeTransformations(sceneObjects, getGuiDelta(), tm.transformMode, center);
+            bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
 
             clearGuiState();
         }

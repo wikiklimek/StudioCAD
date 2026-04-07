@@ -161,7 +161,7 @@ int main()
 
 
 
-
+    AppState appState;
     TransformManager tm;
 
 
@@ -279,15 +279,15 @@ int main()
                 }
                 else if (!isDragging)
                 {
-                    if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) tm.currentMode = TRANSLATE;
-                    else if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) tm.currentMode = ROTATE_FREE;
-                    else if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) tm.currentMode = ROTATE_X;
-                    else if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) tm.currentMode = ROTATE_Y;
-                    else if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) tm.currentMode = ROTATE_Z;
-                    else if (tm.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) tm.currentMode = SCALE;
+                    if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) appState.currentMode = TRANSLATE;
+                    else if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) appState.currentMode = ROTATE_FREE;
+                    else if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) appState.currentMode = ROTATE_X;
+                    else if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) appState.currentMode = ROTATE_Y;
+                    else if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) appState.currentMode = ROTATE_Z;
+                    else if (appState.inputMode == INPUT_MOUSE && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) appState.currentMode = SCALE;
                     else
                     {
-                        tm.currentMode = BOX;
+                        appState.currentMode = BOX;
 
                         // start rysowania ramki
                         isBoxSelecting = true;
@@ -298,9 +298,9 @@ int main()
                     }
 
 
-                    if (tm.currentMode != BOX)
+                    if (appState.currentMode != BOX)
                     {
-                        tm.startTransformation(centerOfSelection, cursor.transform.getPosition());
+                        tm.startTransformation(centerOfSelection, cursor.transform.getPosition(), appState);
                         startMouseX = mouseX;
                         startMouseY = mouseY;
                     }
@@ -340,15 +340,15 @@ int main()
                 }
 
                 // Wypalanie transformacji lokalnych / grupowych
-                tm.bakeMouseTransformations(sceneObjects);
+                tm.bakeMouseTransformations(sceneObjects, appState);
 
 
                 isDragging = false;
-                tm.currentMode = BOX;
+                appState.currentMode = BOX;
             }
 
             // Aplikowanie myszki (Skróty T, R, S)
-            if (isDragging && tm.currentMode != BOX)
+            if (isDragging && appState.currentMode != BOX)
             {
                 float dx_screen = (float)(mouseX - startMouseX);
                 float dy_screen = (float)(mouseY - startMouseY);
@@ -357,7 +357,7 @@ int main()
                 float dy_world = (dy_screen / (float)winHeight) * 2.0f;
 
                 // CAŁY SWITCH/IF Z MYSZKĄ ZASTĄPIONY JEDNĄ FUNKCJĄ:
-                tm.processMouseDrag(dx_world, dy_world, camera);
+                tm.processMouseDrag(dx_world, dy_world, camera, appState);
             }
 
 
@@ -392,7 +392,7 @@ int main()
         ImGui::NewFrame();
 
         // WYWOŁANIE GUI ZAMKNIĘTE W JEDNEJ, CZYSTEJ LINIJCE!
-        guiManager.Draw(sceneObjects, cursor, camera, tm,
+        guiManager.Draw(sceneObjects, cursor, camera, appState,
                         isBoxSelecting, boxStartX, boxStartY, boxEndX, boxEndY,
                         magicMode, magicCurve, isCamDragging, centerOfSelection);
 
@@ -408,7 +408,7 @@ int main()
         // 1. ZBUDOWANIE KONTEKSTU PODGLĄDU (OBIEKTY I KRZYWE)
         // ========================================================
 
-        PreviewContext previewCtx = buildPreviewContext(tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
+        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
 
         // ========================================================
@@ -426,8 +426,10 @@ int main()
         // ========================================================
         // 3. RYSOWANIE KRZYWYCH BEZIERA (podajemy im ten sam kontekst!)
         // ========================================================
-        for (auto& obj : sceneObjects) {
-            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
+        for (auto& obj : sceneObjects)
+        {
+            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+            {
                 shader.use();
                 b->DrawPolygon(shader, previewCtx);
 

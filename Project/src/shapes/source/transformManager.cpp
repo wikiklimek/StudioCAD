@@ -5,46 +5,46 @@
 
 
 // Wywoływane, gdy klikniesz na scenie, żeby zacząć ciągnąć
-    void TransformManager::startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition)
+void TransformManager::startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition, const AppState& state)
+{
+    isTransformationActive = true;
+    mouseDelta = Transformations();
+
+    if (state.transformMode == COMMON_CENTER)
+        centerOfTransformations = centerOfSelection;
+    else if (state.transformMode == CURSOR_CENTER)
+        centerOfTransformations = cursorPosition;
+    else
+        centerOfTransformations = Vect3(0.0f, 0.0f, 0.0f);
+}
+
+// Matematyka myszki w jednym miejscu!
+void TransformManager::processMouseDrag(float dx_world, float dy_world, const Camera& camera, const AppState& state)
+{
+    mouseDelta = Transformations();
+
+    if (state.currentMode == TRANSLATE)
     {
-        isTransformationActive = true;
-        mouseDelta = Transformations();
-
-        if (transformMode == COMMON_CENTER)
-            centerOfTransformations = centerOfSelection;
-        else if (transformMode == CURSOR_CENTER)
-            centerOfTransformations = cursorPosition;
-        else
-            centerOfTransformations = Vect3(0.0f, 0.0f, 0.0f); // ENTIRE_SCENE / LOCAL
+        Vect3 translation = calculateScreenSpaceTranslation(dx_world, dy_world, centerOfTransformations, camera);
+        mouseDelta.posX = translation.x;
+        mouseDelta.posY = translation.y;
+        mouseDelta.posZ = translation.z;
     }
-
-    // Matematyka myszki w jednym miejscu!
-    void TransformManager::processMouseDrag(float dx_world, float dy_world, const Camera& camera)
+    else if (state.currentMode == ROTATE_X)
+        mouseDelta.rotation = Quaternion::fromAxisAngle(1.0f, 0.0f, 0.0f, dy_world * 2.0f);
+    else if (state.currentMode == ROTATE_Y)
+        mouseDelta.rotation = Quaternion::fromAxisAngle(0.0f, 1.0f, 0.0f, dx_world * 2.0f);
+    else if (state.currentMode == ROTATE_Z)
+        mouseDelta.rotation = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, dx_world * 2.0f);
+    else if (state.currentMode == SCALE)
+        mouseDelta.scale = std::max(0.01f, 1.0f + (dx_world - dy_world) * 0.9f);
+    else if (state.currentMode == ROTATE_FREE)
     {
-        mouseDelta = Transformations(); // Zawsze nadpisujemy (nie dodajemy)
-
-        if (currentMode == TRANSLATE)
-        {
-            Vect3 translation = calculateScreenSpaceTranslation(dx_world, dy_world, centerOfTransformations, camera);
-            mouseDelta.posX = translation.x;
-            mouseDelta.posY = translation.y;
-            mouseDelta.posZ = translation.z;
-        }
-        else if (currentMode == ROTATE_X)
-            mouseDelta.rotation = Quaternion::fromAxisAngle(1.0f, 0.0f, 0.0f, dy_world * 2.0f);
-        else if (currentMode == ROTATE_Y)
-            mouseDelta.rotation = Quaternion::fromAxisAngle(0.0f, 1.0f, 0.0f, dx_world * 2.0f);
-        else if (currentMode == ROTATE_Z)
-            mouseDelta.rotation = Quaternion::fromAxisAngle(0.0f, 0.0f, 1.0f, dx_world * 2.0f);
-        else if (currentMode == SCALE)
-            mouseDelta.scale = std::max(0.01f, 1.0f + (dx_world - dy_world) * 0.9f);
-        else if (currentMode == ROTATE_FREE)
-        {
-            float angle = std::sqrt(dx_world * dx_world + dy_world * dy_world) * 2.0f;
-            if (angle > 0.0001f)
-                mouseDelta.rotation = Quaternion::fromAxisAngle(dy_world, dx_world, 0.0f, angle);
-        }
+        float angle = std::sqrt(dx_world * dx_world + dy_world * dy_world) * 2.0f;
+        if (angle > 0.0001f)
+            mouseDelta.rotation = Quaternion::fromAxisAngle(dy_world, dx_world, 0.0f, angle);
     }
+}
 
     Vect3 calculateScreenSpaceTranslation(float dx_world, float dy_world, Vect3 centerOfTransformations, const Camera& camera)
     {
@@ -68,12 +68,11 @@
     }
 
     // Wypiekanie myszki w jednym miejscu!
-    void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+    void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const AppState& state)
     {
         if (!isTransformationActive) return;
 
-        // UŻYWAMY NOWEJ UNIWERSALNEJ FUNKCJI!
-        bakeTransformations(sceneObjects, mouseDelta, transformMode, centerOfTransformations);
+        bakeTransformations(sceneObjects, mouseDelta, state.transformMode, centerOfTransformations);
 
         mouseDelta = Transformations();
         isTransformationActive = false;

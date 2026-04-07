@@ -51,12 +51,12 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
 }
 
 
-PreviewContext buildPreviewContext(const TransformManager& tm, const GuiManager& gui, Vect3 cursorPosition, Vect3 centerOfSelection)
+PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm, const GuiManager& gui, Vect3 cursorPosition, Vect3 centerOfSelection)
 {
     PreviewContext ctx;
-    ctx.isTransforming = (tm.inputMode == INPUT_MOUSE && tm.isTransformationActive) || (tm.inputMode == INPUT_GUI);
-    ctx.isLocal = (tm.transformMode == LOCAL);
-    ctx.isEntireScene = (tm.transformMode == ENTIRE_SCENE);
+    ctx.isTransforming = (state.inputMode == INPUT_MOUSE && tm.isTransformationActive) || (state.inputMode == INPUT_GUI);
+    ctx.isLocal = (state.transformMode == LOCAL);
+    ctx.isEntireScene = (state.transformMode == ENTIRE_SCENE);
 
     if (!ctx.isTransforming) return ctx;
 
@@ -64,7 +64,7 @@ PreviewContext buildPreviewContext(const TransformManager& tm, const GuiManager&
     Transformations activeDelta;
     Vect3 center(0.0);
 
-    if (tm.inputMode == INPUT_MOUSE)
+    if (state.inputMode == INPUT_MOUSE)
     {
         activeDelta = tm.mouseDelta;
         center = tm.centerOfTransformations; // Manager myszki sam pilnuje dobrego środka
@@ -72,7 +72,7 @@ PreviewContext buildPreviewContext(const TransformManager& tm, const GuiManager&
     else
     {
         activeDelta = gui.getGuiDelta();     // Manager GUI zwraca ustandaryzowaną paczkę
-        center = (tm.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((tm.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
+        center = (state.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((state.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
     }
 
     // Wspólne przypisanie
