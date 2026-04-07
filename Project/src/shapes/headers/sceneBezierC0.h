@@ -1,6 +1,6 @@
 #pragma once
-#include "sceneObject.h"
 #include "scenePoint.h"
+#include "previewContext.h"
 #include <vector>
 #include <memory>
 
@@ -21,10 +21,7 @@ public:
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
 
-    // Specjalistyczne funkcje rysujące
-    void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight,
-                    bool isTransforming, bool isLocal, Vect3 localDelta, Mat4 groupMat, bool transformAll);
-
-    void DrawPolygon(Shader& lineShader,
-                     bool isTransforming, bool isLocal, Vect3 localDelta, Mat4 groupMat, bool transformAll);
+    // Zamiast tony argumentów, przyjmują PreviewContext
+    void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx);
+    void DrawPolygon(Shader& lineShader, const PreviewContext& ctx);
 };

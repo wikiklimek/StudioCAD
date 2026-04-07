@@ -1,7 +1,9 @@
+#pragma once
 #include "sceneBezierC0.h"
 #include <algorithm>
 
-SceneBezierC0::SceneBezierC0(std::string n, Transformations spawnTransform) : SceneObject(std::move(n), spawnTransform) {}
+SceneBezierC0::SceneBezierC0(std::string n, Transformations spawnTransform)
+        : SceneObject(std::move(n), spawnTransform, ObjectType::BezierCurveC0) {} // <-- Przekazujemy typ!
 
 void SceneBezierC0::Init() {
     // 1. Czyste VAO dla krzywej.
@@ -19,11 +21,13 @@ SceneBezierC0::~SceneBezierC0() {
     if (VBO_poly) glDeleteBuffers(1, &VBO_poly);
 }
 
-void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, bool isTransforming, bool isLocal, Vect3 localDelta, Mat4 groupMat, bool transformAll) {
+void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx)
+{
     points.erase(std::remove_if(points.begin(), points.end(),
                                 [](const std::weak_ptr<ScenePoint>& wp) { return wp.expired(); }), points.end());
 
-    if (points.empty()) {
+    if (points.empty())
+    {
         pendingDelete = true;
         return;
     }
@@ -31,13 +35,15 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
     // --- TWOJA MAGIA: LAMBDA WYLICZAJĄCA ZMANIPULOWANĄ POZYCJĘ ---
     auto getPreviewPos = [&](std::shared_ptr<ScenePoint> p) -> Vect3 {
         Vect3 pos = p->transformations.getPosition();
-        // DODANE transformAll DO WARUNKU:
-        if (isTransforming && (transformAll || p->isSelected || p->selectedCurvesCount > 0)) {
-            if (isLocal) {
-                pos.x += localDelta.x; pos.y += localDelta.y; pos.z += localDelta.z;
+
+        if (ctx.isTransforming && (ctx.isEntireScene || p->isSelected || p->selectedCurvesCount > 0)) {
+            if (ctx.isLocal) {
+                pos.x += ctx.localDeltaPos.x;
+                pos.y += ctx.localDeltaPos.y;
+                pos.z += ctx.localDeltaPos.z;
             } else {
                 Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-                Vect4 newP = groupMat * p4;
+                Vect4 newP = ctx.groupMat * p4;
                 pos = Vect3(newP.x, newP.y, newP.z);
             }
         }
@@ -91,7 +97,8 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
     }
 }
 
-void SceneBezierC0::DrawPolygon(Shader& lineShader, bool isTransforming, bool isLocal, Vect3 localDelta, Mat4 groupMat, bool transformAll) {
+void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
+{
     if (points.empty()) {
         pendingDelete = true;
         return;
@@ -100,13 +107,15 @@ void SceneBezierC0::DrawPolygon(Shader& lineShader, bool isTransforming, bool is
 
     auto getPreviewPos = [&](std::shared_ptr<ScenePoint> p) -> Vect3 {
         Vect3 pos = p->transformations.getPosition();
-        // DODANE transformAll DO WARUNKU:
-        if (isTransforming && (transformAll || p->isSelected || p->selectedCurvesCount > 0)) {
-            if (isLocal) {
-                pos.x += localDelta.x; pos.y += localDelta.y; pos.z += localDelta.z;
+
+        if (ctx.isTransforming && (ctx.isEntireScene || p->isSelected || p->selectedCurvesCount > 0)) {
+            if (ctx.isLocal) {
+                pos.x += ctx.localDeltaPos.x;
+                pos.y += ctx.localDeltaPos.y;
+                pos.z += ctx.localDeltaPos.z;
             } else {
                 Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-                Vect4 newP = groupMat * p4;
+                Vect4 newP = ctx.groupMat * p4;
                 pos = Vect3(newP.x, newP.y, newP.z);
             }
         }

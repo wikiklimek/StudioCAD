@@ -1,6 +1,4 @@
 #pragma once
-#include "MG1Math/Vect3.h"
-#include "MG1Math/Mat4.h"
 #include "quaternion.h"
 
 struct Transformations{

@@ -41,8 +41,8 @@ add_executable(${PROJECT_NAME}
         src/shapes/headers/sceneTorus.h
         src/shapes/headers/scenePoint.h
         src/shapes/headers/cursor.h
-        src/shapes/headers/applyTransformations.h
-        src/shapes/source/applyTransformations.cpp
+        src/shapes/headers/previewFunctions.h
+        src/shapes/source/previewFunctions.cpp
         src/shapes/source/scenePoint.cpp
         src/shapes/source/sceneTorus.cpp
         src/shapes/headers/screenInteractions.h
@@ -54,6 +54,12 @@ add_executable(${PROJECT_NAME}
         src/shapes/headers/camera.h
         src/shapes/headers/sceneBezierC0.h
         src/shapes/source/sceneBezierC0.cpp
+        src/shapes/headers/guiManager.h
+        src/shapes/headers/enums.h
+        src/shapes/headers/previewContext.h
+        src/shapes/headers/transformManager.h
+        src/shapes/source/guiManager.cpp
+        src/shapes/source/transformManager.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

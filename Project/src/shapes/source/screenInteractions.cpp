@@ -1,19 +1,20 @@
 #pragma once
 #include "screenInteractions.h"
+#include "sceneBezierC0.h"
 
-Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight,
-                      Vect3 cameraPos, Vect3 target, Vect3 up, float fov)
+
+Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight, const Camera& camera)
 {
     // [-1, 1]
     float ndcX = (2.0f * (float)mouseX) / (float)winWidth - 1.0f;
     float ndcY = 1.0f - (2.0f * (float)mouseY) / (float)winHeight;
 
-    Vect3 D = (cameraPos - target).normalize(); // wektor w tył
-    Vect3 R = Vect3::cross(up, D).normalize();
-    Vect3 U = Vect3::cross(D, R).normalize();
+    // Pobieramy wszystkie 3 wektory JEDNYM superszybkim wywołaniem!
+    Vect3 D(0.0), R(0.0), U(0.0);
+    camera.getCameraVectors(D, R, U);
 
     float aspectRatio = (float)winWidth / (float)winHeight;
-    float tanHalfFov = std::tan(fov / 2.0f);
+    float tanHalfFov = std::tan(camera.fov / 2.0f); // Używamy FOV z kamery!
 
     float viewX = ndcX * aspectRatio * tanHalfFov;
     float viewY = ndcY * tanHalfFov;
@@ -27,24 +28,112 @@ Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight,
     return rayDir.normalize();
 }
 
-Vect3 getCursorIntersection(Vect3 rayOrigin, Vect3 rayDir)
+Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera)
 {
-    if (std::abs(rayDir.z) > 0.0001f)
-    {
-        // stawiamy obiekty w z = 0
-        float z = 0.0f;
-        // z = rayOrigin.z + t * rayDir.z
-        float t = (z -rayOrigin.z) / rayDir.z;
+    Vect3 activePos(0.0), activeTarget(0.0);
+    camera.getActiveState(activePos, activeTarget);
 
-        // czy widzimy intersection
+    Vect3 planeNormal = (activePos - activeTarget).normalize(); // Oś Z kamery
+    float denominator = Vect3::dot(rayDir, planeNormal);
+
+    if (std::abs(denominator) > 0.0001f)
+    {
+        Vect3 toTarget = activeTarget - activePos;
+        float t = Vect3::dot(toTarget, planeNormal) / denominator;
+
         if (t > 0.0f)
         {
-            return Vect3(rayOrigin.x + rayDir.x * t,
-                         rayOrigin.y + rayDir.y * t,
-                         0.0f);
+            return Vect3(activePos.x + rayDir.x * t,
+                         activePos.y + rayDir.y * t,
+                         activePos.z + rayDir.z * t);
+        }
+    }
+    return activeTarget; // Punkt awaryjny
+}
+
+
+void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
+                                       const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+{
+    Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, camera);
+
+    Vect3 activeCamPos(0.0), activeCamTarget(0.0);
+    camera.getActiveState(activeCamPos, activeCamTarget);
+
+    float minDist = 10000.0f;
+    std::shared_ptr<SceneObject> closestObj = nullptr;
+
+    for (auto& obj : sceneObjects)
+    {
+        // Obecnie klikamy tylko w punkty
+        if (!std::dynamic_pointer_cast<ScenePoint>(obj))
+            continue;
+
+        Vect3 objPos = obj->transformations.getPosition();
+        Vect3 toObj = objPos - activeCamPos;
+        float projLength = Vect3::dot(toObj, rayDir);
+
+        if (projLength > 0.0f)
+        {
+            Vect3 projPoint = activeCamPos + Vect3(rayDir.x * projLength, rayDir.y * projLength, rayDir.z * projLength);
+            float distToRay = std::sqrt((objPos.x - projPoint.x) * (objPos.x - projPoint.x) +
+                                        (objPos.y - projPoint.y) * (objPos.y - projPoint.y) +
+                                        (objPos.z - projPoint.z) * (objPos.z - projPoint.z));
+
+            // Promień trafienia (1.5f) - łapiemy ten najbliżej kamery
+            if (distToRay < 1.5f && projLength < minDist)
+            {
+                minDist = projLength;
+                closestObj = obj;
+            }
         }
     }
 
-
-    return Vect3(0.0f, 0.0f, 0.0f);
+    if (closestObj != nullptr)
+        closestObj->isSelected = !closestObj->isSelected;
 }
+
+
+
+void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, double boxEndY,
+                                int winWidth, int winHeight, const Camera& camera,
+                                std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+{
+    float aspectRatio = (float)winWidth / (float)winHeight;
+    Mat4 M_View = camera.getViewMatrix();
+    Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
+    Mat4 VP = M_Proj * M_View;
+
+    float minX = (float)std::min(boxStartX, boxEndX);
+    float maxX = (float)std::max(boxStartX, boxEndX);
+    float minY = (float)std::min(boxStartY, boxEndY);
+    float maxY = (float)std::max(boxStartY, boxEndY);
+
+
+    for (auto& obj : sceneObjects)
+    {
+        if (obj->objectType == ObjectType::BezierCurveC0)
+            continue;
+
+        Vect3 pos = obj->transformations.getPosition();
+        Vect4 pos4(pos.x, pos.y, pos.z, 1.0f);
+        Vect4 clipSpace = VP * pos4;
+
+        // w - odleglosc od kamery
+        if (clipSpace.w > 0.0001f)
+        {
+            // Przejście na współrzędne [-1, 1] (NDC)
+            Vect3 ndc(clipSpace.x / clipSpace.w, clipSpace.y / clipSpace.w, clipSpace.z / clipSpace.w);
+
+            // Rzutowanie na piksele monitora
+            float screenX = (ndc.x + 1.0f) / 2.0f * (float)winWidth;
+            float screenY = (1.0f - ndc.y) / 2.0f * (float)winHeight;
+
+            if (screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY)
+            {
+                obj->isSelected = true;
+            }
+        }
+    }
+}
+

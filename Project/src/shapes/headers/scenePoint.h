@@ -1,7 +1,5 @@
 #pragma once
 #include "sceneObject.h"
-#include "torusGrid.h"
-#include "matrixesModelViewProjection.h"
 #include "MG1Math/Mat4.h"
 #include <vector>
 

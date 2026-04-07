@@ -2,13 +2,8 @@
 #include <MG1Math/Vect3.h>
 #include <memory>
 #include <vector>
-#include "transformations.h"
-#include "sceneObject.h"
-#include "scenePoint.h"
-#include "sceneTorus.h"
-#include "sceneBezierC0.h"
 
-void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
+inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
 {
     Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
     Mat4 R_group = groupTransform.rotation.toMat4();
@@ -24,8 +19,9 @@ void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, Tran
         // Magiczna logika decyzyjna
         if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
             if (p->selectedCurvesCount > 0) shouldBake = true;
-        } else if (auto t = std::dynamic_pointer_cast<SceneBezierC0>(obj)) {
-            // jest to Krzywa. Nigdy nie transformuj krzywej.
+        }
+        else if (obj->objectType == ObjectType::BezierCurveC0)
+        {
             continue;
         }
 

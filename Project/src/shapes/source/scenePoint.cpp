@@ -1,14 +1,16 @@
-//
-// Created by wiktoria on 3/23/26.
-//
+#pragma once
 #include "scenePoint.h"
+#include "matrixesModelViewProjection.h"
 
 #include <utility>
 
 
 
-ScenePoint::ScenePoint(std::string n, Transformations spawnTransform) : SceneObject(std::move(n), spawnTransform), size(6.0f) {}
-ScenePoint::ScenePoint(std::string n, float s, Transformations spawnTransform): SceneObject(std::move(n), spawnTransform), size(s) {}
+ScenePoint::ScenePoint(std::string n, Transformations spawnTransform)
+        : SceneObject(std::move(n), spawnTransform, ObjectType::Point), size(6.0f) {}
+
+ScenePoint::ScenePoint(std::string n, float s, Transformations spawnTransform)
+        : SceneObject(std::move(n), spawnTransform, ObjectType::Point), size(s) {}
 
 ScenePoint::~ScenePoint() {
     if (VAO) glDeleteVertexArrays(1, &VAO);

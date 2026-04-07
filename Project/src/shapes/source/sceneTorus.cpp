@@ -3,7 +3,8 @@
 
 #include <utility>
 
-SceneTorus::SceneTorus(std::string n, Transformations spawnTransform) : SceneObject(std::move(n), spawnTransform) {}
+SceneTorus::SceneTorus(std::string n, Transformations spawnTransform)
+        : SceneObject(std::move(n), spawnTransform, ObjectType::Torus) {}
 
 SceneTorus::~SceneTorus() {
     if (VAO) glDeleteVertexArrays(1, &VAO);

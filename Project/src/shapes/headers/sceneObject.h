@@ -3,16 +3,20 @@
 
 #include "shader.h"
 #include "transformations.h"
+#include "enums.h"
 
 class SceneObject {
 public:
+    const ObjectType objectType;
+
     Transformations transformations;
     std::string name;
     bool isSelected = false;
     bool pendingDelete = false;
     float color[3] = {1.0f, 1.0f, 0.0f };
 
-    SceneObject(std::string n, Transformations spawnTransform) : name(std::move(n)), transformations(spawnTransform) {}
+    SceneObject(std::string n, Transformations spawnTransform, ObjectType type)
+            : name(std::move(n)), transformations(spawnTransform), objectType(type) {}
     virtual ~SceneObject() = default;
 
     virtual void Init() = 0;
