@@ -12,13 +12,12 @@ public:
     float fov;
 
     float nearPlane = 0.1f;
-    float farPlane = 1000.0f;
+    float farPlane = 5000.0f;
 
     // Gimbal Lock protection
     float minAngleZ = 0.05f;
     float maxAngleZ = (float)M_PI - 0.05f;
 
-    // Tymczasowe transformacje
     Quaternion tempOrbit;
     float tempZoom;
     Vect3 tempPan = Vect3(0.0f);
@@ -141,11 +140,17 @@ public:
         Vect3 dir = position - target;
         float dist = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
 
-        // 1. Zabezpieczenie przed dystansem mniejszym niż 0.1
+
         if (dist < 0.1f)
         {
-            if (dist < 0.0001f) dir = Vect3(0.0f, -1.0f, 0.0f);
-            else { dir.x /= dist; dir.y /= dist; dir.z /= dist; }
+            if (dist < 0.0001f)
+                dir = Vect3(0.0f, -1.0f, 0.0f);
+            else
+            {
+                dir.x /= dist;
+                dir.y /= dist;
+                dir.z /= dist;
+            }
 
             position = target + Vect3(dir.x * 0.1f, dir.y * 0.1f, dir.z * 0.1f);
             dir = position - target;
@@ -153,7 +158,9 @@ public:
         }
 
         // 2. Zabezpieczenie przed Gimbal Lock (Równoległość do osi Z)
-        dir.x /= dist; dir.y /= dist; dir.z /= dist;
+        dir.x /= dist;
+        dir.y /= dist;
+        dir.z /= dist;
 
         float dot = dir.z; // Zakładamy up = (0,0,1)
         if (std::abs(dot) > 0.999f)

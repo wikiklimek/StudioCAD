@@ -248,18 +248,18 @@ int main()
                 float dx_world = (dx_screen / (float)winWidth) * 2.0f;
                 float dy_world = (dy_screen / (float)winHeight) * 2.0f;
 
-                // Kamera sama wie, jak przeliczyć te delty!
+                // Kamera sama sie przesuwa
                 camera.processMouseDrag(dx_world, dy_world, camMode);
             }
 
-            // Obsługa klawiszy trybów i kliknięć
+
             if (isLeftClick)
             {
                 if (magicMode)
                 {
                     if (!isDragging) // Uruchomi się tylko raz na kliknięcie
                     {
-                        // 1. Zaktualizuj pozycję kursora natychmiastowo
+                        // kursor
                         Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, camera);
                         Vect3 intersection = getCursorIntersectionWithCameraPlane(rayDir, camera);
 
@@ -267,7 +267,7 @@ int main()
                         cursor.screenX = (float)mouseX;
                         cursor.screenY = (float)mouseY;
 
-                        // 2. Stwórz punkt i dodaj do magicznej krzywej
+                        // nowy ounkt
                         auto p = std::make_shared<ScenePoint>(
                                 "Punkt " + std::to_string(sceneObjects.size()+1),
                                 cursor.transform);
@@ -339,7 +339,7 @@ int main()
                     }
                 }
 
-                // Wypalanie transformacji lokalnych / grupowych
+                // Wypalanie transformacji
                 tm.bakeMouseTransformations(sceneObjects, appState);
 
 
@@ -347,7 +347,7 @@ int main()
                 appState.currentMode = BOX;
             }
 
-            // Aplikowanie myszki (Skróty T, R, S)
+            // transformacje myszka
             if (isDragging && appState.currentMode != BOX)
             {
                 float dx_screen = (float)(mouseX - startMouseX);
@@ -356,7 +356,7 @@ int main()
                 float dx_world = (dx_screen / (float)winWidth) * 2.0f * aspectRatio;
                 float dy_world = (dy_screen / (float)winHeight) * 2.0f;
 
-                // CAŁY SWITCH/IF Z MYSZKĄ ZASTĄPIONY JEDNĄ FUNKCJĄ:
+
                 tm.processMouseDrag(dx_world, dy_world, camera, appState);
             }
 
@@ -365,17 +365,22 @@ int main()
             lastMouseY = mouseY;
         }
 
-        // --- AKTUALIZACJA ZNACZNIKÓW PUNKTÓW ---
+        // ile krzywych nalezacych do punktu jest zaznaczonych
         for (auto& obj : sceneObjects)
         {
-            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+            if (obj->objectType == ObjectType::Point)
+            {
+                auto p = std::static_pointer_cast<ScenePoint>(obj);
                 p->selectedCurvesCount = 0;
+            }
         }
 
         for (auto& obj : sceneObjects)
         {
-            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+            if (obj->objectType == ObjectType::BezierCurveC0)
             {
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+
                 if (b->isSelected)
                 {
                     for (auto& wp : b->points)
@@ -391,7 +396,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // WYWOŁANIE GUI ZAMKNIĘTE W JEDNEJ, CZYSTEJ LINIJCE!
+
         guiManager.Draw(sceneObjects, cursor, camera, appState,
                         isBoxSelecting, boxStartX, boxStartY, boxEndX, boxEndY,
                         magicMode, magicCurve, isCamDragging, centerOfSelection);
@@ -404,38 +409,43 @@ int main()
         Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
 
-        // ========================================================
-        // 1. ZBUDOWANIE KONTEKSTU PODGLĄDU (OBIEKTY I KRZYWE)
-        // ========================================================
 
         PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
-
-        // ========================================================
-        // 2. RYSOWANIE FIZYCZNYCH OBIEKTÓW
-        // ========================================================
         shader.use();
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
-        for (auto& obj : sceneObjects) {
-            // Wywołujemy naszą zewnętrzną, czystą funkcję!
+        for (auto& obj : sceneObjects)
+        {
             drawObjectWithPreview(obj, shader, previewCtx);
         }
 
-        // ========================================================
-        // 3. RYSOWANIE KRZYWYCH BEZIERA (podajemy im ten sam kontekst!)
-        // ========================================================
+
+        shader.use();
+        // Zauważ: Macierze widoku i projekcji dla 'shader' zostały
+        // już wysłane wyżej, przy rysowaniu zwykłych obiektów!
         for (auto& obj : sceneObjects)
         {
-            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+            if (obj->objectType == ObjectType::BezierCurveC0)
             {
-                shader.use();
-                b->DrawPolygon(shader, previewCtx);
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
 
-                bezierShader.use();
-                glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "view"), 1, GL_FALSE, M_View.table);
-                glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
+                b->DrawPolygon(shader, previewCtx);
+            }
+        }
+
+        bezierShader.use();
+
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::BezierCurveC0)
+            {
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+
                 b->DrawBezier(bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx);
             }
         }

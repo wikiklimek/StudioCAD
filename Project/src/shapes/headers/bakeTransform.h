@@ -4,7 +4,7 @@
 #include <vector>
 
 
-// Zmienione: dodane 'const' przed Transformations& groupTransform
+
 inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, const Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
 {
     Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
@@ -16,14 +16,19 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
 
     for(auto& obj : objects)
     {
-        if (obj->objectType == ObjectType::BezierCurveC0) continue; // Nigdy nie transformuj krzywej
+        if (obj->objectType == ObjectType::BezierCurveC0)
+            continue; // nie transformuje sie krzywej
 
         bool shouldBake = applyToAll || obj->isSelected;
-        if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj)) {
-            if (p->selectedCurvesCount > 0) shouldBake = true;
+        if (obj->objectType == ObjectType::Point)
+        {
+            auto p = std::static_pointer_cast<ScenePoint>(obj);
+            if (p->selectedCurvesCount > 0)
+                shouldBake = true;
         }
 
-        if(!shouldBake) continue;
+        if(!shouldBake)
+            continue;
 
         Vect3 oldPos = obj->transformations.getPosition();
         Vect4 pos4(oldPos.x, oldPos.y, oldPos.z, 1.0f);
@@ -36,7 +41,7 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
     }
 }
 
-// NOWOŚĆ: Wspólna funkcja wypiekająca dla myszki i GUI!
+
 inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const Transformations& delta, TransformMode mode, Vect3 centerOfTransformations)
 {
     if (mode == LOCAL)
@@ -47,8 +52,10 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
                 continue;
 
             bool shouldBake = obj->isSelected;
-            if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+            if (obj->objectType == ObjectType::Point)
             {
+                auto p = std::static_pointer_cast<ScenePoint>(obj);
+
                 if (p->selectedCurvesCount > 0)
                     shouldBake = true;
             }

@@ -15,12 +15,9 @@ public:
     Transformations mouseDelta;
     Vect3 centerOfTransformations = Vect3(0.0f);
 
-    // Przekazujemy AppState, żeby wiedział, jaki środek ustawić
     void startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition, const AppState& state);
 
-    // Przekazujemy AppState, żeby wiedział, jak liczyć (Translate czy Rotate?)
     void processMouseDrag(float dx_world, float dy_world, const Camera& camera, const AppState& state);
 
-    // Przekazujemy AppState, żeby wiedział, jak wypiekać (Local czy Group?)
     void bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const AppState& state);
 };

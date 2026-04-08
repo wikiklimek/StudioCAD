@@ -9,7 +9,6 @@ public:
     std::vector<std::weak_ptr<ScenePoint>> points;
     bool showPolygon = false;
 
-    // Rozdzielone uchwyty na pamięć GPU
     unsigned int VAO_bezier = 0;
     unsigned int VAO_poly = 0;
     unsigned int VBO_poly = 0;

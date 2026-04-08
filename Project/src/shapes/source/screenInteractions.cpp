@@ -66,8 +66,9 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
     for (auto& obj : sceneObjects)
     {
         // Obecnie klikamy tylko w punkty
-        if (!std::dynamic_pointer_cast<ScenePoint>(obj))
+        if(obj->objectType != ObjectType::Point)
             continue;
+
 
         Vect3 objPos = obj->transformations.getPosition();
         Vect3 toObj = objPos - activeCamPos;
@@ -116,19 +117,12 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
             continue;
 
         Vect3 pos = obj->transformations.getPosition();
-        Vect4 pos4(pos.x, pos.y, pos.z, 1.0f);
-        Vect4 clipSpace = VP * pos4;
+        float screenX, screenY;
 
-        // w - odleglosc od kamery
-        if (clipSpace.w > 0.0001f)
+        // Magia! Jedno wywołanie ogarnia całą matematykę kamery i perspektywy
+        if (projectWorldToScreen(pos, VP, winWidth, winHeight, screenX, screenY))
         {
-            // Przejście na współrzędne [-1, 1] (NDC)
-            Vect3 ndc(clipSpace.x / clipSpace.w, clipSpace.y / clipSpace.w, clipSpace.z / clipSpace.w);
-
-            // Rzutowanie na piksele monitora
-            float screenX = (ndc.x + 1.0f) / 2.0f * (float)winWidth;
-            float screenY = (1.0f - ndc.y) / 2.0f * (float)winHeight;
-
+            // Jeśli punkt jest przed kamerą, sprawdź czy leży w narysowanym prostokącie
             if (screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY)
             {
                 obj->isSelected = true;

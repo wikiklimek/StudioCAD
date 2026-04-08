@@ -4,7 +4,7 @@
 #include "bakeTransform.h"
 
 
-// Wywoływane, gdy klikniesz na scenie, żeby zacząć ciągnąć
+// klikniecie na scene - rozpoczecie przeciagania
 void TransformManager::startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition, const AppState& state)
 {
     isTransformationActive = true;
@@ -18,7 +18,7 @@ void TransformManager::startTransformation(Vect3 centerOfSelection, Vect3 cursor
         centerOfTransformations = Vect3(0.0f, 0.0f, 0.0f);
 }
 
-// Matematyka myszki w jednym miejscu!
+
 void TransformManager::processMouseDrag(float dx_world, float dy_world, const Camera& camera, const AppState& state)
 {
     mouseDelta = Transformations();
@@ -46,34 +46,36 @@ void TransformManager::processMouseDrag(float dx_world, float dy_world, const Ca
     }
 }
 
-    Vect3 calculateScreenSpaceTranslation(float dx_world, float dy_world, Vect3 centerOfTransformations, const Camera& camera)
-    {
-        Vect3 forward(0.0f), right(0.0f), localUp(0.0f);
-        camera.getCameraVectors(forward, right, localUp);
+Vect3 calculateScreenSpaceTranslation(float dx_world, float dy_world, Vect3 centerOfTransformations, const Camera& camera)
+{
+    Vect3 forward(0.0f), right(0.0f), localUp(0.0f);
+    camera.getCameraVectors(forward, right, localUp);
 
-        Vect3 activeCamPos(0.0), activeCamTarget(0.0);
-        camera.getActiveState(activeCamPos, activeCamTarget);
+    Vect3 activeCamPos(0.0), activeCamTarget(0.0);
+    camera.getActiveState(activeCamPos, activeCamTarget);
 
-        Vect3 toCenter = centerOfTransformations - activeCamPos;
-        float distance = std::sqrt(toCenter.x*toCenter.x + toCenter.y*toCenter.y + toCenter.z*toCenter.z);
-        if (distance < 0.1f) distance = 15.0f; // Awaryjny bezpiecznik
+    Vect3 toCenter = centerOfTransformations - activeCamPos;
+    float distance = std::sqrt(toCenter.x*toCenter.x + toCenter.y*toCenter.y + toCenter.z*toCenter.z);
+    if (distance < 0.1f)
+        distance = 15.0f;
 
-        float speed = distance * std::tan(camera.fov / 2.0f);
+    float speed = distance * std::tan(camera.fov / 2.0f);
 
-        return Vect3(
-                (right.x * dx_world - localUp.x * dy_world) * speed,
-                (right.y * dx_world - localUp.y * dy_world) * speed,
-                (right.z * dx_world - localUp.z * dy_world) * speed
-        );
-    }
+    return Vect3(
+            (right.x * dx_world - localUp.x * dy_world) * speed,
+            (right.y * dx_world - localUp.y * dy_world) * speed,
+            (right.z * dx_world - localUp.z * dy_world) * speed
+            );
+}
 
-    // Wypiekanie myszki w jednym miejscu!
-    void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const AppState& state)
-    {
-        if (!isTransformationActive) return;
 
-        bakeTransformations(sceneObjects, mouseDelta, state.transformMode, centerOfTransformations);
+void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const AppState& state)
+{
+    if (!isTransformationActive)
+        return;
 
-        mouseDelta = Transformations();
-        isTransformationActive = false;
-    }
+    bakeTransformations(sceneObjects, mouseDelta, state.transformMode, centerOfTransformations);
+
+    mouseDelta = Transformations();
+    isTransformationActive = false;
+}

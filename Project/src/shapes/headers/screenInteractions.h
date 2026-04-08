@@ -6,6 +6,29 @@
 #include <memory>
 
 
+inline bool projectWorldToScreen(Vect3 worldPos, const Mat4& VP, int winWidth, int winHeight, float& outScreenX, float& outScreenY)
+{
+    Vect4 p4(worldPos.x, worldPos.y, worldPos.z, 1.0f);
+    Vect4 clip = VP * p4;
+
+    // Jeśli punkt jest za kamerą lub w samym oku kamery
+    if (clip.w < 0.0001f)
+        return false;
+
+    // Dzielenie perspektywiczne -> NDC [-1, 1]
+    float nx = clip.x / clip.w;
+    float ny = clip.y / clip.w;
+
+    // Viewport transform -> Piksele na ekranie
+    outScreenX = (nx + 1.0f) / 2.0f * (float)winWidth;
+    outScreenY = (1.0f - ny) / 2.0f * (float)winHeight;
+
+    return true; // Udane rzutowanie na ekran
+}
+
+
+
+
 Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight, const Camera& camera);
 
 Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera);

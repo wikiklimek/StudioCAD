@@ -1,14 +1,40 @@
 #pragma once
 #include "previewFunctions.h"
 
+Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewContext& ctx)
+{
+    Vect3 pos = p->transformations.getPosition();
+
+
+    if (!ctx.isTransforming || (!ctx.isEntireScene && !p->isSelected && p->selectedCurvesCount == 0))
+        return pos;
+
+
+    if (ctx.isLocal)
+    {
+        pos.x += ctx.localDeltaPos.x;
+        pos.y += ctx.localDeltaPos.y;
+        pos.z += ctx.localDeltaPos.z;
+    }
+    else
+    {
+        Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
+        Vect4 newP = ctx.groupMat * p4;
+        pos = Vect3(newP.x, newP.y, newP.z);
+    }
+
+    return pos;
+}
+
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
     if (obj->objectType == ObjectType::BezierCurveC0)
         return;
 
     bool isTarget = obj->isSelected;
-    if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+    if (obj->objectType == ObjectType::Point)
     {
+        auto p = std::static_pointer_cast<ScenePoint>(obj);
         if (p->selectedCurvesCount > 0)
             isTarget = true;
     }
@@ -43,7 +69,6 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
         obj->transformations.scale /= ctx.localDeltaScale;
         obj->transformations.rotation = oldRot;
     }
-        // 3. Aplikowanie zmian dla Trybu Grupowego (używamy przeciążenia Draw(shader, mat4))
     else
     {
         obj->Draw(shader, ctx.groupMat);
@@ -60,7 +85,7 @@ PreviewContext buildPreviewContext(const AppState& state,const TransformManager&
 
     if (!ctx.isTransforming) return ctx;
 
-    // Magia Unifikacji - jedna zmienna dla obu wejść!
+
     Transformations activeDelta;
     Vect3 center(0.0);
 
@@ -71,16 +96,16 @@ PreviewContext buildPreviewContext(const AppState& state,const TransformManager&
     }
     else
     {
-        activeDelta = gui.getGuiDelta();     // Manager GUI zwraca ustandaryzowaną paczkę
+        activeDelta = gui.getGuiDelta();
         center = (state.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((state.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
     }
 
-    // Wspólne przypisanie
+
     ctx.localDeltaPos = activeDelta.getPosition();
     ctx.localDeltaScale = activeDelta.scale;
     ctx.localDeltaRot = activeDelta.rotation;
 
-    // Wyliczenie macierzy grupowej tylko raz dla wszystkich!
+
     if (!ctx.isLocal)
     {
         Mat4 T_toOrigin = Mat4::translate_inverse(center);

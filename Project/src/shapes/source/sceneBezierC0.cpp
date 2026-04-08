@@ -1,13 +1,14 @@
 #pragma once
 #include "sceneBezierC0.h"
+#include "previewFunctions.h"
+#include "screenInteractions.h"
 #include <algorithm>
 
 SceneBezierC0::SceneBezierC0(std::string n, Transformations spawnTransform)
-        : SceneObject(std::move(n), spawnTransform, ObjectType::BezierCurveC0) {} // <-- Przekazujemy typ!
+        : SceneObject(std::move(n), spawnTransform, ObjectType::BezierCurveC0) {}
 
-void SceneBezierC0::Init() {
-    // 1. Czyste VAO dla krzywej.
-    // Nowoczesny OpenGL nie potrzebuje VBO, jeśli shader czyta tylko gl_VertexID!
+void SceneBezierC0::Init()
+{
     glGenVertexArrays(1, &VAO_bezier);
 
     // 2. Osobne VAO i VBO dla łamanej, żeby nie niszczyły pamięci krzywej
@@ -32,61 +33,73 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
         return;
     }
 
-    // --- TWOJA MAGIA: LAMBDA WYLICZAJĄCA ZMANIPULOWANĄ POZYCJĘ ---
-    auto getPreviewPos = [&](std::shared_ptr<ScenePoint> p) -> Vect3 {
-        Vect3 pos = p->transformations.getPosition();
-
-        if (ctx.isTransforming && (ctx.isEntireScene || p->isSelected || p->selectedCurvesCount > 0)) {
-            if (ctx.isLocal) {
-                pos.x += ctx.localDeltaPos.x;
-                pos.y += ctx.localDeltaPos.y;
-                pos.z += ctx.localDeltaPos.z;
-            } else {
-                Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-                Vect4 newP = ctx.groupMat * p4;
-                pos = Vect3(newP.x, newP.y, newP.z);
-            }
-        }
-        return pos;
-    };
 
     glBindVertexArray(VAO_bezier);
-    shader.use();
+    //shader.use();
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
 
-    for (size_t i = 0; i < points.size() - 1; i += 3) {
+    for (size_t i = 0; i < points.size() - 1; i += 3)
+    {
         size_t remaining = points.size() - i;
         int degree = 1;
-        if (remaining >= 4) degree = 3;
-        else if (remaining == 3) degree = 2;
+        if (remaining >= 4)
+            degree = 3;
+        else if (remaining == 3)
+            degree = 2;
 
         std::vector<Vect3> segPts;
-        for (int j = 0; j <= degree; ++j) {
-            // TUTAJ UŻYWAMY LAMBDY ZAMIAST CZYSTEJ POZYCJI!
-            segPts.push_back(getPreviewPos(points[i + j].lock()));
+        for (int j = 0; j <= degree; ++j)
+        {
+            segPts.push_back(getPreviewPosition(points[i + j].lock(), ctx));
         }
 
-        float lenPixels = 0.0f;
-        std::vector<std::pair<float, float>> screenPts;
-        for (auto& p : segPts) {
-            Vect4 p4(p.x, p.y, p.z, 1.0f);
-            Vect4 clip = VP * p4;
-            if (clip.w > 0.0001f) {
-                float nx = clip.x / clip.w;
-                float ny = clip.y / clip.w;
-                screenPts.push_back({(nx + 1.0f) / 2.0f * winWidth, (1.0f - ny) / 2.0f * winHeight});
+        int segments = 1;
+
+        if (degree > 1)
+        {
+            float lenPixels = 0.0f;
+            std::vector<std::pair<float, float>> screenPts;
+            bool isBehindCamera = false;
+
+            // 1. Rzutujemy punkty i sprawdzamy, czy któryś uciekł
+            for (auto& p : segPts)
+            {
+                float screenX, screenY;
+                if (projectWorldToScreen(p, VP, winWidth, winHeight, screenX, screenY))
+                {
+                    screenPts.push_back({screenX, screenY});
+                }
+                else
+                {
+                    isBehindCamera = true;
+                }
             }
+
+            // 2. ZAWSZE liczymy długość łamanej, ale tylko dla punktów, które ocalały!
+            // Jeśli zostały np. 3 z 4 punktów, zsumujemy odległość między nimi na ekranie.
+            for (size_t j = 1; j < screenPts.size(); ++j)
+            {
+                float dx = screenPts[j].first - screenPts[j-1].first;
+                float dy = screenPts[j].second - screenPts[j-1].second;
+                lenPixels += std::sqrt(dx*dx + dy*dy);
+            }
+
+            // 3. Wstępne wyliczenie (adaptacyjne)
+            int rawSegments = (int)(lenPixels / 4.0f);
+
+            // 4. NASZ NOWY DOPALACZ: Jeśli krzywa przecina kamerę, podnosimy stawkę.
+            if (isBehindCamera)
+            {
+                // Bierzemy to, co WIEKSZE: wyliczone segmenty z pikseli ALBO bezpieczne 100 dla bliskich obiektów
+                rawSegments = std::max(rawSegments, 256);
+            }
+
+            // 5. Ostateczny, żelazny limit (Clamp), żeby karta nie spłonęła (od 20 do 200)
+            segments = std::clamp(rawSegments, 16, 4096);
         }
 
-        for (size_t j = 1; j < screenPts.size(); ++j) {
-            float dx = screenPts[j].first - screenPts[j-1].first;
-            float dy = screenPts[j].second - screenPts[j-1].second;
-            lenPixels += std::sqrt(dx*dx + dy*dy);
-        }
-
-        int segments = std::max(1, (int)(lenPixels / 10.0f));
-
-        for (int j = 0; j <= degree; ++j) {
+        for (int j = 0; j <= degree; ++j)
+        {
             std::string loc = "p[" + std::to_string(j) + "]";
             shader.setVec3(loc, segPts[j].x, segPts[j].y, segPts[j].z);
         }
@@ -103,29 +116,15 @@ void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
         pendingDelete = true;
         return;
     }
-    if (!showPolygon || points.size() < 2) return;
 
-    auto getPreviewPos = [&](std::shared_ptr<ScenePoint> p) -> Vect3 {
-        Vect3 pos = p->transformations.getPosition();
+    //nie rysuje dla 2 punktow bo by sie linie nakladaly
+    if (!showPolygon || points.size() < 3) return;
 
-        if (ctx.isTransforming && (ctx.isEntireScene || p->isSelected || p->selectedCurvesCount > 0)) {
-            if (ctx.isLocal) {
-                pos.x += ctx.localDeltaPos.x;
-                pos.y += ctx.localDeltaPos.y;
-                pos.z += ctx.localDeltaPos.z;
-            } else {
-                Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-                Vect4 newP = ctx.groupMat * p4;
-                pos = Vect3(newP.x, newP.y, newP.z);
-            }
-        }
-        return pos;
-    };
 
     std::vector<float> data;
-    for(auto& wp : points) {
-        // TUTAJ TEŻ UŻYWAMY LAMBDY!
-        Vect3 pos = getPreviewPos(wp.lock());
+    for(auto& wp : points)
+    {
+        Vect3 pos = getPreviewPosition(wp.lock(), ctx);
         data.push_back(pos.x); data.push_back(pos.y); data.push_back(pos.z);
     }
 
@@ -135,8 +134,8 @@ void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    lineShader.use();
-    float gray[3] = {0.5f, 0.5f, 0.5f};
+    //lineShader.use();
+    float gray[3] = {0.4f, 0.4f, 0.4f};
     glUniform3fv(glGetUniformLocation(lineShader.ID, "objectColor"), 1, gray);
     Mat4 id(1.0f);
     glUniformMatrix4fv(glGetUniformLocation(lineShader.ID, "model"), 1, GL_FALSE, id.table);

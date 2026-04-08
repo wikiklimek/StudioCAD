@@ -12,11 +12,16 @@ void main() {
     vec3 pos = vec3(0.0);
 
     // Wielomiany Bernsteina dla Beziera
-    if (degree == 3) {
+    if (degree == 3)
+    {
         pos = u*u*u*p[0] + 3.0*u*u*t*p[1] + 3.0*u*t*t*p[2] + t*t*t*p[3];
-    } else if (degree == 2) {
+    }
+    else if (degree == 2)
+    {
         pos = u*u*p[0] + 2.0*u*t*p[1] + t*t*p[2];
-    } else if (degree == 1) {
+    }
+    else if (degree == 1)
+    {
         pos = u*p[0] + t*p[1];
     }
 

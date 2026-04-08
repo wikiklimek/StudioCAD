@@ -56,8 +56,12 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         sceneObjects.push_back(p);
         for(auto& obj : sceneObjects)
         {
-            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+            // 1. Superszybkie sprawdzenie pojedynczej liczby (enuma)
+            if (obj->objectType == ObjectType::BezierCurveC0)
             {
+                // 2. Zerokosztowe rzutowanie (bo już WIEMY, co to za obiekt!)
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+
                 if (b->isSelected)
                     b->points.push_back(p);
             }
@@ -76,8 +80,12 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
         for (auto& obj : sceneObjects)
         {
-            if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+            // 1. Superszybkie sprawdzenie pojedynczej liczby (enuma)
+            if (obj->objectType == ObjectType::BezierCurveC0)
             {
+                // 2. Zerokosztowe rzutowanie (bo już WIEMY, co to za obiekt!)
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+
                 bezierNames.push_back(b->name);
                 bezierPointers.push_back(b);
             }
@@ -108,8 +116,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             std::vector<std::shared_ptr<ScenePoint>> selPts;
             for(auto& obj : sceneObjects)
             {
-                if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+                if (obj->objectType == ObjectType::Point)
                 {
+                    auto p = std::static_pointer_cast<ScenePoint>(obj);
                     if (p->isSelected)
                         selPts.push_back(p);
                 }
@@ -187,8 +196,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         globalCount++;
 
         bool isPartOfSelection = false;
-        if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+        if (obj->objectType == ObjectType::Point)
         {
+            auto p = std::static_pointer_cast<ScenePoint>(obj);
             if (p->isSelected || p->selectedCurvesCount > 0)
                 isPartOfSelection = true;
         }
@@ -300,7 +310,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                     Vect3(0,0,0) :
                     ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
-            // JEDNA LINIJKA WYPIEKANIA!
+
             bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
 
             clearGuiState();
@@ -338,7 +348,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     {
         for (auto& obj : sceneObjects)
         {
-            if (!std::dynamic_pointer_cast<ScenePoint>(obj))
+            if(obj->objectType != ObjectType::Point)
                 renderObjectGuiRow(obj, magicMode, magicCurve);
         }
         ImGui::TreePop();
@@ -348,8 +358,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     {
         for (auto& obj : sceneObjects)
         {
-            if (std::dynamic_pointer_cast<ScenePoint>(obj))
+            if (obj->objectType == ObjectType::Point)
+            {
                 renderObjectGuiRow(obj, magicMode, magicCurve);
+            }
         }
         ImGui::TreePop();
     }
@@ -363,8 +375,9 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
 {
     ImGui::PushID(obj.get());
 
-    if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+    if (obj->objectType == ObjectType::Point)
     {
+        auto p = std::static_pointer_cast<ScenePoint>(obj);
         if (p->selectedCurvesCount > 0)
             ImGui::TextColored(ImVec4(0, 1, 0, 1), "%d ", p->selectedCurvesCount);
         else
@@ -389,7 +402,8 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         ImGui::Indent();
         ImGui::ColorEdit3("Kolor", obj->color);
 
-        if (!std::dynamic_pointer_cast<SceneBezierC0>(obj))
+
+        if(obj->objectType != ObjectType::BezierCurveC0)
         {
             ImGui::Text("Transformacja obiektu:");
             ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
@@ -412,8 +426,11 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             }
         }
 
-        if (auto b = std::dynamic_pointer_cast<SceneBezierC0>(obj))
+
+        if (obj->objectType == ObjectType::BezierCurveC0)
         {
+            auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+
             ImGui::Checkbox("Pokaz lamana", &b->showPolygon);
             if (ImGui::Button("Dodaj nowe punkty"))
             {
@@ -442,8 +459,9 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                 }
             }
         }
-        else if (auto t = std::dynamic_pointer_cast<SceneTorus>(obj))
+        else if(obj->objectType == ObjectType::Torus)
         {
+            auto t = std::static_pointer_cast<SceneTorus>(obj);
             ImGui::Text("Geometria Torusa:");
             bool needsUpdate = false;
             needsUpdate |= ImGui::SliderFloat("R", &t->R, min_R, max_R);
@@ -453,8 +471,9 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             if (needsUpdate)
                 t->UpdateBuffers();
         }
-        else if (auto p = std::dynamic_pointer_cast<ScenePoint>(obj))
+        else if (obj->objectType == ObjectType::Point)
         {
+            auto p = std::static_pointer_cast<ScenePoint>(obj);
             ImGui::Text("Geometria Punktu:");
             ImGui::SliderFloat("Rozmiar", &p->size, 1.0f, 20.0f);
         }

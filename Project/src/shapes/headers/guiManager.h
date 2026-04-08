@@ -53,10 +53,10 @@ public:
 
     void clearGuiState();
 
-    // PODMIENIONY NAGŁÓWEK FUNKCJI:
+
     void Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
               Cursor& cursor, Camera& camera,
-              AppState& state, // <---- WSZYSTKIE 3 ENUMY ZASTĄPIONE TYM!
+              AppState& state,
               bool isBoxSelecting, double boxStartX, double boxStartY, double boxEndX, double boxEndY,
               bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve,
               bool isCamDragging, Vect3& centerOfSelection);
