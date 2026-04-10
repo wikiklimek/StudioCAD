@@ -76,11 +76,11 @@ public:
     void getCameraVectors(Vect3& outForward, Vect3& outRight, Vect3& outUp) const
     {
         Vect3 activePos(0.0), activeTarget(0.0);
-        getActiveState(activePos, activeTarget); // Wywołane tylko RAZ!
+        getActiveState(activePos, activeTarget);
 
-        outForward = (activePos - activeTarget).normalize(); // Wektor od celu w stronę oka (Oś Z)
-        outRight = Vect3::cross(up, outForward).normalize(); // Oś X
-        outUp = Vect3::cross(outForward, outRight).normalize(); // Oś Y
+        outForward = (activePos - activeTarget).normalize();
+        outRight = Vect3::cross(up, outForward).normalize();
+        outUp = Vect3::cross(outForward, outRight).normalize();
     }
 
 
@@ -134,7 +134,7 @@ public:
     }
 
 
-    // Wymusza poprawne zachowanie kamery (Gimbal Lock i minimalny dystans)
+
     void enforceConstraints()
     {
         Vect3 dir = position - target;
@@ -157,7 +157,7 @@ public:
             dist = 0.1f;
         }
 
-        // 2. Zabezpieczenie przed Gimbal Lock (Równoległość do osi Z)
+
         dir.x /= dist;
         dir.y /= dist;
         dir.z /= dist;

@@ -5,13 +5,12 @@ uniform int degree;
 uniform mat4 view;
 uniform mat4 projection;
 
-void main() {
-    // Obliczamy parametr t w przedziale [0.0, 1.0] na podstawie ID wierzchołka
+void main()
+{
     float t = float(gl_VertexID) / float(segmentCount);
     float u = 1.0 - t;
     vec3 pos = vec3(0.0);
 
-    // Wielomiany Bernsteina dla Beziera
     if (degree == 3)
     {
         pos = u*u*u*p[0] + 3.0*u*u*t*p[1] + 3.0*u*t*t*p[2] + t*t*t*p[3];

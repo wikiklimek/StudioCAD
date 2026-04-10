@@ -11,12 +11,12 @@ void SceneBezierC0::Init()
 {
     glGenVertexArrays(1, &VAO_bezier);
 
-    // 2. Osobne VAO i VBO dla łamanej, żeby nie niszczyły pamięci krzywej
     glGenVertexArrays(1, &VAO_poly);
     glGenBuffers(1, &VBO_poly);
 }
 
-SceneBezierC0::~SceneBezierC0() {
+SceneBezierC0::~SceneBezierC0()
+{
     if (VAO_bezier) glDeleteVertexArrays(1, &VAO_bezier);
     if (VAO_poly) glDeleteVertexArrays(1, &VAO_poly);
     if (VBO_poly) glDeleteBuffers(1, &VBO_poly);
@@ -61,7 +61,7 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
             std::vector<std::pair<float, float>> screenPts;
             bool isBehindCamera = false;
 
-            // 1. Rzutujemy punkty i sprawdzamy, czy któryś uciekł
+            // rzut na ekran
             for (auto& p : segPts)
             {
                 float screenX, screenY;
@@ -75,8 +75,7 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
                 }
             }
 
-            // 2. ZAWSZE liczymy długość łamanej, ale tylko dla punktów, które ocalały!
-            // Jeśli zostały np. 3 z 4 punktów, zsumujemy odległość między nimi na ekranie.
+            // dlugosc lamanej pkt na ekranie
             for (size_t j = 1; j < screenPts.size(); ++j)
             {
                 float dx = screenPts[j].first - screenPts[j-1].first;
@@ -84,18 +83,17 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
                 lenPixels += std::sqrt(dx*dx + dy*dy);
             }
 
-            // 3. Wstępne wyliczenie (adaptacyjne)
+
             int rawSegments = (int)(lenPixels / 4.0f);
 
-            // 4. NASZ NOWY DOPALACZ: Jeśli krzywa przecina kamerę, podnosimy stawkę.
+
             if (isBehindCamera)
             {
-                // Bierzemy to, co WIEKSZE: wyliczone segmenty z pikseli ALBO bezpieczne 100 dla bliskich obiektów
                 rawSegments = std::max(rawSegments, 256);
             }
 
-            // 5. Ostateczny, żelazny limit (Clamp), żeby karta nie spłonęła (od 20 do 200)
-            segments = std::clamp(rawSegments, 16, 4096);
+
+            segments = std::clamp(rawSegments, 4, 16384);
         }
 
         for (int j = 0; j <= degree; ++j)
@@ -112,20 +110,24 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
 
 void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
-    if (points.empty()) {
+    if (points.empty())
+    {
         pendingDelete = true;
         return;
     }
 
-    //nie rysuje dla 2 punktow bo by sie linie nakladaly
-    if (!showPolygon || points.size() < 3) return;
+
+    if (!showPolygon || points.size() < 2)
+        return;
 
 
     std::vector<float> data;
     for(auto& wp : points)
     {
         Vect3 pos = getPreviewPosition(wp.lock(), ctx);
-        data.push_back(pos.x); data.push_back(pos.y); data.push_back(pos.z);
+        data.push_back(pos.x);
+        data.push_back(pos.y);
+        data.push_back(pos.z);
     }
 
     glBindVertexArray(VAO_poly);

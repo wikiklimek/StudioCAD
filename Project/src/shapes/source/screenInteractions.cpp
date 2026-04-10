@@ -9,12 +9,11 @@ Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight,
     float ndcX = (2.0f * (float)mouseX) / (float)winWidth - 1.0f;
     float ndcY = 1.0f - (2.0f * (float)mouseY) / (float)winHeight;
 
-    // Pobieramy wszystkie 3 wektory JEDNYM superszybkim wywołaniem!
     Vect3 D(0.0), R(0.0), U(0.0);
     camera.getCameraVectors(D, R, U);
 
     float aspectRatio = (float)winWidth / (float)winHeight;
-    float tanHalfFov = std::tan(camera.fov / 2.0f); // Używamy FOV z kamery!
+    float tanHalfFov = std::tan(camera.fov / 2.0f);
 
     float viewX = ndcX * aspectRatio * tanHalfFov;
     float viewY = ndcY * tanHalfFov;
@@ -53,39 +52,50 @@ Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera)
 
 
 void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
-                                       const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+                                const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
-    Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, camera);
+    float aspectRatio = (float)winWidth / (float)winHeight;
+    Mat4 VP = camera.getProjectionMatrix(aspectRatio) * camera.getViewMatrix();
 
     Vect3 activeCamPos(0.0), activeCamTarget(0.0);
     camera.getActiveState(activeCamPos, activeCamTarget);
 
-    float minDist = 10000.0f;
+    float minDistToCamera = 100000.0f;
     std::shared_ptr<SceneObject> closestObj = nullptr;
 
     for (auto& obj : sceneObjects)
     {
-        // Obecnie klikamy tylko w punkty
-        if(obj->objectType != ObjectType::Point)
+        if (obj->objectType != ObjectType::Point)
             continue;
 
+        auto p = std::static_pointer_cast<ScenePoint>(obj);
+        Vect3 pos = p->transformations.getPosition();
 
-        Vect3 objPos = obj->transformations.getPosition();
-        Vect3 toObj = objPos - activeCamPos;
-        float projLength = Vect3::dot(toObj, rayDir);
+        float screenX, screenY;
 
-        if (projLength > 0.0f)
+        if (projectWorldToScreen(pos, VP, winWidth, winHeight, screenX, screenY))
         {
-            Vect3 projPoint = activeCamPos + Vect3(rayDir.x * projLength, rayDir.y * projLength, rayDir.z * projLength);
-            float distToRay = std::sqrt((objPos.x - projPoint.x) * (objPos.x - projPoint.x) +
-                                        (objPos.y - projPoint.y) * (objPos.y - projPoint.y) +
-                                        (objPos.z - projPoint.z) * (objPos.z - projPoint.z));
+            float dx = (float)mouseX - screenX;
+            float dy = (float)mouseY - screenY;
+            float dist2D = std::sqrt(dx*dx + dy*dy);
 
-            // Promień trafienia (1.5f) - łapiemy ten najbliżej kamery
-            if (distToRay < 1.5f && projLength < minDist)
+            // + 4 piksele
+            float clickRadius = (p->size / 2.0f) + 4.0f;
+
+
+            if (dist2D <= clickRadius)
             {
-                minDist = projLength;
-                closestObj = obj;
+                //fizyczna odległość od kamery
+                float dist3D = (pos.x - activeCamPos.x) * (pos.x - activeCamPos.x) +
+                               (pos.y - activeCamPos.y) * (pos.y - activeCamPos.y) +
+                               (pos.z - activeCamPos.z) * (pos.z - activeCamPos.z);
+
+
+                if (dist3D < minDistToCamera)
+                {
+                    minDistToCamera = dist3D;
+                    closestObj = obj;
+                }
             }
         }
     }
@@ -119,10 +129,10 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
         Vect3 pos = obj->transformations.getPosition();
         float screenX, screenY;
 
-        // Magia! Jedno wywołanie ogarnia całą matematykę kamery i perspektywy
+
         if (projectWorldToScreen(pos, VP, winWidth, winHeight, screenX, screenY))
         {
-            // Jeśli punkt jest przed kamerą, sprawdź czy leży w narysowanym prostokącie
+
             if (screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY)
             {
                 obj->isSelected = true;

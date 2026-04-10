@@ -7,7 +7,7 @@
 
 
 ScenePoint::ScenePoint(std::string n, Transformations spawnTransform)
-        : SceneObject(std::move(n), spawnTransform, ObjectType::Point), size(6.0f) {}
+        : SceneObject(std::move(n), spawnTransform, ObjectType::Point), size(4.0f) {}
 
 ScenePoint::ScenePoint(std::string n, float s, Transformations spawnTransform)
         : SceneObject(std::move(n), spawnTransform, ObjectType::Point), size(s) {}

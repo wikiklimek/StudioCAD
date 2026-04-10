@@ -56,10 +56,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         sceneObjects.push_back(p);
         for(auto& obj : sceneObjects)
         {
-            // 1. Superszybkie sprawdzenie pojedynczej liczby (enuma)
             if (obj->objectType == ObjectType::BezierCurveC0)
             {
-                // 2. Zerokosztowe rzutowanie (bo już WIEMY, co to za obiekt!)
                 auto b = std::static_pointer_cast<SceneBezierC0>(obj);
 
                 if (b->isSelected)
@@ -80,10 +78,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
         for (auto& obj : sceneObjects)
         {
-            // 1. Superszybkie sprawdzenie pojedynczej liczby (enuma)
             if (obj->objectType == ObjectType::BezierCurveC0)
             {
-                // 2. Zerokosztowe rzutowanie (bo już WIEMY, co to za obiekt!)
                 auto b = std::static_pointer_cast<SceneBezierC0>(obj);
 
                 bezierNames.push_back(b->name);
@@ -432,7 +428,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             auto b = std::static_pointer_cast<SceneBezierC0>(obj);
 
             ImGui::Checkbox("Pokaz lamana", &b->showPolygon);
-            if (ImGui::Button("Dodaj nowe punkty"))
+            if (ImGui::Button("Dodaj calkowicie nowe punkty"))
             {
                 magicMode = true;
                 magicCurve = b;
@@ -475,7 +471,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
             ImGui::Text("Geometria Punktu:");
-            ImGui::SliderFloat("Rozmiar", &p->size, 1.0f, 20.0f);
+            ImGui::SliderFloat("Rozmiar", &p->size, 1.0f, 6.0f);
         }
         ImGui::Unindent();
         ImGui::Separator();

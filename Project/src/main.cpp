@@ -77,7 +77,7 @@ int main()
 
     // wygładzanie krawędzi
     glEnable(GL_MULTISAMPLE);
-    //glLineWidth(1.2f);
+    glLineWidth(1.2f);
 
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -423,8 +423,6 @@ int main()
 
 
         shader.use();
-        // Zauważ: Macierze widoku i projekcji dla 'shader' zostały
-        // już wysłane wyżej, przy rysowaniu zwykłych obiektów!
         for (auto& obj : sceneObjects)
         {
             if (obj->objectType == ObjectType::BezierCurveC0)

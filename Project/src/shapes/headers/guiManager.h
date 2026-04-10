@@ -13,7 +13,6 @@
 
 class GuiManager {
 public:
-    // Limity sliderów z głównego programu
     float min_pos = -50.0f, max_pos = 50.0f;
     float min_scale = 0.01f, max_scale = 10.0f;
     float min_axis = -1.0f, max_axis = 1.0f;

@@ -20,7 +20,6 @@ public:
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
 
-    // Zamiast tony argumentów, przyjmują PreviewContext
     void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx);
     void DrawPolygon(Shader& lineShader, const PreviewContext& ctx);
 };
