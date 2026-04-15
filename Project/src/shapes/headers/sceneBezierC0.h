@@ -10,6 +10,8 @@ public:
     bool showPolygon = false;
 
     unsigned int VAO_bezier = 0;
+    unsigned int VBO_bezier = 0;
+
     unsigned int VAO_poly = 0;
     unsigned int VBO_poly = 0;
 
@@ -20,6 +22,8 @@ public:
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
 
-    void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx);
+    void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode);
+    void DrawBezierLineStripes(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx);
+    void DrawBezierGeometry(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx);
     void DrawPolygon(Shader& lineShader, const PreviewContext& ctx);
 };

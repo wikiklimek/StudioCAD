@@ -84,7 +84,12 @@ int main()
 
     Shader shader("src/shaders/torus.vs", "src/shaders/torus.fs");
 
-    Shader bezierShader("src/shaders/bezier.vs", "src/shaders/bezier.fs");
+    Shader bezierLineStripShader("src/shaders/bezier_line_strip.vs", "src/shaders/bezier_line_strip.fs");
+    Shader bezierGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bezier_geom.gs");
+
+    BezierDrawMode currentBezierDrawMode = GEOMETRY;
+    Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
+
 
     bool magicMode = false;
     std::shared_ptr<SceneBezierC0> magicCurve = nullptr;
@@ -433,10 +438,10 @@ int main()
             }
         }
 
-        bezierShader.use();
+        bezierShader->use();
 
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
         for (auto& obj : sceneObjects)
         {
@@ -444,7 +449,7 @@ int main()
             {
                 auto b = std::static_pointer_cast<SceneBezierC0>(obj);
 
-                b->DrawBezier(bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx);
+                b->DrawBezier(*bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
             }
         }
 

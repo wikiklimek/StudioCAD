@@ -10,6 +10,14 @@ SceneBezierC0::SceneBezierC0(std::string n, Transformations spawnTransform)
 void SceneBezierC0::Init()
 {
     glGenVertexArrays(1, &VAO_bezier);
+    glGenBuffers(1, &VBO_bezier); // NOWE
+
+    glBindVertexArray(VAO_bezier);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_bezier);
+    // Rezerwujemy pamięć na równe 4 wektory 3D (dla lines_adjacency)
+    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
     glGenVertexArrays(1, &VAO_poly);
     glGenBuffers(1, &VBO_poly);
@@ -22,7 +30,8 @@ SceneBezierC0::~SceneBezierC0()
     if (VBO_poly) glDeleteBuffers(1, &VBO_poly);
 }
 
-void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx)
+
+void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode)
 {
     points.erase(std::remove_if(points.begin(), points.end(),
                                 [](const std::weak_ptr<ScenePoint>& wp) { return wp.expired(); }), points.end());
@@ -33,7 +42,18 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
         return;
     }
 
-
+    switch (mode)
+    {
+        case GEOMETRY:
+            DrawBezierGeometry(shader, VP, winWidth, winHeight, ctx);
+            break;
+        case LINE_STRIP:
+            DrawBezierLineStripes(shader, VP, winWidth, winHeight, ctx);
+            break;
+    }
+}
+void SceneBezierC0::DrawBezierLineStripes(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx)
+{
     glBindVertexArray(VAO_bezier);
     //shader.use();
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
@@ -105,6 +125,82 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
         shader.setInt("segmentCount", segments);
 
         glDrawArrays(GL_LINE_STRIP, 0, segments + 1);
+    }
+}
+
+void SceneBezierC0::DrawBezierGeometry(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx)
+{
+
+    glBindVertexArray(VAO_bezier);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+
+    for (size_t i = 0; i < points.size() - 1; i += 3)
+    {
+        size_t remaining = points.size() - i;
+        int degree = 1;
+        if (remaining >= 4)
+            degree = 3;
+        else if (remaining == 3)
+            degree = 2;
+
+        std::vector<Vect3> segPts;
+        for (int j = 0; j <= degree; ++j)
+        {
+            segPts.push_back(getPreviewPosition(points[i + j].lock(), ctx));
+        }
+
+        // PADOWANIE: GL_LINES_ADJACENCY ZAWSZE wymaga 4 punktów.
+        // Jeśli mamy 3 punkty (stopień 2), powielamy ostatni.
+        while(segPts.size() < 4)
+        {
+            segPts.push_back(segPts.back());
+        }
+
+        int segments = 1;
+        if (degree > 1)
+        {
+            float lenPixels = 0.0f;
+            std::vector<std::pair<float, float>> screenPts;
+            bool isBehindCamera = false;
+
+            for (auto& p : segPts)
+            {
+                float screenX, screenY;
+                if (projectWorldToScreen(p, VP, winWidth, winHeight, screenX, screenY))
+                    screenPts.push_back({screenX, screenY});
+                else
+                    isBehindCamera = true;
+            }
+
+            for (size_t j = 1; j < screenPts.size(); ++j)
+            {
+                float dx = screenPts[j].first - screenPts[j-1].first;
+                float dy = screenPts[j].second - screenPts[j-1].second;
+                lenPixels += std::sqrt(dx*dx + dy*dy);
+            }
+
+            int rawSegments = (int)(lenPixels / 4.0f); // Mniejsza gęstość z racji limitu GS!
+            if (isBehindCamera) rawSegments = std::max(rawSegments, 199);
+
+            // UWAGA NA LIMIT: Geometry shader zdefiniowaliśmy na 200 vertexów, więc max segmentów to 199!
+            segments = std::clamp(rawSegments, 4, 199);
+        }
+
+        // Aktualizacja VBO dla tej konkretnej paczki 4 punktów
+        float data[12] = {
+                segPts[0].x, segPts[0].y, segPts[0].z,
+                segPts[1].x, segPts[1].y, segPts[1].z,
+                segPts[2].x, segPts[2].y, segPts[2].z,
+                segPts[3].x, segPts[3].y, segPts[3].z
+        };
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_bezier);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(data), data);
+
+        shader.setInt("degree", degree);
+        shader.setInt("segmentCount", segments);
+
+        // Wywołujemy sprzętowe rysowanie dla zestawu 4 punktów
+        glDrawArrays(GL_LINES_ADJACENCY, 0, 4);
     }
 }
 

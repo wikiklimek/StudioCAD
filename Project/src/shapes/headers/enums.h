@@ -11,3 +11,5 @@ enum class ObjectType {
     Torus,
     BezierCurveC0
 };
+
+enum BezierDrawMode {GEOMETRY, LINE_STRIP};
