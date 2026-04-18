@@ -1,12 +1,20 @@
 #pragma once
+#include <glad/glad.h>
+#include <MG1Math/Vect3.h>
+#include <MG1Math/Mat4.h>
 #include "shader.h"
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+class Axis {
+public:
+    Axis();
+    ~Axis();
 
+    void Init();
 
-#include "torusGrid.h"
-#include "matrixesModelViewProjection.h"
+    // Używamy Vect3 dla spójności z resztą silnika!
+    void Draw(Shader& shader, const Vect3& position, const Vect3& rotations, float length);
 
-void drawEulerAxes(Shader& shader, unsigned int axisVAO, const float position[3], const float rotations[3], float length);
+private:
+    unsigned int VAO = 0;
+    unsigned int VBO = 0;
+};

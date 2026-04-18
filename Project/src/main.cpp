@@ -101,14 +101,16 @@ int main()
 
     Cursor cursor;
     cursor.Init();
+
+    Axis sceneAxis;
+    sceneAxis.Init();
+
+    AppState appState;
+    TransformManager tm;
+
+
     std::vector<std::shared_ptr<SceneObject>> sceneObjects;
-
-
-
     Vect3 centerOfSelection(0.0f, 0.0f, 0.0f);
-
-
-
 
 
     auto firstTorus = std::make_shared<SceneTorus>("Torus Startowy", cursor.transform);
@@ -117,7 +119,6 @@ int main()
 
 
     int winWidth = 1024, winHeight = 768;
-
 
 
     float aspectRatio = (float)winWidth/(float)winHeight;
@@ -142,39 +143,11 @@ int main()
 
 
 
-    // OSIE OBROTU
-    float axisBidirectionalVertices[] = {
-            -1.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, // X
-            0.0f,-1.0f, 0.0f,  0.0f, 1.0f, 0.0f, // Y
-            0.0f, 0.0f,-1.0f,  0.0f, 0.0f, 1.0f  // Z
-    };
-
-    unsigned int localAxisVAO, localAxisVBO;
-    glGenVertexArrays(1, &localAxisVAO);
-    glGenBuffers(1, &localAxisVBO);
-    glBindVertexArray(localAxisVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, localAxisVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(axisBidirectionalVertices), axisBidirectionalVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-
-    bool drawAxesEuler = true;
-
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460 core");
-
-
-
-    AppState appState;
-    TransformManager tm;
-
-
-
 
 
 
@@ -537,13 +510,8 @@ int main()
         //shader.use();
 
         cursor.Draw(shader);
+        sceneAxis.Draw(shader, Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 10000.0f);
 
-        if(drawAxesEuler)
-        {
-            float dummyPos[3] = {0,0,0};
-            float dummyRot[3] = {0,0,0};
-            drawEulerAxes(shader, localAxisVAO, dummyPos, dummyRot, 100.0f);
-        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
