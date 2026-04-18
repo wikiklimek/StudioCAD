@@ -1,6 +1,8 @@
 #pragma once
 class Vect3{
 public:
+    Vect3();
+
     float x, y, z;
 
     Vect3(float x, float y, float z);

@@ -1,6 +1,7 @@
 #pragma once
 #include "screenInteractions.h"
 #include "sceneBezierC0.h"
+#include "sceneBezierC2.h"
 
 
 Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight, const Camera& camera)
@@ -63,11 +64,32 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
     float minDistToCamera = 100000.0f;
     std::shared_ptr<SceneObject> closestObj = nullptr;
 
+    // --- NOWOŚĆ: Radar na wszystkie punkty (Zwykłe + Wirtualne) ---
+    std::vector<std::shared_ptr<SceneObject>> clickablePoints;
     for (auto& obj : sceneObjects)
     {
-        if (obj->objectType != ObjectType::Point)
-            continue;
+        // Zbierz normalne punkty ze sceny
+        if (obj->objectType == ObjectType::Point)
+        {
+            clickablePoints.push_back(obj);
+        }
+            // Zajrzyj do kieszeni krzywych C2
+        else if (obj->objectType == ObjectType::BezierCurveC2)
+        {
+            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+            if (b2->currentBasis == BezierBasisMode::BERNSTEIN)
+            {
+                for (auto& vp : b2->virtualPoints)
+                {
+                    clickablePoints.push_back(vp);
+                }
+            }
+        }
+    }
 
+    // --- STARY KOD, ALE ITERUJE PO clickablePoints ---
+    for (auto& obj : clickablePoints) // Zmiana 'sceneObjects' na 'clickablePoints'
+    {
         auto p = std::static_pointer_cast<ScenePoint>(obj);
         Vect3 pos = p->transformations.getPosition();
 
@@ -79,17 +101,13 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
             float dy = (float)mouseY - screenY;
             float dist2D = std::sqrt(dx*dx + dy*dy);
 
-            // + 4 piksele
             float clickRadius = (p->size / 2.0f) + 4.0f;
-
 
             if (dist2D <= clickRadius)
             {
-                //fizyczna odległość od kamery
                 float dist3D = (pos.x - activeCamPos.x) * (pos.x - activeCamPos.x) +
                                (pos.y - activeCamPos.y) * (pos.y - activeCamPos.y) +
                                (pos.z - activeCamPos.z) * (pos.z - activeCamPos.z);
-
 
                 if (dist3D < minDistToCamera)
                 {
@@ -105,10 +123,9 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
 }
 
 
-
 void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, double boxEndY,
-                                int winWidth, int winHeight, const Camera& camera,
-                                std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+                         int winWidth, int winHeight, const Camera& camera,
+                         std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
     float aspectRatio = (float)winWidth / (float)winHeight;
     Mat4 M_View = camera.getViewMatrix();
@@ -120,19 +137,40 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
     float minY = (float)std::min(boxStartY, boxEndY);
     float maxY = (float)std::max(boxStartY, boxEndY);
 
-
+    // --- KROK 1: Agregacja wszystkich zaznaczalnych obiektów ---
+    std::vector<std::shared_ptr<SceneObject>> selectableObjects;
     for (auto& obj : sceneObjects)
     {
-        if (obj->objectType == ObjectType::BezierCurveC0)
-            continue;
+        // Bezpośrednio zaznaczalne obiekty (Torusy, standardowe Punkty)
+        if (obj->objectType == ObjectType::Point || obj->objectType == ObjectType::Torus)
+        {
+            selectableObjects.push_back(obj);
+        }
 
+        /*
+        else if (obj->objectType == ObjectType::BezierCurveC2)
+        {
+            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+            if (b2->currentBasis == BezierBasisMode::BERNSTEIN)
+            {
+                for (auto& vp : b2->virtualPoints)
+                {
+                    selectableObjects.push_back(vp);
+                }
+            }
+        }
+         */
+        // Krzywe Beziera C0 i same obiekty C2 ignorujemy
+    }
+
+    // --- KROK 2: Sprawdzenie kolizji Boxa z wyciągniętymi obiektami ---
+    for (auto& obj : selectableObjects)
+    {
         Vect3 pos = obj->transformations.getPosition();
         float screenX, screenY;
 
-
         if (projectWorldToScreen(pos, VP, winWidth, winHeight, screenX, screenY))
         {
-
             if (screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY)
             {
                 obj->isSelected = true;
@@ -140,4 +178,3 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
         }
     }
 }
-

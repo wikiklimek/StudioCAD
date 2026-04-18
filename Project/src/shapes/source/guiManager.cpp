@@ -8,6 +8,7 @@
 #include "sceneTorus.h"
 #include "guiManager.h"
 #include "bakeTransform.h"
+#include "sceneBezierC2.h"
 
 
 void GuiManager::clearGuiState()
@@ -23,7 +24,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                       Cursor& cursor, Camera& camera,
                       AppState& state, // <---- WSZYSTKIE 3 ENUMY ZASTĄPIONE TYM!
                       bool isBoxSelecting, double boxStartX, double boxStartY, double boxEndX, double boxEndY,
-                      bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve,
+                      bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve,
                       bool isCamDragging, Vect3& centerOfSelection)
 
 {
@@ -56,10 +57,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         sceneObjects.push_back(p);
         for(auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            // DZIAŁA DLA OBU KRZYWYCH
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             {
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
-
+                auto b = std::static_pointer_cast<SceneBezier>(obj);
                 if (b->isSelected)
                     b->points.push_back(p);
             }
@@ -73,15 +74,15 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     if (!magicMode)
     {
         std::vector<std::string> bezierNames;
-        std::vector<std::shared_ptr<SceneBezierC0>> bezierPointers;
+        std::vector<std::shared_ptr<SceneBezier>> bezierPointers; // ZMIANA NA BAZOWĄ KLASE!
         bezierNames.push_back("Nowy Bezier");
 
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            // ŁAPIEMY OBYDWIE KRZYWE DO COMBOBOXA
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             {
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
-
+                auto b = std::static_pointer_cast<SceneBezier>(obj);
                 bezierNames.push_back(b->name);
                 bezierPointers.push_back(b);
             }
@@ -97,59 +98,79 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             {
                 bool is_selected = (selectedBezierIndex == i);
                 if (ImGui::Selectable(bezierNames[i].c_str(), is_selected))
-                {
                     selectedBezierIndex = i;
-                }
-                if (is_selected)
-                    ImGui::SetItemDefaultFocus();
+                if (is_selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("Stworz/Dodaj"))
+
+        // Zamiast jednego przycisku z zagnieżdżeniami, od razu wyświetlamy właściwe opcje!
+        if (selectedBezierIndex == 0)
         {
-            std::vector<std::shared_ptr<ScenePoint>> selPts;
-            for(auto& obj : sceneObjects)
+            if (ImGui::Button("Stworz Nowa C0"))
             {
-                if (obj->objectType == ObjectType::Point)
+                std::vector<std::shared_ptr<ScenePoint>> selPts;
+                for(auto& obj : sceneObjects)
                 {
-                    auto p = std::static_pointer_cast<ScenePoint>(obj);
-                    if (p->isSelected)
-                        selPts.push_back(p);
+                    if (obj->objectType == ObjectType::Point)
+                    {
+                        auto p = std::static_pointer_cast<ScenePoint>(obj);
+                        if (p->isSelected) selPts.push_back(p);
+                    }
                 }
-            }
-            if (selectedBezierIndex == 0)
-            {
                 if (!selPts.empty())
                 {
-                    auto b = std::make_shared<SceneBezierC0>("Bezier " + std::to_string(sceneObjects.size()+1), Transformations());
+                    auto b = std::make_shared<SceneBezierC0>("Bezier C0 " + std::to_string(sceneObjects.size()+1), Transformations());
                     b->Init();
-                    for(auto& p : selPts)
-                        b->points.push_back(p);
-
+                    for(auto& p : selPts) b->points.push_back(p);
                     sceneObjects.push_back(b);
                     magicMode = true;
                     magicCurve = b;
                 }
             }
-            else
+            ImGui::SameLine();
+            if (ImGui::Button("Stworz Nowa C2"))
             {
+                std::vector<std::shared_ptr<ScenePoint>> selPts;
+                for(auto& obj : sceneObjects)
+                {
+                    if (obj->objectType == ObjectType::Point)
+                    {
+                        auto p = std::static_pointer_cast<ScenePoint>(obj);
+                        if (p->isSelected) selPts.push_back(p);
+                    }
+                }
+                auto b2 = std::make_shared<SceneBezierC2>("Bezier C2 " + std::to_string(sceneObjects.size()+1), Transformations());
+                b2->Init();
+                for(auto& p : selPts) b2->points.push_back(p);
+                sceneObjects.push_back(b2);
+                magicMode = true;
+                magicCurve = b2;
+            }
+        }
+        else
+        {
+            if (ImGui::Button("Dodaj Punkty do Krzywej"))
+            {
+                std::vector<std::shared_ptr<ScenePoint>> selPts;
+                for(auto& obj : sceneObjects)
+                {
+                    if (obj->objectType == ObjectType::Point)
+                    {
+                        auto p = std::static_pointer_cast<ScenePoint>(obj);
+                        if (p->isSelected) selPts.push_back(p);
+                    }
+                }
                 auto b = bezierPointers[selectedBezierIndex - 1];
                 for(auto& p : selPts)
                 {
                     bool exists = false;
-                    for(auto& wp : b->points)
-                    {
-                        if (wp.lock() == p)
-                        {
-                            exists = true;
-                            break;
-                        }
+                    for(auto& wp : b->points) {
+                        if (wp.lock() == p) { exists = true; break; }
                     }
-
-                    if (!exists)
-                        b->points.push_back(p);
+                    if (!exists) b->points.push_back(p);
                 }
                 magicMode = true;
                 magicCurve = b;
@@ -184,7 +205,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
     for (auto& obj : sceneObjects)
     {
-        if (obj->objectType == ObjectType::BezierCurveC0)
+        if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             continue;
 
 
@@ -367,7 +388,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 }
 
 
-void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve) const
+void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve) const
 {
     ImGui::PushID(obj.get());
 
@@ -399,7 +420,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         ImGui::ColorEdit3("Kolor", obj->color);
 
 
-        if(obj->objectType != ObjectType::BezierCurveC0)
+        if(obj->objectType != ObjectType::BezierCurveC0 && obj->objectType != ObjectType::BezierCurveC2)
         {
             ImGui::Text("Transformacja obiektu:");
             ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
@@ -452,6 +473,50 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                 else
                 {
                     it = b->points.erase(it);
+                }
+            }
+        }
+        else if (obj->objectType == ObjectType::BezierCurveC2)
+        {
+            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+
+            ImGui::Checkbox("Pokaz lamana", &b2->showPolygon);
+
+            // --- DODANO PRZYCISK MAGII ---
+            if (ImGui::Button("Dodaj calkowicie nowe punkty"))
+            {
+                magicMode = true;
+                magicCurve = b2;
+            }
+            // -----------------------------
+
+            // Wymóg z polecenia: przełączanie trybu
+            ImGui::Text("Baza wielomianowa:");
+            int basis = (int)b2->currentBasis;
+            if (ImGui::RadioButton("B-Spline", &basis, 0))
+                b2->currentBasis = BezierBasisMode::B_SPLINE;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Bernstein", &basis, 1))
+                b2->currentBasis = BezierBasisMode::BERNSTEIN;
+
+            ImGui::Text("Punkty (de Boora):");
+            for (auto it = b2->points.begin(); it != b2->points.end(); )
+            {
+                if (auto ptr = it->lock())
+                {
+                    ImGui::Text(" - %s", ptr->name.c_str());
+                    ImGui::SameLine();
+                    ImGui::PushID(ptr.get());
+
+                    if (ImGui::Button("Usun z krzywej"))
+                        it = b2->points.erase(it);
+                    else ++it;
+
+                    ImGui::PopID();
+                }
+                else
+                {
+                    it = b2->points.erase(it);
                 }
             }
         }

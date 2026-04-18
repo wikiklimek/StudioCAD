@@ -133,3 +133,13 @@ Vect3 Vect3::normalize() const
     return {this->x / l, this->y / l, this->z / l};
 }
 
+Vect3::Vect3()
+{
+    float a = 0.0;
+    this->x = a;
+    this->y = a;
+    this->z = a;
+}
+
+
+

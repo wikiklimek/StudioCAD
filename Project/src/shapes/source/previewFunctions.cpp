@@ -28,6 +28,7 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
 
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
+    //tutaj bedziemy robili draw BezierC2 bo rysujemy duszki punktów beziera
     if (obj->objectType == ObjectType::BezierCurveC0)
         return;
 

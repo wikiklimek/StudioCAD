@@ -61,6 +61,10 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/guiManager.cpp
         src/shapes/source/transformManager.cpp
         src/shapes/headers/appState.h
+        src/shapes/headers/sceneBezier.h
+        src/shapes/source/sceneBezier.cpp
+        src/shapes/headers/sceneBezierC2.h
+        src/shapes/source/sceneBezierC2.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

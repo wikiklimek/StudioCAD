@@ -9,7 +9,13 @@ enum InputMode { INPUT_MOUSE, INPUT_GUI };
 enum class ObjectType {
     Point,
     Torus,
-    BezierCurveC0
+    BezierCurveC0,
+    BezierCurveC2
 };
 
 enum BezierDrawMode {GEOMETRY, LINE_STRIP};
+
+enum class BezierBasisMode {
+    B_SPLINE,
+    BERNSTEIN
+};

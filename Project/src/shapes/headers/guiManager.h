@@ -57,10 +57,10 @@ public:
               Cursor& cursor, Camera& camera,
               AppState& state,
               bool isBoxSelecting, double boxStartX, double boxStartY, double boxEndX, double boxEndY,
-              bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve,
+              bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve,
               bool isCamDragging, Vect3& centerOfSelection);
 
 
-    void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezierC0>& magicCurve) const;
+    void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve) const;
 
 };

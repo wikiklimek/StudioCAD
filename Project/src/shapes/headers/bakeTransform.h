@@ -16,7 +16,7 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
 
     for(auto& obj : objects)
     {
-        if (obj->objectType == ObjectType::BezierCurveC0)
+        if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             continue; // nie transformuje sie krzywej
 
         bool shouldBake = applyToAll || obj->isSelected;
@@ -48,7 +48,7 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
     {
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
                 continue;
 
             bool shouldBake = obj->isSelected;

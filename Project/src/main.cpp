@@ -40,6 +40,7 @@ float const PI = (float)M_PI;
 #include "camera.h"
 #include "sceneBezierC0.h"
 #include "guiManager.h"
+#include "sceneBezierC2.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -92,7 +93,7 @@ int main()
 
 
     bool magicMode = false;
-    std::shared_ptr<SceneBezierC0> magicCurve = nullptr;
+    std::shared_ptr<SceneBezier> magicCurve = nullptr;
 
 
     Cursor cursor;
@@ -331,7 +332,18 @@ int main()
                     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) != GLFW_PRESS &&
                         glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) != GLFW_PRESS)
                         for (auto& obj : sceneObjects)
+                        {
                             obj->isSelected = false;
+
+                            if (obj->objectType == ObjectType::BezierCurveC2)
+                            {
+                                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+                                for (auto& vp : b2->virtualPoints)
+                                {
+                                    vp->isSelected = false;
+                                }
+                            }
+                        }
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
@@ -382,9 +394,9 @@ int main()
 
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             {
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+                auto b = std::static_pointer_cast<SceneBezier>(obj);
 
                 if (b->isSelected)
                 {
@@ -430,9 +442,9 @@ int main()
         shader.use();
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             {
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+                auto b = std::static_pointer_cast<SceneBezier>(obj);
 
                 b->DrawPolygon(shader, previewCtx);
             }
@@ -445,9 +457,10 @@ int main()
 
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0)
+            // --- POPRAWKA: OBSŁUGA OBU KRZYWYCH ---
+            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             {
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+                auto b = std::static_pointer_cast<SceneBezier>(obj);
 
                 b->DrawBezier(*bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
             }
