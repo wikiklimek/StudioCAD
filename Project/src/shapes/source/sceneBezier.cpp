@@ -34,22 +34,31 @@ void SceneBezier::cleanExpiredPoints()
 }
 
 
-
-void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight)
+void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight, BezierBasisMode basis)
 {
-    if (flatPoints.size() < 2) return;
+    bool isBSpline = (basis == BezierBasisMode::B_SPLINE);
+
+    if (flatPoints.size() < (isBSpline ? 4 : 2)) return;
 
     glBindVertexArray(VAO_bezier);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
 
-    for (size_t i = 0; i < flatPoints.size() - 1; i += 3)
+    int step = isBSpline ? 1 : 3;
+
+    // ZMIANA: Zabezpieczenie przed ujemnym limitem i używamy znaków <= do bezpiecznego liczenia segmentów
+    int limit = isBSpline ? (int)flatPoints.size() - 3 : (int)flatPoints.size() - 1;
+
+    for (int i = 0; i < limit; i += step)
     {
-        size_t remaining = flatPoints.size() - i;
         int degree = 3;
-        if (remaining == 3)
-            degree = 2;
-        if (remaining == 2)
-            degree = 1;
+        if (!isBSpline)
+        {
+            int remaining = (int)flatPoints.size() - i;
+            if (remaining == 3)
+                degree = 2;
+            if (remaining == 2)
+                degree = 1;
+        }
 
         std::vector<Vect3> segPts;
         for (int j = 0; j <= degree; ++j)
@@ -59,11 +68,8 @@ void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shade
 
         // Padowanie dla GL_LINES_ADJACENCY (musi być 4)
         while(segPts.size() < 4)
-        {
             segPts.push_back(segPts.back());
-        }
 
-        // MAGIA DRY - Wywołanie wyliczenia z limitem 199 dla Geometry Shadera
         int segments = calculateAdaptiveSegments(degree, segPts, VP, winWidth, winHeight, 199, 199);
 
         float data[12] = {
@@ -81,22 +87,29 @@ void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shade
     }
 }
 
-void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight)
+void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight, BezierBasisMode basis)
 {
-    if (flatPoints.size() < 2)
-        return;
+    bool isBSpline = (basis == BezierBasisMode::B_SPLINE);
+
+    if (flatPoints.size() < (isBSpline ? 4 : 2)) return;
 
     glBindVertexArray(VAO_bezier);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
 
-    for (size_t i = 0; i < flatPoints.size() - 1; i += 3)
+    int step = isBSpline ? 1 : 3;
+    int limit = isBSpline ? (int)flatPoints.size() - 3 : (int)flatPoints.size() - 1;
+
+    for (int i = 0; i < limit; i += step)
     {
-        size_t remaining = flatPoints.size() - i;
         int degree = 3;
-        if (remaining == 3)
-            degree = 2;
-        if (remaining == 2)
-            degree = 1;
+        if (!isBSpline)
+        {
+            int remaining = (int)flatPoints.size() - i;
+            if (remaining == 3)
+                degree = 2;
+            if (remaining == 2)
+                degree = 1;
+        }
 
         std::vector<Vect3> segPts;
         for (int j = 0; j <= degree; ++j)
@@ -104,11 +117,11 @@ void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shad
             segPts.push_back(flatPoints[i + j]);
         }
 
-        // MAGIA DRY - Wywołanie wyliczenia z większym limitem (1024) dla Line Strip
         int segments = calculateAdaptiveSegments(degree, segPts, VP, winWidth, winHeight, 1024, 128);
 
-        // Brak padowania, po prostu wysyłamy tyle punktów ile mamy
-        for (int j = 0; j <= degree; ++j)
+        // BEZPIECZEŃSTWO: Upewniamy się, że wysyłamy do p[3] tylko jeśli faktycznie mamy 4 punkty,
+        // a p[0], p[1], p[2], p[3] to standard dla obydwu krzywych trzeciego stopnia!
+        for (int j = 0; j < segPts.size(); ++j)
         {
             std::string loc = "p[" + std::to_string(j) + "]";
             shader.setVec3(loc, segPts[j].x, segPts[j].y, segPts[j].z);
@@ -120,6 +133,8 @@ void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shad
         glDrawArrays(GL_LINE_STRIP, 0, segments + 1);
     }
 }
+
+
 
 void SceneBezier::RenderPolygon(const std::vector<Vect3>& polyPoints, Shader& lineShader) const
 {

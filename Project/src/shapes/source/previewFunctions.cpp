@@ -6,46 +6,63 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
     Vect3 pos = p->transformations.getPosition();
 
 
-    if (!ctx.isTransforming || (!ctx.isEntireScene && !p->isSelected && p->selectedCurvesCount == 0))
+    if (!ctx.isTransforming || (!p->isSelected && p->selectedCurvesCount == 0 && !p->isSelectedAsDeBoore))
         return pos;
 
-
+    Vect3 delta(0.0f);
     if (ctx.isLocal)
     {
-        pos.x += ctx.localDeltaPos.x;
-        pos.y += ctx.localDeltaPos.y;
-        pos.z += ctx.localDeltaPos.z;
+        delta = ctx.localDeltaPos;
     }
     else
     {
         Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-        Vect4 newP = ctx.groupMat * p4;
-        pos = Vect3(newP.x, newP.y, newP.z);
+        delta = (ctx.groupMat * p4).toVect3() - pos;
     }
 
-    return pos;
+    // TWOJA LOGIKA: Jeśli poruszany pośrednio przez Bernsteina, nakładamy wagę (np. 1.5f)!
+    if (p->isSelectedAsDeBoore)
+    {
+        return pos + delta * p->virtualWeight;
+    }
+
+    return pos + delta;
 }
 
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
     //tutaj bedziemy robili draw BezierC2 bo rysujemy duszki punktów beziera
-    if (obj->objectType == ObjectType::BezierCurveC0)
-        return;
+    if (obj->objectType == ObjectType::BezierCurveC0) return;
 
     bool isTarget = obj->isSelected;
+    bool asDeBoore = false;
+
     if (obj->objectType == ObjectType::Point)
     {
         auto p = std::static_pointer_cast<ScenePoint>(obj);
         if (p->selectedCurvesCount > 0)
             isTarget = true;
+        if (p->isSelectedAsDeBoore)
+            asDeBoore = true;
     }
-    if (ctx.isEntireScene)
-        isTarget = true;
 
-
-    if (!ctx.isTransforming || !isTarget)
+    if (!ctx.isTransforming || (!isTarget && !asDeBoore))
     {
         obj->Draw(shader);
+        return;
+    }
+
+    // RYSOWANIE KWADRACIKA W LOCIE (Dla pośrednio ciągniętych De Boorów)
+    if (asDeBoore) {
+        auto p = std::static_pointer_cast<ScenePoint>(obj);
+        Vect3 oldPos = p->transformations.getPosition();
+        Vect3 delta(0.0f);
+        if (ctx.isLocal) delta = ctx.localDeltaPos;
+        else { Vect4 p4(oldPos.x, oldPos.y, oldPos.z, 1.0f); delta = (ctx.groupMat * p4).toVect3() - oldPos; }
+
+        p->transformations.setPosition(oldPos + delta * p->virtualWeight);
+        p->Draw(shader);
+        p->transformations.setPosition(oldPos); // Natychmiastowe cofnięcie!
         return;
     }
 
@@ -77,14 +94,16 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
 }
 
 
-PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm, const GuiManager& gui, Vect3 cursorPosition, Vect3 centerOfSelection)
+PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm, const GuiManager& gui, Vect3 cursorPosition, Vect3 centerOfSelection, bool isVirtualSelected)
 {
     PreviewContext ctx;
     ctx.isTransforming = (state.inputMode == INPUT_MOUSE && tm.isTransformationActive) || (state.inputMode == INPUT_GUI);
     ctx.isLocal = (state.transformMode == LOCAL);
-    ctx.isEntireScene = (state.transformMode == ENTIRE_SCENE);
 
-    if (!ctx.isTransforming) return ctx;
+    ctx.isVirtualSelected = isVirtualSelected;
+
+    if (!ctx.isTransforming)
+        return ctx;
 
 
     Transformations activeDelta;
@@ -98,7 +117,7 @@ PreviewContext buildPreviewContext(const AppState& state,const TransformManager&
     else
     {
         activeDelta = gui.getGuiDelta();
-        center = (state.transformMode == ENTIRE_SCENE) ? Vect3(0,0,0) : ((state.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
+        center = ((state.transformMode == CURSOR_CENTER) ? cursorPosition : centerOfSelection);
     }
 
 

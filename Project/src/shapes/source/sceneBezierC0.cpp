@@ -23,18 +23,15 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
 
     // Delegujemy rysowanie do klasy bazowej!
     if (mode == GEOMETRY)
-        RenderGeometryMode(flatPoints, shader, VP, winWidth, winHeight);
+        RenderGeometryMode(flatPoints, shader, VP, winWidth, winHeight, BezierBasisMode::BERNSTEIN);
     else
-        RenderLineStripMode(flatPoints, shader, VP, winWidth, winHeight);
+        RenderLineStripMode(flatPoints, shader, VP, winWidth, winHeight, BezierBasisMode::BERNSTEIN);
 }
 
 void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
-    cleanExpiredPoints();
-
     if (points.empty())
     {
-        pendingDelete = true;
         return;
     }
 

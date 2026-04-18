@@ -147,20 +147,9 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
             selectableObjects.push_back(obj);
         }
 
-        /*
-        else if (obj->objectType == ObjectType::BezierCurveC2)
-        {
-            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-            if (b2->currentBasis == BezierBasisMode::BERNSTEIN)
-            {
-                for (auto& vp : b2->virtualPoints)
-                {
-                    selectableObjects.push_back(vp);
-                }
-            }
-        }
-         */
+
         // Krzywe Beziera C0 i same obiekty C2 ignorujemy
+        // nie chcemy tez box selectowa punktów wirtualnych z BezierC2 bo by sie logika rozjechała
     }
 
     // --- KROK 2: Sprawdzenie kolizji Boxa z wyciągniętymi obiektami ---

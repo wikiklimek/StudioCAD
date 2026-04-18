@@ -37,8 +37,9 @@ protected:
     void cleanExpiredPoints();
 
 
-    void RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight);
-    void RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight);
+    void RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight, BezierBasisMode basis);
+    void RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shader& shader, Mat4 VP, int winWidth, int winHeight, BezierBasisMode basis);
+
     void RenderPolygon(const std::vector<Vect3>& polyPoints, Shader& lineShader) const;
     static int calculateAdaptiveSegments(int degree, const std::vector<Vect3>& segPts, Mat4 VP, int winWidth, int winHeight, int maxSegments, int fallbackBehindCamera);
 };

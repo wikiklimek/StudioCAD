@@ -9,6 +9,14 @@ public:
     unsigned int VAO, VBO;
     float size;
 
+    bool isVirtual = false;
+    bool wasGuiEdited = false;
+
+    // --- TWOJA ARCHITEKTURA ---
+    bool isSelectedAsDeBoore = false;
+    float virtualWeight = 0.0f;
+
+
     ScenePoint(std::string n, Transformations spawnTransform);
     ScenePoint(std::string n, float s, Transformations spawnTransform);
     ~ScenePoint() override;

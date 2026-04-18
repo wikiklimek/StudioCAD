@@ -14,18 +14,12 @@ public:
 
     BezierBasisMode currentBasis = BezierBasisMode::B_SPLINE;
 
-    // Główna funkcja orkiestrująca
-    std::vector<Vect3> getLiveBernsteinPoints(const PreviewContext& ctx);
-
-    // Konwerter z De Boora na Bernsteina
+    void UpdateVirtualPointsIfNeeded(const PreviewContext& ctx);
     std::vector<Vect3> calculateBernsteinPointsFrom(const std::vector<Vect3>& deBoor);
 
+    // TWOJA FUNKCJA DO OZNACZANIA DE BOORÓW!
+    void markAffectedDeBoorPoints();
+
     std::vector<std::shared_ptr<ScenePoint>> virtualPoints;
-
-
-    // --- CACHE DO OPTYMALIZACJI I ZAMRAŻANIA RUCHU ---
-    std::vector<Vect3> lastDeBoorPositions;
-    std::vector<Vect3> dragStartDeBoor; // ZAMROŻONA BAZA STARTOWA
-    bool wasTransforming = false;
     BezierBasisMode lastBasis = BezierBasisMode::B_SPLINE;
 };

@@ -259,13 +259,18 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&state.transformMode), LOCAL);
     ImGui::SameLine(); ImGui::RadioButton("Wspolny Środek", reinterpret_cast<int *>(&state.transformMode), COMMON_CENTER);
     ImGui::SameLine(); ImGui::RadioButton("Wzgledem Kursora", reinterpret_cast<int *>(&state.transformMode), CURSOR_CENTER);
-    ImGui::SameLine(); ImGui::RadioButton("Cala Scena", reinterpret_cast<int *>(&state.transformMode), ENTIRE_SCENE);
 
     ImGui::Separator();
     ImGui::Text("Metoda transformacji:");
 
     if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", reinterpret_cast<int *>(&state.inputMode), INPUT_MOUSE) && state.prevInputMode == INPUT_GUI)
     {
+        Vect3 center =  ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
+
+        // bardzo ważne że zmuszamy do wypieczenia zmian w tym miejscu
+        // oraz bardzo ważne że bakeTransformation działa niezaleznie od myszka/GUI
+        bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
+
         clearGuiState();
     }
     ImGui::SameLine();
@@ -323,9 +328,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         ImGui::Spacing();
         if (ImGui::Button("Zachowaj Zmiany", ImVec2(150, 30)))
         {
-            Vect3 center = (state.transformMode == ENTIRE_SCENE) ?
-                    Vect3(0,0,0) :
-                    ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
+            Vect3 center = ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
 
             bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
@@ -388,7 +391,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 }
 
 
-void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve) const
+void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve)
 {
     ImGui::PushID(obj.get());
 
@@ -403,7 +406,11 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         ImGui::SameLine();
     }
 
-    ImGui::Checkbox("##sel", &obj->isSelected); ImGui::SameLine();
+    if (ImGui::Checkbox("##sel", &obj->isSelected)) {
+        // Jeśli klikniesz jakikolwiek checkbox na liście, zapalamy flagę!
+        wasSelectionChanged = true;
+    }
+    ImGui::SameLine();
 
     char nameBuf[128]; strcpy(nameBuf, obj->name.c_str());
     ImGui::SetNextItemWidth(150);
@@ -423,7 +430,14 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         if(obj->objectType != ObjectType::BezierCurveC0 && obj->objectType != ObjectType::BezierCurveC2)
         {
             ImGui::Text("Transformacja obiektu:");
-            ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos);
+            if (ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos))
+            {
+                if (obj->objectType == ObjectType::Point)
+                {
+                    auto p = std::static_pointer_cast<ScenePoint>(obj);
+                    p->wasGuiEdited = true;
+                }
+            }
             ImGui::DragFloat("Skala", &obj->transformations.scale, 0.05f, min_scale, max_scale);
 
             float quatVals[4] =

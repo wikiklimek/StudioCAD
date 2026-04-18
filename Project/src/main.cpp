@@ -88,9 +88,12 @@ int main()
     Shader bezierLineStripShader("src/shaders/bezier_line_strip.vs", "src/shaders/bezier_line_strip.fs");
     Shader bezierGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bezier_geom.gs");
 
+    Shader bsplineLineStripShader("src/shaders/bspline_line_strip.vs", "src/shaders/bezier_line_strip.fs");
+    Shader bsplineGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bspline_geom.gs");
+
     BezierDrawMode currentBezierDrawMode = GEOMETRY;
     Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
-
+    Shader * bsplineShader = currentBezierDrawMode == GEOMETRY ? &bsplineGeomShader : &bsplineLineStripShader;
 
     bool magicMode = false;
     std::shared_ptr<SceneBezier> magicCurve = nullptr;
@@ -328,22 +331,23 @@ int main()
                 {
                     isBoxSelecting = false;
 
-
-                    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) != GLFW_PRESS &&
-                        glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) != GLFW_PRESS)
-                        for (auto& obj : sceneObjects)
-                        {
-                            obj->isSelected = false;
-
-                            if (obj->objectType == ObjectType::BezierCurveC2)
-                            {
-                                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                                for (auto& vp : b2->virtualPoints)
-                                {
-                                    vp->isSelected = false;
-                                }
-                            }
+                    //tak czy inaczej, bez względu na shift, odklikujemy wszystkie punkty wirtualne
+                    for(auto& obj : sceneObjects)
+                    {
+                        // TWOJA INSTRUKCJA: Zawsze zerujemy razem z isSelected
+                        obj->isSelected = false;
+                        if (obj->objectType == ObjectType::Point) {
+                            auto p = std::static_pointer_cast<ScenePoint>(obj);
+                            p->isSelectedAsDeBoore = false;
+                            p->virtualWeight = 0.0f;
                         }
+
+                        if (obj->objectType == ObjectType::BezierCurveC2) {
+                            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+                            for (auto &vp: b2->virtualPoints) vp->isSelected = false;
+                        }
+                    }
+
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
@@ -419,15 +423,63 @@ int main()
                         magicMode, magicCurve, isCamDragging, centerOfSelection);
 
 
+        // --- GWARANCJA ZE JEZELI JEST ZANZCINY JAKIS PUNKT WIRTUALNY< TO TYLKO ON JEST ZAZNCZINY ---
+        // bo punktów wirtualnych nie ma na liscie gui!
+        if (guiManager.wasSelectionChanged)
+        {
+            guiManager.wasSelectionChanged = false;
+            for (auto& obj : sceneObjects)
+            {
+                // CZYŚCIMY FLAGI
+                if (obj->objectType == ObjectType::Point) {
+                    auto p = std::static_pointer_cast<ScenePoint>(obj);
+                    p->isSelectedAsDeBoore = false;
+                    p->virtualWeight = 0.0f;
+                }
+                if (obj->objectType == ObjectType::BezierCurveC2) {
+                    auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+                    for (auto& vp : b2->virtualPoints) vp->isSelected = false;
+                }
+            }
+        }
+
+
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
+        // Zabezpieczające zerowanie w każdej klatce przed wyliczeniem nowych
+        //for (const auto& obj : sceneObjects) {
+        //    if (obj->objectType == ObjectType::Point) {
+        //        std::static_pointer_cast<ScenePoint>(obj)->isSelectedAsDeBoore = false;
+        //        std::static_pointer_cast<ScenePoint>(obj)->virtualWeight = 0.0f;
+        //    }
+        //}
+
+        bool isVirtualSelected = false;
+        for (const auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::BezierCurveC2)
+            {
+                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+                for (const auto& vp : b2->virtualPoints) {
+                    if (vp->isSelected) isVirtualSelected = true;
+                }
+            }
+        }
+
+        if (isVirtualSelected) {
+            for (const auto& obj : sceneObjects) {
+                if (obj->objectType == ObjectType::BezierCurveC2) {
+                    std::static_pointer_cast<SceneBezierC2>(obj)->markAffectedDeBoorPoints();
+                }
+            }
+        }
+
         Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
 
-
-        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
+        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection, isVirtualSelected);
 
         shader.use();
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
@@ -438,6 +490,37 @@ int main()
             drawObjectWithPreview(obj, shader, previewCtx);
         }
 
+
+        //zeby potem tego w petli nie robic 100 razy
+        bsplineShader->use();
+        glUniformMatrix4fv(glGetUniformLocation(bsplineShader->ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(bsplineShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+        bezierShader->use();
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+        // ... (Po przesłaniu macierzy do bezierShader)
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::BezierCurveC0)
+            {
+                bezierShader->use();
+                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+                b->DrawBezier(*bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+            }
+            else if (obj->objectType == ObjectType::BezierCurveC2)
+            {
+                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+
+                // Wybieramy odpowiedni Shader w zależności od bazy i aktywujemy go
+                Shader* activeShader = (b2->currentBasis == BezierBasisMode::B_SPLINE) ? bsplineShader : bezierShader;
+                activeShader->use();
+
+                // Krzywa sama ogarnie resztę logiki w środku funkcji!
+                b2->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+            }
+        }
 
         shader.use();
         for (auto& obj : sceneObjects)
@@ -450,24 +533,8 @@ int main()
             }
         }
 
-        bezierShader->use();
-
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-        for (auto& obj : sceneObjects)
-        {
-            // --- POPRAWKA: OBSŁUGA OBU KRZYWYCH ---
-            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
-            {
-                auto b = std::static_pointer_cast<SceneBezier>(obj);
-
-                b->DrawBezier(*bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
-            }
-        }
-
         // Zresetowanie shadera i rysowanie narzędzi UI
-        shader.use();
+        //shader.use();
 
         cursor.Draw(shader);
 
@@ -485,6 +552,16 @@ int main()
         // Skasuj obiekty (w tym puste krzywe)
         sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
                                           [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());
+
+        // --- RESETOWANIE TWOJEJ FLAGI GUI NA KONIEC KLATKI ---
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::Point)
+            {
+                auto p = std::static_pointer_cast<ScenePoint>(obj);
+                p->wasGuiEdited = false;
+            }
+        }
     }
 
 

@@ -7,7 +7,7 @@
 struct PreviewContext {
     bool isTransforming = false;
     bool isLocal = false;
-    bool isEntireScene = false;
+    bool isVirtualSelected = false;
 
 
     Vect3 localDeltaPos = Vect3(0.0f, 0.0f, 0.0f);

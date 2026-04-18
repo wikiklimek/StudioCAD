@@ -11,8 +11,7 @@ std::vector<Vect3> SceneBezierC2::calculateBernsteinPointsFrom(const std::vector
     std::vector<Vect3> bernsteinPts;
     if (deBoor.size() < 4) return bernsteinPts;
 
-    for (size_t i = 0; i < deBoor.size() - 3; ++i)
-    {
+    for (size_t i = 0; i < deBoor.size() - 3; ++i) {
         Vect3 d0 = deBoor[i]; Vect3 d1 = deBoor[i+1]; Vect3 d2 = deBoor[i+2]; Vect3 d3 = deBoor[i+3];
         bernsteinPts.push_back((d0 + d1 * 4.0f + d2) * (1.0f / 6.0f));
         bernsteinPts.push_back((d1 * 2.0f + d2) * (1.0f / 3.0f));
@@ -21,229 +20,209 @@ std::vector<Vect3> SceneBezierC2::calculateBernsteinPointsFrom(const std::vector
     }
 
     std::vector<Vect3> cleanPts;
-    for (size_t i = 0; i < bernsteinPts.size(); ++i)
-    {
-        if (i % 4 != 3 || i == bernsteinPts.size() - 1)
-            cleanPts.push_back(bernsteinPts[i]);
+    for (size_t i = 0; i < bernsteinPts.size(); ++i) {
+        if (i % 4 != 3 || i == bernsteinPts.size() - 1) cleanPts.push_back(bernsteinPts[i]);
     }
     return cleanPts;
 }
 
-std::vector<Vect3> SceneBezierC2::getLiveBernsteinPoints(const PreviewContext& ctx)
+// =========================================================================
+// FUNKCJA Z TWOJEJ INSTRUKCJI: OZNACZA PUNKTY DE BOORA
+// =========================================================================
+void SceneBezierC2::markAffectedDeBoorPoints()
+{
+    if (currentBasis != BezierBasisMode::BERNSTEIN)
+        return;
+
+    int expectedNumP = ((int)points.size() - 3) * 3 + 1;
+
+    if (virtualPoints.size() != expectedNumP)
+        return;
+
+    for (int i = 0; i < virtualPoints.size(); ++i)
+    {
+        if (virtualPoints[i]->isSelected)
+        {
+            int numD = (int)points.size();
+
+            if (i % 3 == 0)
+            {
+                // KRAŃCOWE I WĘZŁY - Teraz wszystkie używają tego samego, ogólnego wzoru!
+                int d_index = (i + 1) / 3 + 1;
+                float multiplier = 1.5f; // Zawsze 1.5f, zniknęło mnożenie x6
+
+                if (d_index >= 0 && d_index < numD)
+                {
+                    if (auto p = points[d_index].lock())
+                    {
+                        p->isSelectedAsDeBoore = true;
+                        p->virtualWeight = multiplier;
+                    }
+                }
+            }
+            else
+            {
+                // ŚRODKI SEGMENTÓW - Dwa punkty De Boora (Bez zmian)
+                int d1 = (i + 2) / 3;
+                int d2 = d1 + 1;
+                if (d1 >= 0 && d1 < numD)
+                {
+                    if (auto p = points[d1].lock())
+                    {
+                        p->isSelectedAsDeBoore = true;
+                        p->virtualWeight = 1.0f;
+                    }
+                }
+
+                if (d2 >= 0 && d2 < numD)
+                {
+                    if (auto p = points[d2].lock())
+                    {
+                        p->isSelectedAsDeBoore = true;
+                        p->virtualWeight = 1.0f;
+                    }
+                }
+            }
+            break; // Znaleźliśmy ten jeden zaznaczony punkt, koniec szukania
+        }
+    }
+}
+
+// =========================================================================
+// ULTRA CZYSTA, BEZSTANOWA AKTUALIZACJA
+// =========================================================================
+void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 {
     cleanExpiredPoints();
-
-    int numD = points.size();
+    int numD = (int)points.size();
     if (numD < 4)
     {
         virtualPoints.clear();
-        lastDeBoorPositions.clear();
-        dragStartDeBoor.clear();
-        wasTransforming = false;
-        return {};
+        return;
     }
 
-    bool structureChanged = (lastDeBoorPositions.size() != numD);
+    int expectedNumP = (numD - 3) * 3 + 1;
+    bool structureChanged = (virtualPoints.size() != expectedNumP);
     bool basisChanged = (currentBasis != lastBasis);
-    bool positionsChanged = false;
 
-    lastBasis = currentBasis;
-    if (structureChanged)
-    {
-        lastDeBoorPositions.resize(numD, Vect3(0,0,0));
-        dragStartDeBoor.resize(numD, Vect3(0,0,0));
-    }
-
-    // 1. ZBIERANIE FIZYCZNYCH POZYCJI ZE ŚWIATA
-    std::vector<Vect3> pureD(numD, Vect3(0.0));
-    bool deBoorSelected = false;
-
+    // Szukamy edycji z GUI
+    bool guiEdited = false;
     for (int i = 0; i < numD; ++i)
     {
         if (auto p = points[i].lock())
         {
-            pureD[i] = p->transformations.getPosition();
-            if (p->isSelected)
-                deBoorSelected = true;
-
-            if (!ctx.isTransforming)
-            {
-                if ((pureD[i] - lastDeBoorPositions[i]).length() > 0.0001f)
-                {
-                    positionsChanged = true;
-                    lastDeBoorPositions[i] = pureD[i];
-                }
-            }
+            if (p->wasGuiEdited)
+                guiEdited = true;
         }
     }
 
-    // =================================================================
-    // MAGIA ZAMROŻONEJ BAZY (Zapobiega odlatywaniu punktów w kosmos!)
-    // =================================================================
-    if (ctx.isTransforming && !wasTransforming)
+    // --- MEGA OPTYMALIZACJA ---
+    // Zero ruchu z myszki, zero ruchu w GUI, struktura nienaruszona? UCIEKAMY!
+    if (!ctx.isTransforming && !guiEdited && !structureChanged && !basisChanged)
     {
-        // Myszka wciśnięta w tej klatce: ZAMRAŻAMY OBECNY STAN ŚWIATA
-        dragStartDeBoor = pureD;
-        wasTransforming = true;
+        return;
     }
-    else if (!ctx.isTransforming && wasTransforming)
+
+    // Inicjalizacja/Odbudowa jeśli zmieniono strukturę lub bazę
+    if (structureChanged || basisChanged)
     {
-        // Myszka puszczona: odblokowujemy system
-        wasTransforming = false;
-        lastDeBoorPositions = pureD;
-    }
-
-    // EARLY EXIT
-    if (!ctx.isTransforming && !positionsChanged && !structureChanged && !basisChanged) {
-        if (currentBasis == BezierBasisMode::B_SPLINE) {
-            return calculateBernsteinPointsFrom(pureD);
-        } else {
-            std::vector<Vect3> currentP(virtualPoints.size());
-            for (size_t i = 0; i < virtualPoints.size(); ++i) {
-                currentP[i] = virtualPoints[i]->transformations.getPosition();
-            }
-            return currentP;
-        }
-    }
-
-    // =================================================================
-    // 2. WYLICZANIE POZYCJI
-    // Jeśli jesteśmy w trakcie ruchu, UŻYWAMY TYLKO ZAMROŻONEJ BAZY!
-    // =================================================================
-    std::vector<Vect3> baseD = (ctx.isTransforming) ? dragStartDeBoor : pureD;
-
-    // --- TRYB B-SPLINE ---
-    if (currentBasis == BezierBasisMode::B_SPLINE) {
         virtualPoints.clear();
-        std::vector<Vect3> liveD = baseD;
 
-        if (ctx.isTransforming && deBoorSelected) {
-            for (int i = 0; i < numD; ++i) {
-                if (auto p = points[i].lock()) {
-                    if (p->isSelected) {
-                        Vect3 pos = baseD[i];
-                        // Obliczamy deltę CZYSTO z zamrożonej bazy
-                        if (ctx.isLocal) pos += ctx.localDeltaPos;
-                        else
-                        {
-                            Vect4 p4(pos.x, pos.y, pos.z, 1.0f);
-                            pos = (ctx.groupMat * p4).toVect3();
-                        }
-                        liveD[i] = pos;
-                    }
-                }
-            }
-        }
-        return calculateBernsteinPointsFrom(liveD);
-    }
-
-    // --- TRYB BERNSTEIN ---
-    int numP = (numD - 3) * 3 + 1;
-    std::vector<Vect3> baseP = calculateBernsteinPointsFrom(baseD); // Zamrożona baza Bernsteina
-
-    if (virtualPoints.size() != numP) {
-        virtualPoints.clear();
-        for (int i = 0; i < numP; ++i) {
-            Transformations t; t.setPosition(baseP[i]);
+        //budujemy na nowo punkty z pozycja zerowa, potem bedziemy liczyc z preview pozycje
+        for (int i = 0; i < expectedNumP; ++i)
+        {
+            Transformations t;
             auto vp = std::make_shared<ScenePoint>("Wirtualny " + std::to_string(i), t);
-            vp->Init(); vp->color[0] = 0; vp->color[1] = 1; vp->color[2] = 0;
+            vp->Init();
+            vp->color[0] = 0;
+            vp->color[1] = 1;
+            vp->color[2] = 0;
+            vp->isVirtual = true;
             virtualPoints.push_back(vp);
         }
+        lastBasis = currentBasis;
     }
 
-    int movedP_Index = -1;
-    Vect3 delta(0,0,0);
-    for (int i = 0; i < numP; ++i) {
-        if (virtualPoints[i]->isSelected) {
-            movedP_Index = i;
-
-            // OBLICZAMY DELTĘ CAŁKOWICIE NIEZALEŻNIE OD RZECZYWISTEJ POZYCJI KURSORA
-            Vect3 startPos = baseP[i];
-            Vect3 previewPos = startPos;
-            if (ctx.isLocal) {
-                previewPos.x += ctx.localDeltaPos.x;
-                previewPos.y += ctx.localDeltaPos.y;
-                previewPos.z += ctx.localDeltaPos.z;
-            } else {
-                Vect4 p4(startPos.x, startPos.y, startPos.z, 1.0f);
-                Vect4 newP = ctx.groupMat * p4;
-                previewPos = Vect3(newP.x, newP.y, newP.z);
-            }
-            delta = previewPos - startPos; // Czysty ruch kursora od momentu kliknięcia!
-            break;
-        }
-    }
-
-    std::vector<Vect3> liveD = baseD;
-    bool bernsteinMaster = !deBoorSelected && movedP_Index != -1;
-
-    if (ctx.isTransforming)
+    // Bez żadnych sztuczek! Program (getPreviewPosition) sam pociągnął De Boory
+    // z uwzględnieniem naszych flag. My tylko je odczytujemy.
+    std::vector<Vect3> liveD(numD, Vect3(0.0f));
+    for (int i = 0; i < numD; ++i)
     {
-        if (bernsteinMaster) {
-            int d_index = 0;
-            float multiplier = 1.5f;
-            if (movedP_Index == 0) { d_index = 0; multiplier = 6.0f; }
-            else if (movedP_Index == numP - 1) { d_index = numD - 1; multiplier = 6.0f; }
-            else { d_index = (movedP_Index + 1) / 3 + 1; }
-
-            if (d_index >= 0 && d_index < numD) {
-                // Aplikujemy czystą deltę do zamrożonej bazy
-                liveD[d_index] += delta * multiplier;
-
-                // Aktualizujemy świat, by zapisać wypieczenie
-                if (auto p = points[d_index].lock()) {
-                    p->transformations.setPosition(liveD[d_index]);
-                }
-            }
-        }
-        else if (deBoorSelected)
-        {
-            for (int i = 0; i < numD; ++i) {
-                if (auto p = points[i].lock()) {
-                    if (p->isSelected) {
-                        Vect3 pos = baseD[i];
-                        if (ctx.isLocal) pos += ctx.localDeltaPos;
-                        else { Vect4 p4(pos.x, pos.y, pos.z, 1.0f); pos = (ctx.groupMat * p4).toVect3(); }
-                        liveD[i] = pos;
-                    }
-                }
-            }
-        }
+        if (auto p = points[i].lock())
+            liveD[i] = getPreviewPosition(p, ctx);
     }
 
-    // 3. WIZUALIZACJA
     std::vector<Vect3> liveP = calculateBernsteinPointsFrom(liveD);
-
-    for (int i = 0; i < numP; ++i)
+    for (int i = 0; i < expectedNumP; ++i)
     {
         virtualPoints[i]->transformations.setPosition(liveP[i]);
     }
-
-    return liveP;
 }
 
+// =========================================================================
+// FUNKCJE RYSUJĄCE
+// =========================================================================
 void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode)
 {
-    std::vector<Vect3> bernsteinPts = getLiveBernsteinPoints(ctx);
-    if (bernsteinPts.empty() || bernsteinPts.size() < 4) return;
+    std::vector<Vect3> Pts;
 
-    if (mode == GEOMETRY) RenderGeometryMode(bernsteinPts, shader, VP, winWidth, winHeight);
-    else RenderLineStripMode(bernsteinPts, shader, VP, winWidth, winHeight);
+    if (currentBasis == BezierBasisMode::B_SPLINE)
+    {
+        cleanExpiredPoints();
+        if (points.size() < 4)
+            return;
+
+
+        for (auto& wp : points)
+        {
+            if (auto p = wp.lock())
+                Pts.push_back(getPreviewPosition(p, ctx));
+        }
+
+
+    }
+    else // BezierBasisMode::BERNSTEIN
+    {
+        //tylko w tym miejscu to robie
+        UpdateVirtualPointsIfNeeded(ctx);
+        if (virtualPoints.size() < 2)
+            return;
+
+
+        for (auto& vp : virtualPoints)
+            Pts.push_back(vp->transformations.getPosition());
+
+    }
+
+    if (mode == GEOMETRY)
+        RenderGeometryMode(Pts, shader, VP, winWidth, winHeight, currentBasis);
+    else
+        RenderLineStripMode(Pts, shader, VP, winWidth, winHeight, currentBasis);
 }
 
 void SceneBezierC2::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
-    std::vector<Vect3> bernsteinPts = getLiveBernsteinPoints(ctx);
-    if (points.size() < 2 || !showPolygon) return;
+    if (points.size() < 2 || !showPolygon)
+        return;
 
     std::vector<Vect3> polyPoints;
-    if (currentBasis == BezierBasisMode::B_SPLINE) {
-        for(auto& wp : points) {
-            if (auto p = wp.lock()) polyPoints.push_back(getPreviewPosition(p, ctx));
+
+    if (currentBasis == BezierBasisMode::B_SPLINE)
+    {
+        for(auto& wp : points)
+        {
+            if (auto p = wp.lock())
+                polyPoints.push_back(getPreviewPosition(p, ctx));
         }
-    } else {
-        polyPoints = bernsteinPts;
     }
+    else
+    {
+        for(auto& vp : virtualPoints)
+        {
+            polyPoints.push_back(vp->transformations.getPosition());
+        }
+    }
+
     RenderPolygon(polyPoints, lineShader);
 }
 

@@ -31,6 +31,9 @@ public:
     float guiRotAngle = 0.0f;
     float guiRotQuat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 
+
+    bool wasSelectionChanged = false;
+
     Transformations getGuiDelta() const
     {
         Transformations t;
@@ -61,6 +64,6 @@ public:
               bool isCamDragging, Vect3& centerOfSelection);
 
 
-    void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve) const;
+    void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
 
 };

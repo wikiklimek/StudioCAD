@@ -5,7 +5,7 @@
 
 
 
-inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, const Transformations& groupTransform, Vect3 centerOfTransformations, bool applyToAll = false)
+inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& objects, const Transformations& groupTransform, Vect3 centerOfTransformations)
 {
     Mat4 T_toOrigin = Mat4::translate_inverse(centerOfTransformations);
     Mat4 R_group = groupTransform.rotation.toMat4();
@@ -19,29 +19,41 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
         if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
             continue; // nie transformuje sie krzywej
 
-        bool shouldBake = applyToAll || obj->isSelected;
+        bool shouldBake = obj->isSelected;
+        bool asDeBoor = false;
+        float vWeight = 1.0f;
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
             if (p->selectedCurvesCount > 0)
                 shouldBake = true;
+            asDeBoor = p->isSelectedAsDeBoore;
+            vWeight = p->virtualWeight;
         }
 
-        if(!shouldBake)
+        if(!shouldBake && !asDeBoor)
             continue;
 
         Vect3 oldPos = obj->transformations.getPosition();
         Vect4 pos4(oldPos.x, oldPos.y, oldPos.z, 1.0f);
         Vect4 newPos4 = M_group * pos4;
-        obj->transformations.setPosition(Vect3(newPos4.x, newPos4.y, newPos4.z));
+        Vect3 deltaPos = Vect3(newPos4.x, newPos4.y, newPos4.z) - oldPos;
 
-        obj->transformations.rotation = groupTransform.rotation * obj->transformations.rotation;
-        obj->transformations.rotation.normalize();
-        obj->transformations.scale *= groupTransform.scale;
+        if (asDeBoor)
+        {
+            obj->transformations.setPosition(oldPos + deltaPos * vWeight);
+        }
+        else
+        {
+            obj->transformations.setPosition(oldPos + deltaPos);
+            obj->transformations.rotation = groupTransform.rotation * obj->transformations.rotation;
+            obj->transformations.rotation.normalize();
+            obj->transformations.scale *= groupTransform.scale;
+        }
     }
 }
 
-
+//bardzo ważne że bakeTransformation działa niezaleznie od myszka/GUI
 inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const Transformations& delta, TransformMode mode, Vect3 centerOfTransformations)
 {
     if (mode == LOCAL)
@@ -52,27 +64,36 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
                 continue;
 
             bool shouldBake = obj->isSelected;
+            bool asDeBoor = false;
+            float vWeight = 1.0f;
             if (obj->objectType == ObjectType::Point)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-
                 if (p->selectedCurvesCount > 0)
                     shouldBake = true;
+
+                asDeBoor = p->isSelectedAsDeBoore;
+                vWeight = p->virtualWeight;
             }
 
-            if (shouldBake)
+            if (shouldBake || asDeBoor)
             {
-                obj->transformations.posX += delta.posX;
-                obj->transformations.posY += delta.posY;
-                obj->transformations.posZ += delta.posZ;
-                obj->transformations.scale *= delta.scale;
-                obj->transformations.rotation = delta.rotation * obj->transformations.rotation;
-                obj->transformations.rotation.normalize();
+                float multiplier = asDeBoor ? vWeight : 1.0f;
+                obj->transformations.posX += delta.posX * multiplier;
+                obj->transformations.posY += delta.posY * multiplier;
+                obj->transformations.posZ += delta.posZ * multiplier;
+
+                if (shouldBake)
+                {
+                    obj->transformations.scale *= delta.scale;
+                    obj->transformations.rotation = delta.rotation * obj->transformations.rotation;
+                    obj->transformations.rotation.normalize();
+                }
             }
         }
     }
     else
     {
-        bakeGroupTransform(sceneObjects, delta, centerOfTransformations, mode == ENTIRE_SCENE);
+        bakeGroupTransform(sceneObjects, delta, centerOfTransformations);
     }
 }
