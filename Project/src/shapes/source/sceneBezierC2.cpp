@@ -88,77 +88,162 @@ void SceneBezierC2::markAffectedDeBoorPoints()
     }
 }
 
+
+
+
 // =========================================================================
-// ULTRA CZYSTA, BEZSTANOWA AKTUALIZACJA
+// ORKIESTRATOR (Realizacja Twojego Planu)
 // =========================================================================
 void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 {
     cleanExpiredPoints();
     int numD = (int)points.size();
-    if (numD < 4)
-    {
+    if (numD < 4) {
         virtualPoints.clear();
         return;
     }
 
     int expectedNumP = (numD - 3) * 3 + 1;
-    bool numberOfPointsChanged = (virtualPoints.size() != expectedNumP);
-    bool haveToAddPoints = virtualPoints.size() < expectedNumP;
-    bool basisChangedToBernstein = (currentBasis != lastBasis) && currentBasis == BezierBasisMode::BERNSTEIN;
+    int currentNumP = (int)virtualPoints.size();
+
+    // Twoja logika wykrywania stanu struktury
+    bool basisChangedToBernstein = (currentBasis != lastBasis) && (currentBasis == BezierBasisMode::BERNSTEIN);
     lastBasis = currentBasis;
 
+    // Musimy uwzględnić "currentNumP == 0", bo na początku w ogóle nie ma punktów!
+    bool needsFullRebuild = basisChangedToBernstein || (currentNumP > expectedNumP) || (currentNumP == 0 && currentBasis == BezierBasisMode::BERNSTEIN);
+    bool haveToAddPoints = !needsFullRebuild && (currentNumP < expectedNumP);
 
-    // Szukamy edycji z GUI
-    bool guiEdited = false;
+    if(!ctx.isTransforming && !needsFullRebuild && !haveToAddPoints)
+    {
+        return; // Zero ruchu, zła struktura się nie zmieniła = Wakacje dla procesora!
+    }
+
+    // KROK 1: Analiza "brudnych" punktów (Kto się ruszył?)
+    std::vector<int> dirtyIndices;
+    std::vector<Vect3> liveD(numD, Vect3(0.0f));
+
     for (int i = 0; i < numD; ++i)
     {
-        if (auto p = points[i].lock())
+        auto p = points[i].lock();
+        // Pobieramy absolutnie najświeższe pozycje (z uwzględnieniem naszych flag!)
+        liveD[i] = getPreviewPosition(p, ctx);
+
+        // Zgodnie z Twoim planem: Sprawdzamy czy ten konkretny punkt drgnął
+        if (p->wasGuiEdited ||
+            (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0)))
         {
-            if (p->wasGuiEdited)
-                guiEdited = true;
+            dirtyIndices.push_back(i);
         }
     }
 
-    // --- MEGA OPTYMALIZACJA ---
-    // Zero ruchu z myszki, zero ruchu w GUI, struktura nienaruszona? UCIEKAMY!
-    if (!ctx.isTransforming && !guiEdited && !numberOfPointsChanged && !basisChangedToBernstein)
+    // --- MEGA OPTYMALIZACJA EARLY EXIT ---
+    if (dirtyIndices.empty() && !needsFullRebuild && !haveToAddPoints) {
+        return; // Zero ruchu, zła struktura się nie zmieniła = Wakacje dla procesora!
+    }
+
+    // KROK 2 & 3: Odpalanie odpowiednich robotników
+    if (needsFullRebuild)
     {
+        // 3. Odjęcie punktów lub zmiana bazy
+        rebuildAllVirtualPoints(liveD);
         return;
     }
 
-    // Inicjalizacja/Odbudowa jeśli zmieniono strukturę lub bazę
-    if (numberOfPointsChanged || basisChangedToBernstein)
-    {
-        virtualPoints.clear();
 
-        //budujemy na nowo punkty z pozycja zerowa, potem bedziemy liczyc z preview pozycje
-        for (int i = 0; i < expectedNumP; ++i)
-        {
-            Transformations t;
-            auto vp = std::make_shared<ScenePoint>("Wirtualny " + std::to_string(i), t);
+    if (haveToAddPoints)
+    {
+        // 2. Dodano nowe punkty De Boora
+        int oldNumD = (currentNumP - 1) / 3 + 3; // Odwrócony wzór na wyciągnięcie starych D
+        addVirtualPoints(oldNumD, numD, liveD);
+    }
+    if (!dirtyIndices.empty())
+    {
+        // 1. Zwykła modyfikacja pozycji punktów
+        updateAffectedVirtualPoints(dirtyIndices, liveD);
+    }
+}
+
+// =========================================================================
+// ROBOTNICY (Funkcje Pomocnicze)
+// =========================================================================
+
+void SceneBezierC2::rebuildAllVirtualPoints(const std::vector<Vect3>& liveD)
+{
+    virtualPoints.clear();
+    std::vector<Vect3> initP = calculateBernsteinPointsFrom(liveD);
+
+    for (int i = 0; i < initP.size(); ++i)
+    {
+        Transformations t;
+        t.setPosition(initP[i]);
+        auto vp = std::make_shared<ScenePoint>("Wirtualny " + std::to_string(i), t);
+        vp->Init();
+        vp->color[0] = 0;
+        vp->color[1] = 1;
+        vp->color[2] = 0;
+        vp->isVirtual = true;
+        virtualPoints.push_back(vp);
+    }
+}
+
+void SceneBezierC2::addVirtualPoints(int oldNumD, int newNumD, const std::vector<Vect3>& liveD)
+{
+    // B-Spline: Nowe segmenty powstają na końcu. Stara krzywa jest w 100% nienaruszona!
+    // Pętla leci tylko od miejsca w którym skończyliśmy ostatnio
+    for (int j = oldNumD - 3; j <= newNumD - 4; ++j)
+    {
+        Vect3 d1 = liveD[j+1];
+        Vect3 d2 = liveD[j+2];
+        Vect3 d3 = liveD[j+3];
+
+        // Wyliczamy tylko 3 nowe punkty (pierwszy to ostatni stary węzeł, więc go pomijamy)
+        Vect3 p1 = (d1 * 2.0f + d2) * (1.0f / 3.0f);
+        Vect3 p2 = (d1 + d2 * 2.0f) * (1.0f / 3.0f);
+        Vect3 p3 = (d1 + d2 * 4.0f + d3) * (1.0f / 6.0f);
+
+        auto makeVP = [](Vect3 pos, int idx) {
+            Transformations t; t.setPosition(pos);
+            auto vp = std::make_shared<ScenePoint>("Wirtualny " + std::to_string(idx), t);
             vp->Init();
             vp->color[0] = 0;
             vp->color[1] = 1;
             vp->color[2] = 0;
             vp->isVirtual = true;
-            virtualPoints.push_back(vp);
+            return vp;
+        };
+
+        int b = virtualPoints.size();
+        virtualPoints.push_back(makeVP(p1, b));
+        virtualPoints.push_back(makeVP(p2, b+1));
+        virtualPoints.push_back(makeVP(p3, b+2));
+    }
+}
+
+void SceneBezierC2::updateAffectedVirtualPoints(const std::vector<int>& dirtyDeBoorIndices, const std::vector<Vect3>& liveD)
+{
+    int numSegments = liveD.size() - 3;
+    std::vector<bool> dirtySegments(numSegments, false);
+
+    // Oznaczamy, które SEGMENTY (nie punkty) zostały zabrudzone ruchem De Boora
+    for (int idx : dirtyDeBoorIndices)
+    {
+        int startSeg = std::max(0, idx - 3);
+        int endSeg = std::min(numSegments - 1, idx);
+        for (int j = startSeg; j <= endSeg; ++j) dirtySegments[j] = true;
+    }
+
+    // Przeliczamy wyłącznie te krzywe, które wygięły się na skutek ruchu
+    for (int j = 0; j < numSegments; ++j) {
+        if (dirtySegments[j]) {
+            Vect3 d0 = liveD[j]; Vect3 d1 = liveD[j+1]; Vect3 d2 = liveD[j+2]; Vect3 d3 = liveD[j+3];
+
+            // Update in-place bezpośrednio w istniejących obiektach!
+            virtualPoints[3*j]->transformations.setPosition((d0 + d1 * 4.0f + d2) * (1.0f / 6.0f));
+            virtualPoints[3*j + 1]->transformations.setPosition((d1 * 2.0f + d2) * (1.0f / 3.0f));
+            virtualPoints[3*j + 2]->transformations.setPosition((d1 + d2 * 2.0f) * (1.0f / 3.0f));
+            virtualPoints[3*j + 3]->transformations.setPosition((d1 + d2 * 4.0f + d3) * (1.0f / 6.0f));
         }
-
-    }
-
-    // Bez żadnych sztuczek! Program (getPreviewPosition) sam pociągnął De Boory
-    // z uwzględnieniem naszych flag. My tylko je odczytujemy.
-    std::vector<Vect3> liveD(numD, Vect3(0.0f));
-    for (int i = 0; i < numD; ++i)
-    {
-        if (auto p = points[i].lock())
-            liveD[i] = getPreviewPosition(p, ctx);
-    }
-
-    std::vector<Vect3> liveP = calculateBernsteinPointsFrom(liveD);
-    for (int i = 0; i < expectedNumP; ++i)
-    {
-        virtualPoints[i]->transformations.setPosition(liveP[i]);
     }
 }
 

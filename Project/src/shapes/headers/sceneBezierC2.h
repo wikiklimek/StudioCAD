@@ -20,6 +20,11 @@ public:
     // TWOJA FUNKCJA DO OZNACZANIA DE BOORÓW!
     void markAffectedDeBoorPoints();
 
+
+    void rebuildAllVirtualPoints(const std::vector<Vect3>& liveD);
+    void addVirtualPoints(int oldNumD, int newNumD, const std::vector<Vect3>& liveD);
+    void updateAffectedVirtualPoints(const std::vector<int>& dirtyDeBoorIndices, const std::vector<Vect3>& liveD);
+
     std::vector<std::shared_ptr<ScenePoint>> virtualPoints;
     BezierBasisMode lastBasis = BezierBasisMode::B_SPLINE;
 };
