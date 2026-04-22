@@ -143,6 +143,10 @@ int main()
 
 
 
+    bool isVirtualSelected = false;
+
+
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -289,6 +293,7 @@ int main()
                 }
 
 
+                //dzieje sie viagle przy kliknietym lewym
                 if (isBoxSelecting)
                 {
                     boxEndX = mouseX;
@@ -304,27 +309,50 @@ int main()
                 {
                     isBoxSelecting = false;
 
-                    //tak czy inaczej, bez względu na shift, odklikujemy wszystkie punkty wirtualne
+                    //tak czy inaczej, bez względu na shift, odklikujemy wszystkie obiekty (i punkty wirtualne)
+                    isVirtualSelected = false;
                     for(auto& obj : sceneObjects)
                     {
                         // TWOJA INSTRUKCJA: Zawsze zerujemy razem z isSelected
                         obj->isSelected = false;
-                        if (obj->objectType == ObjectType::Point) {
+                        if (obj->objectType == ObjectType::Point)
+                        {
                             auto p = std::static_pointer_cast<ScenePoint>(obj);
                             p->isSelectedAsDeBoore = false;
                             p->virtualWeight = 0.0f;
                         }
 
-                        if (obj->objectType == ObjectType::BezierCurveC2) {
+                        if (obj->objectType == ObjectType::BezierCurveC2)
+                        {
                             auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                            for (auto &vp: b2->virtualPoints) vp->isSelected = false;
+                            for (auto &vp: b2->virtualPoints)
+                                vp->isSelected = false;
+                        }
+                    }
+
+                    // ile krzywych nalezacych do punktu jest zaznaczonych - zerowanie
+                    for (auto& obj : sceneObjects)
+                    {
+                        if (obj->objectType == ObjectType::Point)
+                        {
+                            auto p = std::static_pointer_cast<ScenePoint>(obj);
+                            p->selectedCurvesCount = 0;
                         }
                     }
 
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
-                        handleSingleClickSelection(mouseX, mouseY, winWidth, winHeight, camera, sceneObjects);
+                        std::shared_ptr<SceneBezierC2> selectedVirtualBezierOwner = handleSingleClickSelection(
+                                mouseX, mouseY, winWidth, winHeight, camera, sceneObjects);
+
+                        //od razu wyznaczamy punkty de bora ktore beda przesuwane
+                        if(selectedVirtualBezierOwner != nullptr)
+                        {
+                            isVirtualSelected = true;
+                            selectedVirtualBezierOwner->markAffectedDeBoorPoints();
+                        }
+
                     }
                     else // select box rysowany ramką
                     {
@@ -333,13 +361,20 @@ int main()
                     }
                 }
 
+
                 // Wypalanie transformacji
-                tm.bakeMouseTransformations(sceneObjects, appState);
+                if(isDragging)
+                {
+                    tm.bakeMouseTransformations(sceneObjects, appState);
+
+                    isDragging = false;
+                    appState.currentMode = BOX;
+                }
 
 
-                isDragging = false;
-                appState.currentMode = BOX;
+
             }
+
 
             // transformacje myszka
             if (isDragging && appState.currentMode != BOX)
@@ -359,32 +394,6 @@ int main()
             lastMouseY = mouseY;
         }
 
-        // ile krzywych nalezacych do punktu jest zaznaczonych
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->objectType == ObjectType::Point)
-            {
-                auto p = std::static_pointer_cast<ScenePoint>(obj);
-                p->selectedCurvesCount = 0;
-            }
-        }
-
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
-            {
-                auto b = std::static_pointer_cast<SceneBezier>(obj);
-
-                if (b->isSelected)
-                {
-                    for (auto& wp : b->points)
-                    {
-                        if (auto p = wp.lock())
-                            p->selectedCurvesCount++;
-                    }
-                }
-            }
-        }
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -396,24 +405,83 @@ int main()
                         magicMode, magicCurve, isCamDragging, centerOfSelection);
 
 
+
         // --- GWARANCJA ZE JEZELI JEST ZANZCINY JAKIS PUNKT WIRTUALNY< TO TYLKO ON JEST ZAZNCZINY ---
         // bo punktów wirtualnych nie ma na liscie gui!
         if (guiManager.wasSelectionChanged)
         {
             guiManager.wasSelectionChanged = false;
+
+            isVirtualSelected = false;
             for (auto& obj : sceneObjects)
             {
-                // CZYŚCIMY FLAGI
-                if (obj->objectType == ObjectType::Point) {
+                // CZYŚCIMY FLAGI virtualne
+                if (obj->objectType == ObjectType::Point)
+                {
                     auto p = std::static_pointer_cast<ScenePoint>(obj);
                     p->isSelectedAsDeBoore = false;
                     p->virtualWeight = 0.0f;
                 }
-                if (obj->objectType == ObjectType::BezierCurveC2) {
+                if (obj->objectType == ObjectType::BezierCurveC2)
+                {
                     auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                    for (auto& vp : b2->virtualPoints) vp->isSelected = false;
+                    for (auto& vp : b2->virtualPoints)
+                        vp->isSelected = false;
+                }
+
+                //zmianiamy selection bezrerów punktów
+                if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+                {
+                    auto b = std::static_pointer_cast<SceneBezier>(obj);
+
+                    if (b->wasGuiSelectionChanged)
+                    {
+                        b->wasGuiSelectionChanged = false;
+                        if(b->isSelected)
+                            for (auto& wp : b->points)
+                            {
+                                if (auto p = wp.lock())
+                                    p->selectedCurvesCount++;
+                            }
+                        else
+                            for (auto& wp : b->points)
+                            {
+                                if (auto p = wp.lock())
+                                    p->selectedCurvesCount--;
+                            }
+                    }
                 }
             }
+
+            /*
+            // ile krzywych nalezacych do punktu jest zaznaczonych - zerowanie
+            for (auto& obj : sceneObjects)
+            {
+                if (obj->objectType == ObjectType::Point)
+                {
+                    auto p = std::static_pointer_cast<ScenePoint>(obj);
+                    p->selectedCurvesCount = 0;
+                }
+            }
+
+            // ile krzywych nalezacych do punktu jest zaznaczonych - wyliczanie
+            for (auto& obj : sceneObjects)
+            {
+                if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+                {
+                    auto b = std::static_pointer_cast<SceneBezier>(obj);
+
+                    if (b->isSelected)
+                    {
+                        for (auto& wp : b->points)
+                        {
+                            if (auto p = wp.lock())
+                                p->selectedCurvesCount++;
+                        }
+                    }
+                }
+            }
+             */
         }
 
 
@@ -421,33 +489,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        // Zabezpieczające zerowanie w każdej klatce przed wyliczeniem nowych
-        //for (const auto& obj : sceneObjects) {
-        //    if (obj->objectType == ObjectType::Point) {
-        //        std::static_pointer_cast<ScenePoint>(obj)->isSelectedAsDeBoore = false;
-        //        std::static_pointer_cast<ScenePoint>(obj)->virtualWeight = 0.0f;
-        //    }
-        //}
 
-        bool isVirtualSelected = false;
-        for (const auto& obj : sceneObjects)
-        {
-            if (obj->objectType == ObjectType::BezierCurveC2)
-            {
-                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                for (const auto& vp : b2->virtualPoints) {
-                    if (vp->isSelected) isVirtualSelected = true;
-                }
-            }
-        }
-
-        if (isVirtualSelected) {
-            for (const auto& obj : sceneObjects) {
-                if (obj->objectType == ObjectType::BezierCurveC2) {
-                    std::static_pointer_cast<SceneBezierC2>(obj)->markAffectedDeBoorPoints();
-                }
-            }
-        }
 
         Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
@@ -521,9 +563,10 @@ int main()
         sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
                                           [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());
 
-        // --- RESETOWANIE TWOJEJ FLAGI GUI NA KONIEC KLATKI ---
+        // Resetowanie jednorazowaych flag
         for (auto& obj : sceneObjects)
         {
+            //obj->wasGuiSelectionChanged = false; //-> nie tzreba bo od razu je kasuje
             if (obj->objectType == ObjectType::Point)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);

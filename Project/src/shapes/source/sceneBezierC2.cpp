@@ -102,8 +102,11 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
     }
 
     int expectedNumP = (numD - 3) * 3 + 1;
-    bool structureChanged = (virtualPoints.size() != expectedNumP);
-    bool basisChanged = (currentBasis != lastBasis);
+    bool numberOfPointsChanged = (virtualPoints.size() != expectedNumP);
+    bool haveToAddPoints = virtualPoints.size() < expectedNumP;
+    bool basisChangedToBernstein = (currentBasis != lastBasis) && currentBasis == BezierBasisMode::BERNSTEIN;
+    lastBasis = currentBasis;
+
 
     // Szukamy edycji z GUI
     bool guiEdited = false;
@@ -118,13 +121,13 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 
     // --- MEGA OPTYMALIZACJA ---
     // Zero ruchu z myszki, zero ruchu w GUI, struktura nienaruszona? UCIEKAMY!
-    if (!ctx.isTransforming && !guiEdited && !structureChanged && !basisChanged)
+    if (!ctx.isTransforming && !guiEdited && !numberOfPointsChanged && !basisChangedToBernstein)
     {
         return;
     }
 
     // Inicjalizacja/Odbudowa jeśli zmieniono strukturę lub bazę
-    if (structureChanged || basisChanged)
+    if (numberOfPointsChanged || basisChangedToBernstein)
     {
         virtualPoints.clear();
 
@@ -140,7 +143,7 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
             vp->isVirtual = true;
             virtualPoints.push_back(vp);
         }
-        lastBasis = currentBasis;
+
     }
 
     // Bez żadnych sztuczek! Program (getPreviewPosition) sam pociągnął De Boory

@@ -1,6 +1,6 @@
 #version 460 core
 layout (lines_adjacency) in;
-layout (line_strip, max_vertices = 200) out; // Bezpieczny sprzętowy limit
+layout (line_strip, max_vertices = 200) out;
 
 uniform mat4 view;
 uniform mat4 projection;
@@ -9,7 +9,6 @@ uniform int degree;
 
 void main()
 {
-    // Zabezpieczenie przed przekroczeniem max_vertices (199 segmentów = 200 wierzchołków)
     int segs = clamp(segmentCount, 1, 199);
 
     vec3 p0 = gl_in[0].gl_Position.xyz;
@@ -23,19 +22,22 @@ void main()
         float u = 1.0 - t;
         vec3 pos = vec3(0.0);
 
-        if (degree == 3) {
+        if (degree == 3)
+        {
             pos = u*u*u*p0 + 3.0*u*u*t*p1 + 3.0*u*t*t*p2 + t*t*t*p3;
         }
-        else if (degree == 2) {
+        else if (degree == 2)
+        {
             pos = u*u*p0 + 2.0*u*t*p1 + t*t*p2;
         }
-        else if (degree == 1) {
+        else if (degree == 1)
+        {
             pos = u*p0 + t*p1;
         }
 
         // Dopiero teraz mnożymy przez kamerę!
         gl_Position = projection * view * vec4(pos, 1.0);
-        EmitVertex(); // Wypluwamy wyliczony wierzchołek
+        EmitVertex();
     }
-    EndPrimitive(); // Koniec rysowania kawałka krzywej
+    EndPrimitive();
 }

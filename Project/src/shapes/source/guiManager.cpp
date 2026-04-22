@@ -406,9 +406,11 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         ImGui::SameLine();
     }
 
-    if (ImGui::Checkbox("##sel", &obj->isSelected)) {
-        // Jeśli klikniesz jakikolwiek checkbox na liście, zapalamy flagę!
+    if (ImGui::Checkbox("##sel", &obj->isSelected))
+    {
+        // Jeśli klikniesz jakikolwiek checkbox na liście, zapalamy flagi dwie
         wasSelectionChanged = true;
+        obj->wasGuiSelectionChanged = true;
     }
     ImGui::SameLine();
 

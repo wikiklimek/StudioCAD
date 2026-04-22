@@ -20,7 +20,7 @@ void main()
         float t2 = t * t;
         float t3 = t2 * t;
 
-        // Baza B-Spline wyliczona bezpośrednio na GPU!
+
         vec3 pos = (
             (-p0 + 3.0*p1 - 3.0*p2 + p3) * t3 +
             (3.0*p0 - 6.0*p1 + 3.0*p2) * t2 +

@@ -12,6 +12,7 @@ public:
     Transformations transformations;
     std::string name;
     bool isSelected = false;
+    bool wasGuiSelectionChanged = false; //aktywne tylko 1 klatke - jak zmieniliśmy select
     bool pendingDelete = false;
     float color[3] = {1.0f, 1.0f, 0.0f };
 

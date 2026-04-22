@@ -1,7 +1,6 @@
 #pragma once
 #include "screenInteractions.h"
 #include "sceneBezierC0.h"
-#include "sceneBezierC2.h"
 
 
 Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight, const Camera& camera)
@@ -52,7 +51,7 @@ Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera)
 }
 
 
-void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
+std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
                                 const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
     float aspectRatio = (float)winWidth / (float)winHeight;
@@ -62,35 +61,13 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
     camera.getActiveState(activeCamPos, activeCamTarget);
 
     float minDistToCamera = 100000.0f;
-    std::shared_ptr<SceneObject> closestObj = nullptr;
+    std::shared_ptr<ScenePoint> closestPoint = nullptr;
+    std::shared_ptr<SceneBezierC2> closestVirtualPointBezierOwner = nullptr;
 
-    // --- NOWOŚĆ: Radar na wszystkie punkty (Zwykłe + Wirtualne) ---
-    std::vector<std::shared_ptr<SceneObject>> clickablePoints;
-    for (auto& obj : sceneObjects)
-    {
-        // Zbierz normalne punkty ze sceny
-        if (obj->objectType == ObjectType::Point)
-        {
-            clickablePoints.push_back(obj);
-        }
-            // Zajrzyj do kieszeni krzywych C2
-        else if (obj->objectType == ObjectType::BezierCurveC2)
-        {
-            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-            if (b2->currentBasis == BezierBasisMode::BERNSTEIN)
-            {
-                for (auto& vp : b2->virtualPoints)
-                {
-                    clickablePoints.push_back(vp);
-                }
-            }
-        }
-    }
 
-    // --- STARY KOD, ALE ITERUJE PO clickablePoints ---
-    for (auto& obj : clickablePoints) // Zmiana 'sceneObjects' na 'clickablePoints'
+    auto isPointCloserToClick = [&VP, &winWidth, &winHeight, &mouseX,
+            &mouseY, &activeCamPos, &closestPoint, &minDistToCamera] (std::shared_ptr<ScenePoint>& p)
     {
-        auto p = std::static_pointer_cast<ScenePoint>(obj);
         Vect3 pos = p->transformations.getPosition();
 
         float screenX, screenY;
@@ -112,14 +89,54 @@ void handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
                 if (dist3D < minDistToCamera)
                 {
                     minDistToCamera = dist3D;
-                    closestObj = obj;
+                    closestPoint = p;
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+
+
+    // --- wszystkie punkty (Zwykłe + Wirtualne) ---
+    for (auto& obj : sceneObjects)
+    {
+        // Zbierz normalne punkty ze sceny
+        if (obj->objectType == ObjectType::Point)
+        {
+            auto p = std::static_pointer_cast<ScenePoint>(obj);
+            if(isPointCloserToClick(p))
+            {
+                closestVirtualPointBezierOwner = nullptr;
+            }
+        }
+        // Zajrzyj do kieszeni krzywych C2
+        else if (obj->objectType == ObjectType::BezierCurveC2)
+        {
+            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+            if (b2->currentBasis == BezierBasisMode::BERNSTEIN)
+            {
+                for (auto& vp : b2->virtualPoints)
+                {
+                    if(isPointCloserToClick(vp))
+                    {
+                        closestVirtualPointBezierOwner = b2;
+                    }
                 }
             }
         }
     }
 
-    if (closestObj != nullptr)
-        closestObj->isSelected = !closestObj->isSelected;
+
+    if (closestPoint != nullptr)
+    {
+        closestPoint->isSelected = true; //!closestPoint->isSelected;
+    }
+
+
+    return closestVirtualPointBezierOwner;
 }
 
 
