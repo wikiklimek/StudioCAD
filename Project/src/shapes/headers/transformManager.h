@@ -15,6 +15,9 @@ public:
     Transformations mouseDelta;
     Vect3 centerOfTransformations = Vect3(0.0f);
 
+    bool wasSelectionChanged = false;
+    bool wasBaked = false;
+
     void startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition, const AppState& state);
 
     void processMouseDrag(float dx_world, float dy_world, const Camera& camera, const AppState& state);

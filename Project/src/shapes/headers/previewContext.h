@@ -4,10 +4,13 @@
 #include <memory>
 
 
-struct PreviewContext {
+struct PreviewContext{
     bool isTransforming = false;
     bool isLocal = false;
     bool isVirtualSelected = false;
+
+    bool anySelectionChanged = false;
+    bool wasBaked = false;
 
 
     Vect3 localDeltaPos = Vect3(0.0f, 0.0f, 0.0f);

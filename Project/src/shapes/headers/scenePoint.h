@@ -24,4 +24,5 @@ public:
     void Init() override;
     void Draw(Shader& shader) override;
     void Draw(Shader& shader, Mat4 parentMatrix) override;
+    void DrawAtPosition(Shader& shader, Vect3 Position);
 };

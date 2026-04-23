@@ -40,6 +40,16 @@ void ScenePoint::Draw(Shader& shader) {
     glDrawArrays(GL_POINTS, 0, 1);
 }
 
+void ScenePoint::DrawAtPosition(Shader& shader, Vect3 Position) {
+    Mat4 localMat = createModelMatrix(Position, Quaternion(), 1.0);
+    Mat4 finalMat = localMat;
+    glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+    glBindVertexArray(VAO);
+    glPointSize(size);
+    glDrawArrays(GL_POINTS, 0, 1);
+}
+
 void ScenePoint::Draw(Shader& shader, Mat4 parentMatrix) {
     Mat4 localMat = createModelMatrix(transformations.getPosition(), transformations.rotation, transformations.scale);
     Mat4 finalMat = parentMatrix * localMat;

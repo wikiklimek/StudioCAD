@@ -49,7 +49,7 @@ void SceneBezierC2::markAffectedDeBoorPoints()
             {
                 // KRAŃCOWE I WĘZŁY - Teraz wszystkie używają tego samego, ogólnego wzoru!
                 int d_index = (i + 1) / 3 + 1;
-                float multiplier = 1.5f; // Zawsze 1.5f, zniknęło mnożenie x6
+                float multiplier = 1.5f;
 
                 if (d_index >= 0 && d_index < numD)
                 {
@@ -91,9 +91,6 @@ void SceneBezierC2::markAffectedDeBoorPoints()
 
 
 
-// =========================================================================
-// ORKIESTRATOR (Realizacja Twojego Planu)
-// =========================================================================
 void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 {
     cleanExpiredPoints();
@@ -106,30 +103,30 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
     int expectedNumP = (numD - 3) * 3 + 1;
     int currentNumP = (int)virtualPoints.size();
 
-    // Twoja logika wykrywania stanu struktury
     bool basisChangedToBernstein = (currentBasis != lastBasis) && (currentBasis == BezierBasisMode::BERNSTEIN);
     lastBasis = currentBasis;
 
-    // Musimy uwzględnić "currentNumP == 0", bo na początku w ogóle nie ma punktów!
-    bool needsFullRebuild = basisChangedToBernstein || (currentNumP > expectedNumP) || (currentNumP == 0 && currentBasis == BezierBasisMode::BERNSTEIN);
+    // ostatnie to dlatego ze na povczarku punktów nie ma
+    bool needsFullRebuild = ctx.anySelectionChanged || ctx.wasBaked || basisChangedToBernstein ||
+            (currentNumP > expectedNumP) || (currentNumP == 0 && currentBasis == BezierBasisMode::BERNSTEIN);
+
     bool haveToAddPoints = !needsFullRebuild && (currentNumP < expectedNumP);
 
     if(!ctx.isTransforming && !needsFullRebuild && !haveToAddPoints)
     {
-        return; // Zero ruchu, zła struktura się nie zmieniła = Wakacje dla procesora!
+        return;
     }
 
-    // KROK 1: Analiza "brudnych" punktów (Kto się ruszył?)
+    // jakie punkty deBoora zmaniły pozycje
     std::vector<int> dirtyIndices;
     std::vector<Vect3> liveD(numD, Vect3(0.0f));
 
     for (int i = 0; i < numD; ++i)
     {
         auto p = points[i].lock();
-        // Pobieramy absolutnie najświeższe pozycje (z uwzględnieniem naszych flag!)
+
         liveD[i] = getPreviewPosition(p, ctx);
 
-        // Zgodnie z Twoim planem: Sprawdzamy czy ten konkretny punkt drgnął
         if (p->wasGuiEdited ||
             (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0)))
         {
@@ -137,15 +134,14 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
         }
     }
 
-    // --- MEGA OPTYMALIZACJA EARLY EXIT ---
-    if (dirtyIndices.empty() && !needsFullRebuild && !haveToAddPoints) {
-        return; // Zero ruchu, zła struktura się nie zmieniła = Wakacje dla procesora!
+    if (dirtyIndices.empty() && !needsFullRebuild && !haveToAddPoints)
+    {
+        return;
     }
 
-    // KROK 2 & 3: Odpalanie odpowiednich robotników
+
     if (needsFullRebuild)
     {
-        // 3. Odjęcie punktów lub zmiana bazy
         rebuildAllVirtualPoints(liveD);
         return;
     }
@@ -153,20 +149,17 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 
     if (haveToAddPoints)
     {
-        // 2. Dodano nowe punkty De Boora
-        int oldNumD = (currentNumP - 1) / 3 + 3; // Odwrócony wzór na wyciągnięcie starych D
+        // Dodano nowe punkty De Boora
+        int oldNumD = (currentNumP - 1) / 3 + 3;
         addVirtualPoints(oldNumD, numD, liveD);
     }
     if (!dirtyIndices.empty())
     {
-        // 1. Zwykła modyfikacja pozycji punktów
         updateAffectedVirtualPoints(dirtyIndices, liveD);
     }
 }
 
-// =========================================================================
-// ROBOTNICY (Funkcje Pomocnicze)
-// =========================================================================
+
 
 void SceneBezierC2::rebuildAllVirtualPoints(const std::vector<Vect3>& liveD)
 {
@@ -189,7 +182,7 @@ void SceneBezierC2::rebuildAllVirtualPoints(const std::vector<Vect3>& liveD)
 
 void SceneBezierC2::addVirtualPoints(int oldNumD, int newNumD, const std::vector<Vect3>& liveD)
 {
-    // B-Spline: Nowe segmenty powstają na końcu. Stara krzywa jest w 100% nienaruszona!
+    // nowe punkty berensteina dodane na koniec, stare pozostaja takie same
     // Pętla leci tylko od miejsca w którym skończyliśmy ostatnio
     for (int j = oldNumD - 3; j <= newNumD - 4; ++j)
     {
@@ -197,7 +190,7 @@ void SceneBezierC2::addVirtualPoints(int oldNumD, int newNumD, const std::vector
         Vect3 d2 = liveD[j+2];
         Vect3 d3 = liveD[j+3];
 
-        // Wyliczamy tylko 3 nowe punkty (pierwszy to ostatni stary węzeł, więc go pomijamy)
+        // 3 nowe punkty (pierwszy to ostatni stary węzeł, czyli pomijamy)
         Vect3 p1 = (d1 * 2.0f + d2) * (1.0f / 3.0f);
         Vect3 p2 = (d1 + d2 * 2.0f) * (1.0f / 3.0f);
         Vect3 p3 = (d1 + d2 * 4.0f + d3) * (1.0f / 6.0f);
@@ -225,20 +218,25 @@ void SceneBezierC2::updateAffectedVirtualPoints(const std::vector<int>& dirtyDeB
     int numSegments = liveD.size() - 3;
     std::vector<bool> dirtySegments(numSegments, false);
 
-    // Oznaczamy, które SEGMENTY (nie punkty) zostały zabrudzone ruchem De Boora
+
     for (int idx : dirtyDeBoorIndices)
     {
         int startSeg = std::max(0, idx - 3);
         int endSeg = std::min(numSegments - 1, idx);
-        for (int j = startSeg; j <= endSeg; ++j) dirtySegments[j] = true;
+        for (int j = startSeg; j <= endSeg; ++j)
+            dirtySegments[j] = true;
     }
 
-    // Przeliczamy wyłącznie te krzywe, które wygięły się na skutek ruchu
-    for (int j = 0; j < numSegments; ++j) {
-        if (dirtySegments[j]) {
-            Vect3 d0 = liveD[j]; Vect3 d1 = liveD[j+1]; Vect3 d2 = liveD[j+2]; Vect3 d3 = liveD[j+3];
 
-            // Update in-place bezpośrednio w istniejących obiektach!
+    for (int j = 0; j < numSegments; ++j)
+    {
+        if (dirtySegments[j])
+        {
+            Vect3 d0 = liveD[j];
+            Vect3 d1 = liveD[j+1];
+            Vect3 d2 = liveD[j+2];
+            Vect3 d3 = liveD[j+3];
+
             virtualPoints[3*j]->transformations.setPosition((d0 + d1 * 4.0f + d2) * (1.0f / 6.0f));
             virtualPoints[3*j + 1]->transformations.setPosition((d1 * 2.0f + d2) * (1.0f / 3.0f));
             virtualPoints[3*j + 2]->transformations.setPosition((d1 + d2 * 2.0f) * (1.0f / 3.0f));
@@ -247,9 +245,7 @@ void SceneBezierC2::updateAffectedVirtualPoints(const std::vector<int>& dirtyDeB
     }
 }
 
-// =========================================================================
-// FUNKCJE RYSUJĄCE
-// =========================================================================
+
 void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode)
 {
     std::vector<Vect3> Pts;
@@ -319,7 +315,10 @@ void SceneBezierC2::Draw(Shader& shader) {
         for (auto& vp : virtualPoints) vp->Draw(shader);
 }
 
-void SceneBezierC2::Draw(Shader& shader, Mat4 parentMatrix) {
+void SceneBezierC2::Draw(Shader& shader, Mat4 parentMatrix)
+{
     if (currentBasis == BezierBasisMode::BERNSTEIN)
-        for (auto& vp : virtualPoints) vp->Draw(shader, parentMatrix);
+        for (auto& vp : virtualPoints)
+            vp->Draw(shader);
+            //vp->Draw(shader, parentMatrix);
 }

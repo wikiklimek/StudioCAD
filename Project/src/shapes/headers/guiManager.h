@@ -33,6 +33,7 @@ public:
 
 
     bool wasSelectionChanged = false;
+    bool wasBaked = false;
 
     Transformations getGuiDelta() const
     {

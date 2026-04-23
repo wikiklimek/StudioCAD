@@ -12,7 +12,7 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
     Vect3 delta(0.0f);
     if (ctx.isLocal)
     {
-        delta = ctx.localDeltaPos;
+        delta = ctx.localDeltaPos; //bo pozycja w lokalnym układzie nie ma obrotu/skali istotnej
     }
     else
     {
@@ -20,7 +20,6 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
         delta = (ctx.groupMat * p4).toVect3() - pos;
     }
 
-    // TWOJA LOGIKA: Jeśli poruszany pośrednio przez Bernsteina, nakładamy wagę (np. 1.5f)!
     if (p->isSelectedAsDeBoore)
     {
         return pos + delta * p->virtualWeight;
@@ -52,24 +51,19 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
         return;
     }
 
-    // RYSOWANIE KWADRACIKA W LOCIE (Dla pośrednio ciągniętych De Boorów)
-    if (asDeBoore) {
-        auto p = std::static_pointer_cast<ScenePoint>(obj);
-        Vect3 oldPos = p->transformations.getPosition();
-        Vect3 delta(0.0f);
-        if (ctx.isLocal) delta = ctx.localDeltaPos;
-        else { Vect4 p4(oldPos.x, oldPos.y, oldPos.z, 1.0f); delta = (ctx.groupMat * p4).toVect3() - oldPos; }
 
-        p->transformations.setPosition(oldPos + delta * p->virtualWeight);
-        p->Draw(shader);
-        p->transformations.setPosition(oldPos); // Natychmiastowe cofnięcie!
+    if(asDeBoore && obj->objectType == ObjectType::Point)
+    {
+        auto p = std::static_pointer_cast<ScenePoint>(obj);
+        p->DrawAtPosition(shader, getPreviewPosition(p, ctx));
         return;
     }
+
 
     //Aplikowanie i cofanie zmian dla Trybu Lokalnego
     if (ctx.isLocal)
     {
-        Quaternion oldRot = obj->transformations.rotation;
+        Transformations old = obj->transformations;
 
         obj->transformations.posX += ctx.localDeltaPos.x;
         obj->transformations.posY += ctx.localDeltaPos.y;
@@ -81,11 +75,7 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
         obj->Draw(shader);
 
         // Cofamy zmiany po rysowaniu
-        obj->transformations.posX -= ctx.localDeltaPos.x;
-        obj->transformations.posY -= ctx.localDeltaPos.y;
-        obj->transformations.posZ -= ctx.localDeltaPos.z;
-        obj->transformations.scale /= ctx.localDeltaScale;
-        obj->transformations.rotation = oldRot;
+        obj->transformations = old;
     }
     else
     {
@@ -94,13 +84,18 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
 }
 
 
-PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm, const GuiManager& gui, Vect3 cursorPosition, Vect3 centerOfSelection, bool isVirtualSelected)
+PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm,
+                                   const GuiManager& gui, Vect3 cursorPosition,
+                                   Vect3 centerOfSelection, bool isVirtualSelected)
 {
     PreviewContext ctx;
     ctx.isTransforming = (state.inputMode == INPUT_MOUSE && tm.isTransformationActive) || (state.inputMode == INPUT_GUI);
     ctx.isLocal = (state.transformMode == LOCAL);
 
     ctx.isVirtualSelected = isVirtualSelected;
+
+    ctx.anySelectionChanged = gui.wasSelectionChanged || tm.wasSelectionChanged;
+    ctx.wasBaked = gui.wasBaked || tm.wasBaked;
 
     if (!ctx.isTransforming)
         return ctx;

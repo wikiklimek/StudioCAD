@@ -309,11 +309,13 @@ int main()
                 {
                     isBoxSelecting = false;
 
-                    //tak czy inaczej, bez względu na shift, odklikujemy wszystkie obiekty (i punkty wirtualne)
+                    tm.wasSelectionChanged = true;
+
+
                     isVirtualSelected = false;
                     for(auto& obj : sceneObjects)
                     {
-                        // TWOJA INSTRUKCJA: Zawsze zerujemy razem z isSelected
+                        // dla klikania/select boxa zawsze stare obiekty pzrestaja byc zaczone
                         obj->isSelected = false;
                         if (obj->objectType == ObjectType::Point)
                         {
@@ -339,6 +341,7 @@ int main()
                             p->selectedCurvesCount = 0;
                         }
                     }
+
 
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
@@ -406,16 +409,13 @@ int main()
 
 
 
-        // --- GWARANCJA ZE JEZELI JEST ZANZCINY JAKIS PUNKT WIRTUALNY< TO TYLKO ON JEST ZAZNCZINY ---
+        // JEZELI JEST ZANZCINY JAKIS PUNKT WIRTUALNY, TO TYLKO ON JEST ZAZNCZINY
         // bo punktów wirtualnych nie ma na liscie gui!
         if (guiManager.wasSelectionChanged)
         {
-            guiManager.wasSelectionChanged = false;
-
             isVirtualSelected = false;
             for (auto& obj : sceneObjects)
             {
-                // CZYŚCIMY FLAGI virtualne
                 if (obj->objectType == ObjectType::Point)
                 {
                     auto p = std::static_pointer_cast<ScenePoint>(obj);
@@ -436,7 +436,6 @@ int main()
 
                     if (b->wasGuiSelectionChanged)
                     {
-                        b->wasGuiSelectionChanged = false;
                         if(b->isSelected)
                             for (auto& wp : b->points)
                             {
@@ -453,35 +452,6 @@ int main()
                 }
             }
 
-            /*
-            // ile krzywych nalezacych do punktu jest zaznaczonych - zerowanie
-            for (auto& obj : sceneObjects)
-            {
-                if (obj->objectType == ObjectType::Point)
-                {
-                    auto p = std::static_pointer_cast<ScenePoint>(obj);
-                    p->selectedCurvesCount = 0;
-                }
-            }
-
-            // ile krzywych nalezacych do punktu jest zaznaczonych - wyliczanie
-            for (auto& obj : sceneObjects)
-            {
-                if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
-                {
-                    auto b = std::static_pointer_cast<SceneBezier>(obj);
-
-                    if (b->isSelected)
-                    {
-                        for (auto& wp : b->points)
-                        {
-                            if (auto p = wp.lock())
-                                p->selectedCurvesCount++;
-                        }
-                    }
-                }
-            }
-             */
         }
 
 
@@ -515,7 +485,6 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
-        // ... (Po przesłaniu macierzy do bezierShader)
         for (auto& obj : sceneObjects)
         {
             if (obj->objectType == ObjectType::BezierCurveC0)
@@ -528,11 +497,9 @@ int main()
             {
                 auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
 
-                // Wybieramy odpowiedni Shader w zależności od bazy i aktywujemy go
                 Shader* activeShader = (b2->currentBasis == BezierBasisMode::B_SPLINE) ? bsplineShader : bezierShader;
                 activeShader->use();
 
-                // Krzywa sama ogarnie resztę logiki w środku funkcji!
                 b2->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
             }
         }
@@ -566,13 +533,17 @@ int main()
         // Resetowanie jednorazowaych flag
         for (auto& obj : sceneObjects)
         {
-            //obj->wasGuiSelectionChanged = false; //-> nie tzreba bo od razu je kasuje
+            obj->wasGuiSelectionChanged = false;
             if (obj->objectType == ObjectType::Point)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
                 p->wasGuiEdited = false;
             }
         }
+        tm.wasSelectionChanged = false;
+        tm.wasBaked = false;
+        guiManager.wasSelectionChanged = false;
+        guiManager.wasBaked = false;
     }
 
 

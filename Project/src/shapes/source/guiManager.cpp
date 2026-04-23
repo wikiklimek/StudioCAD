@@ -270,6 +270,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         // bardzo ważne że zmuszamy do wypieczenia zmian w tym miejscu
         // oraz bardzo ważne że bakeTransformation działa niezaleznie od myszka/GUI
         bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
+        wasBaked = true;
 
         clearGuiState();
     }
@@ -332,6 +333,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
 
             bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
+            wasBaked = true;
 
             clearGuiState();
         }

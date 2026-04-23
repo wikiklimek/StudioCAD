@@ -75,6 +75,7 @@ void TransformManager::bakeMouseTransformations(std::vector<std::shared_ptr<Scen
         return;
 
     bakeTransformations(sceneObjects, mouseDelta, state.transformMode, centerOfTransformations);
+    wasBaked = true;
 
     mouseDelta = Transformations();
     isTransformationActive = false;
