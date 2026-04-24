@@ -14,14 +14,14 @@ void SceneBezierC0::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
         return;
     }
 
-    // Wyciągamy fizyczne pozycje punktów
+
     std::vector<Vect3> flatPoints;
     for (auto& wp : points)
     {
         flatPoints.push_back(getPreviewPosition(wp.lock(), ctx));
     }
 
-    // Delegujemy rysowanie do klasy bazowej!
+
     if (mode == GEOMETRY)
         RenderGeometryMode(flatPoints, shader, VP, winWidth, winHeight, BezierBasisMode::BERNSTEIN);
     else
@@ -35,13 +35,12 @@ void SceneBezierC0::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
         return;
     }
 
-    // Wyciągamy fizyczne pozycje punktów
+
     std::vector<Vect3> flatPoints;
     for (auto& wp : points)
     {
         flatPoints.push_back(getPreviewPosition(wp.lock(), ctx));
     }
 
-    // Odpalamy wspólną logikę!
     RenderPolygon(flatPoints, lineShader);
 }

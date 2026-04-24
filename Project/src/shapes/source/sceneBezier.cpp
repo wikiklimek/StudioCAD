@@ -45,7 +45,7 @@ void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shade
 
     int step = isBSpline ? 1 : 3;
 
-    // ZMIANA: Zabezpieczenie przed ujemnym limitem i używamy znaków <= do bezpiecznego liczenia segmentów
+
     int limit = isBSpline ? (int)flatPoints.size() - 3 : (int)flatPoints.size() - 1;
 
     for (int i = 0; i < limit; i += step)
@@ -119,8 +119,7 @@ void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shad
 
         int segments = calculateAdaptiveSegments(degree, segPts, VP, winWidth, winHeight, 1024, 128);
 
-        // BEZPIECZEŃSTWO: Upewniamy się, że wysyłamy do p[3] tylko jeśli faktycznie mamy 4 punkty,
-        // a p[0], p[1], p[2], p[3] to standard dla obydwu krzywych trzeciego stopnia!
+
         for (int j = 0; j < segPts.size(); ++j)
         {
             std::string loc = "p[" + std::to_string(j) + "]";

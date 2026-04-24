@@ -142,12 +142,16 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                         if (p->isSelected) selPts.push_back(p);
                     }
                 }
-                auto b2 = std::make_shared<SceneBezierC2>("Bezier C2 " + std::to_string(sceneObjects.size()+1), Transformations());
-                b2->Init();
-                for(auto& p : selPts) b2->points.push_back(p);
-                sceneObjects.push_back(b2);
-                magicMode = true;
-                magicCurve = b2;
+                if (!selPts.empty())
+                {
+                    auto b2 = std::make_shared<SceneBezierC2>("Bezier C2 " + std::to_string(sceneObjects.size() + 1),
+                                                              Transformations());
+                    b2->Init();
+                    for (auto &p: selPts) b2->points.push_back(p);
+                    sceneObjects.push_back(b2);
+                    magicMode = true;
+                    magicCurve = b2;
+                }
             }
         }
         else
@@ -205,7 +209,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
     for (auto& obj : sceneObjects)
     {
-        if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+        if (obj->objectType == ObjectType::BezierCurveC0)
             continue;
 
 
@@ -216,7 +220,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
-            if (p->isSelected || p->selectedCurvesCount > 0)
+            if (p->isSelected || p->selectedCurvesCount > 0 || p->isSelectedAsDeBoore)
                 isPartOfSelection = true;
         }
         else
@@ -247,13 +251,28 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         Vect3 offset = hasSelection ? centerOfSelection : globalCenter;
         for (auto& obj : sceneObjects)
         {
-            if (!hasSelection || obj->isSelected)
+            bool isSelected = false;
+            if(obj->objectType == ObjectType::Point)
+            {
+                auto p = std::static_pointer_cast<ScenePoint>(obj);
+                isSelected = p->isSelectedAsDeBoore || p->isSelected || p->selectedCurvesCount > 0;
+
+                if(!hasSelection || isSelected)
+                    p->wasGuiEdited = true;
+
+            }
+            else
+                isSelected = obj->isSelected;
+
+            if (!hasSelection || isSelected)
             {
                 obj->transformations.posX -= offset.x;
                 obj->transformations.posY -= offset.y;
                 obj->transformations.posZ -= offset.z;
             }
         }
+
+
     }
 
     ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&state.transformMode), LOCAL);

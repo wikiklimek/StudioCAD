@@ -26,9 +26,7 @@ std::vector<Vect3> SceneBezierC2::calculateBernsteinPointsFrom(const std::vector
     return cleanPts;
 }
 
-// =========================================================================
-// FUNKCJA Z TWOJEJ INSTRUKCJI: OZNACZA PUNKTY DE BOORA
-// =========================================================================
+
 void SceneBezierC2::markAffectedDeBoorPoints()
 {
     if (currentBasis != BezierBasisMode::BERNSTEIN)
@@ -104,7 +102,7 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
     int currentNumP = (int)virtualPoints.size();
 
     bool basisChangedToBernstein = (currentBasis != lastBasis) && (currentBasis == BezierBasisMode::BERNSTEIN);
-    lastBasis = currentBasis;
+
 
     // ostatnie to dlatego ze na povczarku punktów nie ma
     bool needsFullRebuild = ctx.anySelectionChanged || ctx.wasBaked || basisChangedToBernstein ||
@@ -248,6 +246,12 @@ void SceneBezierC2::updateAffectedVirtualPoints(const std::vector<int>& dirtyDeB
 
 void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode)
 {
+    if(points.empty())
+    {
+        pendingDelete = true;
+        return;
+    }
+
     std::vector<Vect3> Pts;
 
     if (currentBasis == BezierBasisMode::B_SPLINE)
@@ -282,10 +286,18 @@ void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
         RenderGeometryMode(Pts, shader, VP, winWidth, winHeight, currentBasis);
     else
         RenderLineStripMode(Pts, shader, VP, winWidth, winHeight, currentBasis);
+
+    //MUSI BYC NA KONCY WYKONYWANE
+    lastBasis = currentBasis;
 }
 
 void SceneBezierC2::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
+    if(points.empty())
+    {
+        return;
+    }
+
     if (points.size() < 2 || !showPolygon)
         return;
 
@@ -311,12 +323,23 @@ void SceneBezierC2::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 }
 
 void SceneBezierC2::Draw(Shader& shader) {
+
+    if(points.empty())
+    {
+        return;
+    }
+
     if (currentBasis == BezierBasisMode::BERNSTEIN)
         for (auto& vp : virtualPoints) vp->Draw(shader);
 }
 
 void SceneBezierC2::Draw(Shader& shader, Mat4 parentMatrix)
 {
+    if(points.empty())
+    {
+        return;
+    }
+
     if (currentBasis == BezierBasisMode::BERNSTEIN)
         for (auto& vp : virtualPoints)
             vp->Draw(shader);

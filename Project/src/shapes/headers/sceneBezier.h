@@ -19,7 +19,6 @@ public:
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
 
-    // Wspólna lista punktów (Dla C0: punkty kontrolne, Dla C2: punkty de Boora)
     std::vector<std::weak_ptr<ScenePoint>> points;
     bool showPolygon = true;
 
@@ -29,11 +28,11 @@ public:
     virtual void DrawPolygon(Shader& lineShader, const PreviewContext& ctx) = 0;
 
 protected:
-    // Wspólne uchwyty do karty graficznej (zabezpieczone, żeby dzieci mogły z nich korzystać)
+
     unsigned int VAO_bezier = 0, VBO_bezier = 0;
     unsigned int VAO_poly = 0, VBO_poly = 0;
 
-    // Wspólna funkcja "odkurzacza" - możemy ją napisać raz i wywoływać w dzieciach
+
     void cleanExpiredPoints();
 
 

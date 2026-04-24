@@ -17,7 +17,7 @@ public:
     void UpdateVirtualPointsIfNeeded(const PreviewContext& ctx);
     std::vector<Vect3> calculateBernsteinPointsFrom(const std::vector<Vect3>& deBoor);
 
-    // TWOJA FUNKCJA DO OZNACZANIA DE BOORÓW!
+
     void markAffectedDeBoorPoints();
 
 
