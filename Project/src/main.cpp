@@ -41,6 +41,7 @@ float const PI = (float)M_PI;
 #include "sceneBezierC0.h"
 #include "guiManager.h"
 #include "sceneBezierC2.h"
+#include "sceneSplineInterpolating.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -90,6 +91,8 @@ int main()
 
     Shader bsplineLineStripShader("src/shaders/bspline_line_strip.vs", "src/shaders/bezier_line_strip.fs");
     Shader bsplineGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bspline_geom.gs");
+
+    Shader splineAlgebraicInterpolationShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/spline_algebraic_geom.gs");
 
     BezierDrawMode currentBezierDrawMode = GEOMETRY;
     Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
@@ -430,7 +433,9 @@ int main()
                 }
 
                 //zmianiamy selection bezrerów punktów
-                if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+                if (obj->objectType == ObjectType::BezierCurveC0 ||
+                obj->objectType == ObjectType::BezierCurveC2 ||
+                obj->objectType == ObjectType::SplineInterpolating)
                 {
                     auto b = std::static_pointer_cast<SceneBezier>(obj);
 
@@ -502,12 +507,27 @@ int main()
 
                 b2->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
             }
+            else if (obj->objectType == ObjectType::SplineInterpolating)
+            {
+                auto s = std::static_pointer_cast<SceneSplineInterpolating>(obj);
+
+                Shader* activeShader = (s->currentBasis == InterpolationBasisMode::ALGEBRAIC) ? &splineAlgebraicInterpolationShader : bezierShader;
+                activeShader->use();
+
+                // Ważne: Przesyłamy odpowiednie macierze, bo zmieniamy shader
+                glUniformMatrix4fv(glGetUniformLocation(activeShader->ID, "view"), 1, GL_FALSE, M_View.table);
+                glUniformMatrix4fv(glGetUniformLocation(activeShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+                s->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+            }
         }
 
         shader.use();
         for (auto& obj : sceneObjects)
         {
-            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+            if (obj->objectType == ObjectType::BezierCurveC0 ||
+            obj->objectType == ObjectType::BezierCurveC2 ||
+            obj->objectType == ObjectType::SplineInterpolating)
             {
                 auto b = std::static_pointer_cast<SceneBezier>(obj);
 

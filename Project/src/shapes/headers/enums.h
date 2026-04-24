@@ -15,7 +15,13 @@ enum class ObjectType {
     Point,
     Torus,
     BezierCurveC0,
-    BezierCurveC2
+    BezierCurveC2,
+    SplineInterpolating // <--- NOWE
+};
+
+enum class InterpolationBasisMode {
+    ALGEBRAIC,
+    BERNSTEIN
 };
 
 enum BezierDrawMode {GEOMETRY, LINE_STRIP};

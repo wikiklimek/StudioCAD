@@ -9,6 +9,7 @@
 #include "guiManager.h"
 #include "bakeTransform.h"
 #include "sceneBezierC2.h"
+#include "sceneSplineInterpolating.h"
 
 
 void GuiManager::clearGuiState()
@@ -57,8 +58,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         sceneObjects.push_back(p);
         for(auto& obj : sceneObjects)
         {
-            // DZIAŁA DLA OBU KRZYWYCH
-            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+            // DZIAŁA DLA 3 KRZYWYCH
+            if (obj->objectType == ObjectType::BezierCurveC0 ||
+            obj->objectType == ObjectType::BezierCurveC2 ||
+            obj->objectType == ObjectType::SplineInterpolating)
             {
                 auto b = std::static_pointer_cast<SceneBezier>(obj);
                 if (b->isSelected)
@@ -67,6 +70,12 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         }
     }
     ImGui::SameLine();
+    if (ImGui::Button("Usun Zaznacz."))
+    {
+        sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
+                                          [](const std::shared_ptr<SceneObject>& o) { return o->isSelected; }), sceneObjects.end());
+    }
+    ImGui::Separator();
 
     bool isGuiDisabledThisFrame = false;
     static int selectedBezierIndex = 0;
@@ -80,7 +89,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         for (auto& obj : sceneObjects)
         {
             // ŁAPIEMY OBYDWIE KRZYWE DO COMBOBOXA
-            if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierCurveC2)
+            if (obj->objectType == ObjectType::BezierCurveC0 ||
+            obj->objectType == ObjectType::BezierCurveC2 ||
+            obj->objectType == ObjectType::SplineInterpolating)
             {
                 auto b = std::static_pointer_cast<SceneBezier>(obj);
                 bezierNames.push_back(b->name);
@@ -153,6 +164,25 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                     magicCurve = b2;
                 }
             }
+            ImGui::SameLine();
+            if (ImGui::Button("Stworz Interpolujaca C2"))
+            {
+                std::vector<std::shared_ptr<ScenePoint>> selPts;
+                for(auto& obj : sceneObjects) {
+                    if (obj->objectType == ObjectType::Point) {
+                        auto p = std::static_pointer_cast<ScenePoint>(obj);
+                        if (p->isSelected) selPts.push_back(p);
+                    }
+                }
+                if (!selPts.empty()) {
+                    auto s = std::make_shared<SceneSplineInterpolating>("Splajn " + std::to_string(sceneObjects.size() + 1), Transformations());
+                    s->Init();
+                    for (auto &p: selPts) s->points.push_back(p);
+                    sceneObjects.push_back(s);
+                    magicMode = true;
+                    magicCurve = s; // Działa idealnie dzięki dziedziczeniu po SceneBezier!
+                }
+            }
         }
         else
         {
@@ -194,12 +224,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         isGuiDisabledThisFrame = true;
     }
 
-    ImGui::SameLine();
-    if (ImGui::Button("Usun Zaznacz."))
-    {
-        sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
-                                          [](const std::shared_ptr<SceneObject>& o) { return o->isSelected; }), sceneObjects.end());
-    }
     ImGui::Separator();
 
     centerOfSelection = Vect3(0,0,0);
@@ -450,7 +474,9 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         ImGui::ColorEdit3("Kolor", obj->color);
 
 
-        if(obj->objectType != ObjectType::BezierCurveC0 && obj->objectType != ObjectType::BezierCurveC2)
+        if(obj->objectType != ObjectType::BezierCurveC0 &&
+           obj->objectType != ObjectType::BezierCurveC2 &&
+           obj->objectType != ObjectType::SplineInterpolating)
         {
             ImGui::Text("Transformacja obiektu:");
             if (ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos))
@@ -554,6 +580,40 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                 else
                 {
                     it = b2->points.erase(it);
+                }
+            }
+        }
+        else if (obj->objectType == ObjectType::SplineInterpolating)
+        {
+            auto s = std::static_pointer_cast<SceneSplineInterpolating>(obj);
+
+            ImGui::Checkbox("Pokaz lamana", &s->showPolygon);
+
+            if (ImGui::Button("Dodaj calkowicie nowe punkty")) {
+                magicMode = true;
+                magicCurve = s;
+            }
+
+            ImGui::Text("Tryb rysowania/baza:");
+            int basis = (int)s->currentBasis;
+            if (ImGui::RadioButton("Algebraiczna (GPU Shader)", &basis, 0))
+                s->currentBasis = InterpolationBasisMode::ALGEBRAIC;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Bernstein (Wirtualne)", &basis, 1))
+                s->currentBasis = InterpolationBasisMode::BERNSTEIN;
+
+            ImGui::Text("Punkty Interpolacyjne:");
+            for (auto it = s->points.begin(); it != s->points.end(); ) {
+                if (auto ptr = it->lock()) {
+                    ImGui::Text(" - %s", ptr->name.c_str());
+                    ImGui::SameLine();
+                    ImGui::PushID(ptr.get());
+                    if (ImGui::Button("Usun z krzywej"))
+                        it = s->points.erase(it);
+                    else ++it;
+                    ImGui::PopID();
+                } else {
+                    it = s->points.erase(it);
                 }
             }
         }

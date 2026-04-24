@@ -65,6 +65,8 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/sceneBezier.cpp
         src/shapes/headers/sceneBezierC2.h
         src/shapes/source/sceneBezierC2.cpp
+        src/shapes/headers/sceneSplineInterpolating.h
+        src/shapes/source/sceneSplineInterpolating.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
