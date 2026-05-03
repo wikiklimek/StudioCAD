@@ -34,8 +34,9 @@ Vect3 getRayDirection(double mouseX, double mouseY, int winWidth, int winHeight,
 Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera);
 
 
-std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
-                                       const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
+bool handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
+                                       const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
+                                       std::shared_ptr<SceneBezierC2>& selectedVirtualBezierOwner);
 
 
 

@@ -42,6 +42,7 @@ float const PI = (float)M_PI;
 #include "guiManager.h"
 #include "sceneBezierC2.h"
 #include "sceneSplineInterpolating.h"
+#include "selectionManager.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -97,6 +98,7 @@ int main()
     BezierDrawMode currentBezierDrawMode = GEOMETRY;
     Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
     Shader * bsplineShader = currentBezierDrawMode == GEOMETRY ? &bsplineGeomShader : &bsplineLineStripShader;
+    Shader * interpolatingShader = &splineAlgebraicInterpolationShader; //domyslnie geometry shader
 
     bool magicMode = false;
     std::shared_ptr<SceneBezier> magicCurve = nullptr;
@@ -144,9 +146,6 @@ int main()
     double lastMouseX = 0, lastMouseY = 0;
     double startMouseX = 0, startMouseY = 0;
 
-
-
-    bool isVirtualSelected = false;
 
 
 
@@ -315,47 +314,18 @@ int main()
                     tm.wasSelectionChanged = true;
 
 
-                    isVirtualSelected = false;
-                    for(auto& obj : sceneObjects)
-                    {
-                        // dla klikania/select boxa zawsze stare obiekty pzrestaja byc zaczone
-                        obj->isSelected = false;
-                        if (obj->objectType == ObjectType::Point)
-                        {
-                            auto p = std::static_pointer_cast<ScenePoint>(obj);
-                            p->isSelectedAsDeBoore = false;
-                            p->virtualWeight = 0.0f;
-                        }
-
-                        if (obj->objectType == ObjectType::BezierCurveC2)
-                        {
-                            auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                            for (auto &vp: b2->virtualPoints)
-                                vp->isSelected = false;
-                        }
-                    }
-
+                    // dla klikania/select boxa zawsze stare obiekty pzrestaja byc zaczone
                     // ile krzywych nalezacych do punktu jest zaznaczonych - zerowanie
-                    for (auto& obj : sceneObjects)
-                    {
-                        if (obj->objectType == ObjectType::Point)
-                        {
-                            auto p = std::static_pointer_cast<ScenePoint>(obj);
-                            p->selectedCurvesCount = 0;
-                        }
-                    }
-
+                    unselectObjectsAndVirtualPointsAndCleanPointsSelectedBeziers(sceneObjects);
 
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
-                        std::shared_ptr<SceneBezierC2> selectedVirtualBezierOwner = handleSingleClickSelection(
-                                mouseX, mouseY, winWidth, winHeight, camera, sceneObjects);
-
                         //od razu wyznaczamy punkty de bora ktore beda przesuwane
-                        if(selectedVirtualBezierOwner != nullptr)
+                        std::shared_ptr<SceneBezierC2> selectedVirtualBezierOwner;
+                        if(handleSingleClickSelection(mouseX, mouseY, winWidth, winHeight, camera,
+                                                      sceneObjects, selectedVirtualBezierOwner))
                         {
-                            isVirtualSelected = true;
                             selectedVirtualBezierOwner->markAffectedDeBoorPoints();
                         }
 
@@ -416,47 +386,7 @@ int main()
         // bo punktów wirtualnych nie ma na liscie gui!
         if (guiManager.wasSelectionChanged)
         {
-            isVirtualSelected = false;
-            for (auto& obj : sceneObjects)
-            {
-                if (obj->objectType == ObjectType::Point)
-                {
-                    auto p = std::static_pointer_cast<ScenePoint>(obj);
-                    p->isSelectedAsDeBoore = false;
-                    p->virtualWeight = 0.0f;
-                }
-                if (obj->objectType == ObjectType::BezierCurveC2)
-                {
-                    auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-                    for (auto& vp : b2->virtualPoints)
-                        vp->isSelected = false;
-                }
-
-                //zmianiamy selection bezrerów punktów
-                if (obj->objectType == ObjectType::BezierCurveC0 ||
-                obj->objectType == ObjectType::BezierCurveC2 ||
-                obj->objectType == ObjectType::SplineInterpolating)
-                {
-                    auto b = std::static_pointer_cast<SceneBezier>(obj);
-
-                    if (b->wasGuiSelectionChanged)
-                    {
-                        if(b->isSelected)
-                            for (auto& wp : b->points)
-                            {
-                                if (auto p = wp.lock())
-                                    p->selectedCurvesCount++;
-                            }
-                        else
-                            for (auto& wp : b->points)
-                            {
-                                if (auto p = wp.lock())
-                                    p->selectedCurvesCount--;
-                            }
-                    }
-                }
-            }
-
+            unselectVirtualPointsAndActualizePointsSelectedBeziers(sceneObjects);
         }
 
 
@@ -469,7 +399,7 @@ int main()
         Mat4 M_View = camera.getViewMatrix();
         Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
 
-        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection, isVirtualSelected);
+        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
         shader.use();
         glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
@@ -489,6 +419,11 @@ int main()
         bezierShader->use();
         glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
         glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
+        interpolatingShader->use();
+        glUniformMatrix4fv(glGetUniformLocation(interpolatingShader->ID, "view"), 1, GL_FALSE, M_View.table);
+        glUniformMatrix4fv(glGetUniformLocation(interpolatingShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
+
 
         for (auto& obj : sceneObjects)
         {
@@ -511,12 +446,8 @@ int main()
             {
                 auto s = std::static_pointer_cast<SceneSplineInterpolating>(obj);
 
-                Shader* activeShader = (s->currentBasis == InterpolationBasisMode::ALGEBRAIC) ? &splineAlgebraicInterpolationShader : bezierShader;
+                Shader* activeShader = (s->currentBasis == InterpolationBasisMode::ALGEBRAIC) ? interpolatingShader : bezierShader;
                 activeShader->use();
-
-                // Ważne: Przesyłamy odpowiednie macierze, bo zmieniamy shader
-                glUniformMatrix4fv(glGetUniformLocation(activeShader->ID, "view"), 1, GL_FALSE, M_View.table);
-                glUniformMatrix4fv(glGetUniformLocation(activeShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
 
                 s->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
             }
@@ -560,6 +491,7 @@ int main()
                 p->wasGuiEdited = false;
             }
         }
+
         tm.wasSelectionChanged = false;
         tm.wasBaked = false;
         guiManager.wasSelectionChanged = false;

@@ -51,9 +51,12 @@ Vect3 getCursorIntersectionWithCameraPlane(Vect3 rayDir, const Camera& camera)
 }
 
 
-std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
-                                const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+bool handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int winHeight,
+                                const Camera& camera, std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
+                                std::shared_ptr<SceneBezierC2> & closestVirtualPointBezierOwner)
 {
+    bool isSelectedClosestVirtualPointBezierOwner = false;
+
     float aspectRatio = (float)winWidth / (float)winHeight;
     Mat4 VP = camera.getProjectionMatrix(aspectRatio) * camera.getViewMatrix();
 
@@ -62,7 +65,6 @@ std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double 
 
     float minDistToCamera = 100000.0f;
     std::shared_ptr<ScenePoint> closestPoint = nullptr;
-    std::shared_ptr<SceneBezierC2> closestVirtualPointBezierOwner = nullptr;
 
 
     auto isPointCloserToClick = [&VP, &winWidth, &winHeight, &mouseX,
@@ -110,6 +112,7 @@ std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double 
             if(isPointCloserToClick(p))
             {
                 closestVirtualPointBezierOwner = nullptr;
+                isSelectedClosestVirtualPointBezierOwner = false;
             }
         }
         // Zajrzyj do kieszeni krzywych C2
@@ -123,6 +126,7 @@ std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double 
                     if(isPointCloserToClick(vp))
                     {
                         closestVirtualPointBezierOwner = b2;
+                        isSelectedClosestVirtualPointBezierOwner = true;
                     }
                 }
             }
@@ -136,7 +140,7 @@ std::shared_ptr<SceneBezierC2> handleSingleClickSelection(double mouseX, double 
     }
 
 
-    return closestVirtualPointBezierOwner;
+    return isSelectedClosestVirtualPointBezierOwner;
 }
 
 

@@ -86,13 +86,11 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
 
 PreviewContext buildPreviewContext(const AppState& state,const TransformManager& tm,
                                    const GuiManager& gui, Vect3 cursorPosition,
-                                   Vect3 centerOfSelection, bool isVirtualSelected)
+                                   Vect3 centerOfSelection)
 {
     PreviewContext ctx;
     ctx.isTransforming = (state.inputMode == INPUT_MOUSE && tm.isTransformationActive) || (state.inputMode == INPUT_GUI);
     ctx.isLocal = (state.transformMode == LOCAL);
-
-    ctx.isVirtualSelected = isVirtualSelected;
 
     ctx.anySelectionChanged = gui.wasSelectionChanged || tm.wasSelectionChanged;
     ctx.wasBaked = gui.wasBaked || tm.wasBaked;

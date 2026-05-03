@@ -93,7 +93,8 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 {
     cleanExpiredPoints();
     int numD = (int)points.size();
-    if (numD < 4) {
+    if (numD < 4)
+    {
         virtualPoints.clear();
         return;
     }
@@ -322,7 +323,8 @@ void SceneBezierC2::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
     RenderPolygon(polyPoints, lineShader);
 }
 
-void SceneBezierC2::Draw(Shader& shader) {
+void SceneBezierC2::Draw(Shader& shader)
+{
 
     if(points.empty())
     {
@@ -330,7 +332,8 @@ void SceneBezierC2::Draw(Shader& shader) {
     }
 
     if (currentBasis == BezierBasisMode::BERNSTEIN)
-        for (auto& vp : virtualPoints) vp->Draw(shader);
+        for (auto& vp : virtualPoints)
+            vp->Draw(shader);
 }
 
 void SceneBezierC2::Draw(Shader& shader, Mat4 parentMatrix)

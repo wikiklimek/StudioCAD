@@ -12,5 +12,4 @@ PreviewContext buildPreviewContext(const AppState& state,
                                    const TransformManager& tm,
                                    const GuiManager& gui,
                                    Vect3 cursorPosition,
-                                   Vect3 centerOfSelection,
-                                   bool isVirtualSelected);
+                                   Vect3 centerOfSelection);

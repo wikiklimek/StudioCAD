@@ -7,7 +7,6 @@
 struct PreviewContext{
     bool isTransforming = false;
     bool isLocal = false;
-    bool isVirtualSelected = false;
 
     bool anySelectionChanged = false;
     bool wasBaked = false;

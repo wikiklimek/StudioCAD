@@ -19,7 +19,8 @@ void SceneSplineInterpolating::UpdateStructuresIfNeeded(const PreviewContext& ct
         auto p = wp.lock();
         liveP.push_back(getPreviewPosition(p, ctx));
 
-        if (p->wasGuiEdited || (ctx.isTransforming && (p->isSelected || p->selectedCurvesCount > 0)))
+        if (p->wasGuiEdited ||
+            (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0)))
             needsUpdate = true;
     }
 
