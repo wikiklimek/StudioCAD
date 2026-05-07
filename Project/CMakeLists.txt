@@ -69,6 +69,7 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/sceneSplineInterpolating.cpp
         src/shapes/headers/selectionManager.h
         src/shapes/source/selectionManager.cpp
+        src/shapes/headers/VirtualPoints.h
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
