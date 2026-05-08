@@ -396,81 +396,120 @@ int main()
 
 
 
-        Mat4 M_View = camera.getViewMatrix();
-        Mat4 M_Proj = camera.getProjectionMatrix(aspectRatio);
+
+
+        Mat4 Base_View = camera.getViewMatrix();
+        Mat4 Base_Proj = camera.getProjectionMatrix(aspectRatio);
 
         PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
+        // --- DEKLARACJA LAMBDY RYSUJĄCEJ CAŁĄ SCENĘ ---
+        auto RenderScenePass = [&](Mat4 V, Mat4 P, bool stereoscopy, Vect3 sColor)
+        {
+            // Aktualizacja wszystkich shaderów
+            auto updateShader = [&](Shader* s) {
+                s->use();
+                glUniformMatrix4fv(glGetUniformLocation(s->ID, "view"), 1, GL_FALSE, V.table);
+                glUniformMatrix4fv(glGetUniformLocation(s->ID, "projection"), 1, GL_FALSE, P.table);
+                glUniform1i(glGetUniformLocation(s->ID, "isStereo"), stereoscopy ? 1 : 0);
+                glUniform3f(glGetUniformLocation(s->ID, "stereoColor"), sColor.x, sColor.y, sColor.z);
+            };
+
+            updateShader(&shader);
+            updateShader(bezierShader);
+            updateShader(bsplineShader);
+            updateShader(interpolatingShader);
+
+            // Rysowanie właściwych obiektów i podglądów (Twój oryginalny kod)
+            shader.use();
+            for (auto& obj : sceneObjects)
+            {
+                drawObjectWithPreview(obj, shader, previewCtx);
+            }
+
+            for (auto& obj : sceneObjects)
+            {
+                if (obj->objectType == ObjectType::BezierCurveC0)
+                {
+                    bezierShader->use();
+                    auto b = std::static_pointer_cast<SceneBezierC0>(obj);
+                    b->DrawBezier(*bezierShader, P * V, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+                }
+                else if (obj->objectType == ObjectType::BezierCurveC2)
+                {
+                    auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
+                    Shader* activeShader = (b2->currentBasis == BezierBasisMode::B_SPLINE) ? bsplineShader : bezierShader;
+                    activeShader->use();
+                    b2->DrawBezier(*activeShader, P * V, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+                }
+                else if (obj->objectType == ObjectType::SplineInterpolating)
+                {
+                    auto s = std::static_pointer_cast<SceneSplineInterpolating>(obj);
+                    Shader* activeShader = (s->currentBasis == InterpolationBasisMode::ALGEBRAIC) ? interpolatingShader : bezierShader;
+                    activeShader->use();
+                    s->DrawBezier(*activeShader, P * V, winWidth, winHeight, previewCtx, currentBezierDrawMode);
+                }
+            }
+
+            shader.use();
+            for (auto& obj : sceneObjects)
+            {
+                if (obj->objectType == ObjectType::BezierCurveC0 ||
+                obj->objectType == ObjectType::BezierCurveC2 ||
+                obj->objectType == ObjectType::SplineInterpolating)
+                {
+                    auto b = std::static_pointer_cast<SceneBezier>(obj);
+                    b->DrawPolygon(shader, previewCtx);
+                }
+            }
+        };
+
+
+        // --- LOGIKA MULTIPASS (STEREOSKOPIA) ---
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (!guiManager.isStereoMode)
+        {
+            // Normalne rysowanie
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            RenderScenePass(Base_View, Base_Proj, false, Vect3(0,0,0));
+        }
+        else
+        {
+            // --- PRZEBIEG 1: LEWE OKO (Tylko Kanał Czerwony) ---
+            Mat4 P_Left(0, 0, 0, 0), V_LeftShift(0, 0, 0, 0);
+            getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, true, P_Left, V_LeftShift);
+
+            glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE); // Czerwony WŁĄCZONY
+            RenderScenePass(V_LeftShift * Base_View, P_Left, true, Vect3(1.0f, 0.0f, 0.0f));
+
+            // --- PRZEBIEG 2: PRAWE OKO (Tylko Kanał Niebieski) ---
+            glClear(GL_DEPTH_BUFFER_BIT); // WAŻNE: Czyścimy głębię, ale ZOSTAWIAMY narysowane kolory!
+
+            Mat4 P_Right(0, 0, 0, 0), V_RightShift(0, 0, 0, 0);
+            getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, false, P_Right, V_RightShift);
+
+            // Możesz włączyć też zielony (GL_TRUE, GL_TRUE) jeśli chcesz cyjan, ale zadanie prosi o Niebieski
+            glColorMask(GL_FALSE, GL_FALSE, GL_TRUE, GL_TRUE); // Niebieski WŁĄCZONY
+            RenderScenePass(V_RightShift * Base_View, P_Right, true, Vect3(0.0f, 0.0f, 1.0f));
+
+            // Przywracamy zapis pełnych barw, aby interfejs ImGui oraz Osie mogły narysować się normalnie
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        }
+
+        // Osie i Kursor zawsze poza stereoskopią, żeby nie męczyć oczu narzędziami
         shader.use();
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-        for (auto& obj : sceneObjects)
-        {
-            drawObjectWithPreview(obj, shader, previewCtx);
-        }
-
-
-        //zeby potem tego w petli nie robic 100 razy
-        bsplineShader->use();
-        glUniformMatrix4fv(glGetUniformLocation(bsplineShader->ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(bsplineShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-        bezierShader->use();
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(bezierShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-        interpolatingShader->use();
-        glUniformMatrix4fv(glGetUniformLocation(interpolatingShader->ID, "view"), 1, GL_FALSE, M_View.table);
-        glUniformMatrix4fv(glGetUniformLocation(interpolatingShader->ID, "projection"), 1, GL_FALSE, M_Proj.table);
-
-
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->objectType == ObjectType::BezierCurveC0)
-            {
-                bezierShader->use();
-                auto b = std::static_pointer_cast<SceneBezierC0>(obj);
-                b->DrawBezier(*bezierShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
-            }
-            else if (obj->objectType == ObjectType::BezierCurveC2)
-            {
-                auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
-
-                Shader* activeShader = (b2->currentBasis == BezierBasisMode::B_SPLINE) ? bsplineShader : bezierShader;
-                activeShader->use();
-
-                b2->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
-            }
-            else if (obj->objectType == ObjectType::SplineInterpolating)
-            {
-                auto s = std::static_pointer_cast<SceneSplineInterpolating>(obj);
-
-                Shader* activeShader = (s->currentBasis == InterpolationBasisMode::ALGEBRAIC) ? interpolatingShader : bezierShader;
-                activeShader->use();
-
-                s->DrawBezier(*activeShader, M_Proj * M_View, winWidth, winHeight, previewCtx, currentBezierDrawMode);
-            }
-        }
-
-        shader.use();
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->objectType == ObjectType::BezierCurveC0 ||
-            obj->objectType == ObjectType::BezierCurveC2 ||
-            obj->objectType == ObjectType::SplineInterpolating)
-            {
-                auto b = std::static_pointer_cast<SceneBezier>(obj);
-
-                b->DrawPolygon(shader, previewCtx);
-            }
-        }
-
-        // Zresetowanie shadera i rysowanie narzędzi UI
-        //shader.use();
-
         cursor.Draw(shader);
         sceneAxis.Draw(shader, Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 10000.0f);
+
+
+
+
+
+
+
+
+
 
 
         ImGui::Render();

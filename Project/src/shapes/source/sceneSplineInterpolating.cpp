@@ -44,7 +44,7 @@ void SceneSplineInterpolating::UpdateVirtualPointsIfNeeded(const PreviewContext 
     for (int i = 0; i < n; ++i)
         d[i] = std::max((liveP[i+1] - liveP[i]).length(), 0.001f);
 
-    // Algorytm Thomasa
+    // Algorytm Thomasa poczatek
     std::vector<Vect3> c(n + 1, Vect3(0.0f));
     if (n > 1)
     {

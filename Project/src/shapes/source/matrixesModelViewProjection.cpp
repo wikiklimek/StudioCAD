@@ -63,3 +63,46 @@ Mat4 createViewMatrix(Vect3 cameraPos, Vect3 target, Vect3 up)
 
     return view;
 }
+
+Mat4 createFrustum(float l, float r, float b, float t, float n, float f)
+{
+    Mat4 M(0.0f);
+    M.table[0] = (2.0f * n) / (r - l);
+    M.table[5] = (2.0f * n) / (t - b);
+    M.table[8] = (r + l) / (r - l);
+    M.table[9] = (t + b) / (t - b);
+    M.table[10] = -(f + n) / (f - n);
+    M.table[11] = -1.0f;
+    M.table[14] = -(2.0f * f * n) / (f - n);
+    return M;
+}
+
+// Obliczanie asymetrycznych krawędzi (Off-axis projection) dla konkretnego oka
+void getStereoMatrices(float fov, float aspect, float n, float f, float eyeSeparation, float zpd, bool isLeftEye, Mat4& outProj, Mat4& outViewShift)
+{
+    float top = n * std::tan(fov / 2.0f);
+    float bottom = -top;
+    float a = aspect * top; // To byłoby 'right' w kamerze symetrycznej
+
+    // O ile musimy przesunąć okno rzutowania na bliskiej płaszczyźnie (n),
+    // wynikające z podobieństwa trójkątów do płaszczyzny ZPD.
+    float shift = (eyeSeparation / 2.0f) * (n / zpd);
+    float left, right;
+
+    if (isLeftEye)
+    {
+        // Lewe oko jest przesunięte w lewo, więc okno monitora 'przesuwa się' w prawo
+        left = -a + shift;
+        right = a + shift;
+        // W przestrzeni widoku (View) przesuwamy całą scenę w prawo (oko w lewo)
+        outViewShift = Mat4::translate(Vect3(eyeSeparation / 2.0f, 0.0f, 0.0f));
+    } else
+    {
+        // Prawe oko
+        left = -a - shift;
+        right = a - shift;
+        outViewShift = Mat4::translate(Vect3(-eyeSeparation / 2.0f, 0.0f, 0.0f));
+    }
+
+    outProj = createFrustum(left, right, bottom, top, n, f);
+}

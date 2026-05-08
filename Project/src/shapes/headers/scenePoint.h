@@ -12,7 +12,6 @@ public:
     bool isVirtual = false;
     bool wasGuiEdited = false;
 
-    // --- TWOJA ARCHITEKTURA ---
     bool isSelectedAsDeBoore = false;
     float virtualWeight = 0.0f;
 

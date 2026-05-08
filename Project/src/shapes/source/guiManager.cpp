@@ -44,6 +44,19 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     //ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
     ImGui::Separator();
 
+    if (ImGui::CollapsingHeader("Ustawienia Stereoskopii (3D Anaglif)", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Wlacz Tryb Stereoskopowy", &isStereoMode);
+        if (isStereoMode)
+        {
+            ImGui::Indent();
+            ImGui::SliderFloat("Rozstaw Oczu (IOD)", &eyeSeparation, 0.0f, 5.0f);
+            ImGui::SliderFloat("Odleglosc Ekranu (ZPD)", &focalDistance, 1.0f, 100.0f);
+            ImGui::Unindent();
+        }
+    }
+    ImGui::Separator();
+
     if (ImGui::Button("Dodaj Torus"))
     {
         auto t = std::make_shared<SceneTorus>("Torus " + std::to_string(sceneObjects.size()+1), cursor.transform);

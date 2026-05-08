@@ -22,6 +22,10 @@ public:
     int max_density_R = 80, min_density_R = 3;
     int max_density_r = 80, min_density_r = 3;
 
+    bool isStereoMode = false;
+    float eyeSeparation = 0.5f;
+    float focalDistance = 20.0f;
+
     // Stan transformacji z poziomu GUI
     float guiDeltaPos[3] = {0.0f, 0.0f, 0.0f};
     float guiDeltaScale = 1.0f;
