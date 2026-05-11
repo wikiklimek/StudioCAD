@@ -403,10 +403,10 @@ int main()
 
         PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
-        // --- DEKLARACJA LAMBDY RYSUJĄCEJ CAŁĄ SCENĘ ---
+        // rysowanie całej sceny
         auto RenderScenePass = [&](Mat4 V, Mat4 P, bool stereoscopy, Vect3 sColor)
         {
-            // Aktualizacja wszystkich shaderów
+
             auto updateShader = [&](Shader* s) {
                 s->use();
                 glUniformMatrix4fv(glGetUniformLocation(s->ID, "view"), 1, GL_FALSE, V.table);
@@ -420,7 +420,6 @@ int main()
             updateShader(bsplineShader);
             updateShader(interpolatingShader);
 
-            // Rysowanie właściwych obiektów i podglądów (Twój oryginalny kod)
             shader.use();
             for (auto& obj : sceneObjects)
             {
@@ -462,50 +461,42 @@ int main()
                     b->DrawPolygon(shader, previewCtx);
                 }
             }
+
+            shader.use();
+            cursor.Draw(shader);
+            sceneAxis.Draw(shader, Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 10000.0f);
+
         };
 
 
-        // --- LOGIKA MULTIPASS (STEREOSKOPIA) ---
+        // stereoskopia
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         if (!guiManager.isStereoMode)
         {
-            // Normalne rysowanie
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
             RenderScenePass(Base_View, Base_Proj, false, Vect3(0,0,0));
         }
         else
         {
-            // --- PRZEBIEG 1: LEWE OKO (Tylko Kanał Czerwony) ---
+            // lewe oko - czerwone
             Mat4 P_Left(0, 0, 0, 0), V_LeftShift(0, 0, 0, 0);
             getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, true, P_Left, V_LeftShift);
 
-            glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE); // Czerwony WŁĄCZONY
+            glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
             RenderScenePass(V_LeftShift * Base_View, P_Left, true, Vect3(1.0f, 0.0f, 0.0f));
 
-            // --- PRZEBIEG 2: PRAWE OKO (Tylko Kanał Niebieski) ---
-            glClear(GL_DEPTH_BUFFER_BIT); // WAŻNE: Czyścimy głębię, ale ZOSTAWIAMY narysowane kolory!
+            // prawe oko - niebieski
+            glClear(GL_DEPTH_BUFFER_BIT); // clean depth, but colours leave alone where they are
 
             Mat4 P_Right(0, 0, 0, 0), V_RightShift(0, 0, 0, 0);
             getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, false, P_Right, V_RightShift);
 
-            // Możesz włączyć też zielony (GL_TRUE, GL_TRUE) jeśli chcesz cyjan, ale zadanie prosi o Niebieski
-            glColorMask(GL_FALSE, GL_FALSE, GL_TRUE, GL_TRUE); // Niebieski WŁĄCZONY
+            glColorMask(GL_FALSE, GL_FALSE, GL_TRUE, GL_TRUE);
             RenderScenePass(V_RightShift * Base_View, P_Right, true, Vect3(0.0f, 0.0f, 1.0f));
 
-            // Przywracamy zapis pełnych barw, aby interfejs ImGui oraz Osie mogły narysować się normalnie
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         }
-
-        // Osie i Kursor zawsze poza stereoskopią, żeby nie męczyć oczu narzędziami
-        shader.use();
-        cursor.Draw(shader);
-        sceneAxis.Draw(shader, Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 10000.0f);
-
-
-
-
-
 
 
 

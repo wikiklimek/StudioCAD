@@ -77,28 +77,24 @@ Mat4 createFrustum(float l, float r, float b, float t, float n, float f)
     return M;
 }
 
-// Obliczanie asymetrycznych krawędzi (Off-axis projection) dla konkretnego oka
 void getStereoMatrices(float fov, float aspect, float n, float f, float eyeSeparation, float zpd, bool isLeftEye, Mat4& outProj, Mat4& outViewShift)
 {
     float top = n * std::tan(fov / 2.0f);
     float bottom = -top;
-    float a = aspect * top; // To byłoby 'right' w kamerze symetrycznej
+    float a = aspect * top;
 
-    // O ile musimy przesunąć okno rzutowania na bliskiej płaszczyźnie (n),
-    // wynikające z podobieństwa trójkątów do płaszczyzny ZPD.
     float shift = (eyeSeparation / 2.0f) * (n / zpd);
     float left, right;
 
     if (isLeftEye)
     {
-        // Lewe oko jest przesunięte w lewo, więc okno monitora 'przesuwa się' w prawo
         left = -a + shift;
         right = a + shift;
-        // W przestrzeni widoku (View) przesuwamy całą scenę w prawo (oko w lewo)
+
         outViewShift = Mat4::translate(Vect3(eyeSeparation / 2.0f, 0.0f, 0.0f));
-    } else
+    }
+    else
     {
-        // Prawe oko
         left = -a - shift;
         right = a - shift;
         outViewShift = Mat4::translate(Vect3(-eyeSeparation / 2.0f, 0.0f, 0.0f));
