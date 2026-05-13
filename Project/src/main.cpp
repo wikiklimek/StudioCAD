@@ -484,6 +484,26 @@ int main()
                 }
             }
 
+            // main.cpp - wewnątrz RenderScenePass
+            if (guiManager.isNewSurfacePanelOpen && guiManager.previewSurface) {
+                PreviewContext dummyCtx;
+                auto ps = guiManager.previewSurface;
+
+                // 1. Rysujemy samą powierzchnię
+                if (ps->objectType == ObjectType::BezierSurfaceC0)
+                    ps->DrawSurface(*surfaceShaderC0, dummyCtx);
+                else
+                    ps->DrawSurface(*surfaceShaderC2, dummyCtx);
+
+                ps->DrawPolygon(shader, dummyCtx);
+
+                // 2. Rysujemy punkty podglądu (inaczej ich nie zobaczysz!)
+                shader.use();
+                for (auto& p : guiManager.previewPoints) {
+                    p->Draw(shader);
+                }
+            }
+
             shader.use();
             cursor.Draw(shader);
             sceneAxis.Draw(shader, Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 0.0f), 10000.0f);

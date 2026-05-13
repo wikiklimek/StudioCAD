@@ -16,11 +16,11 @@ SceneSurface::~SceneSurface()
 
 void SceneSurface::Init()
 {
-    glGenVertexArrays(1, &VAO_surface);
-    glGenVertexArrays(1, &VAO_poly);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO_surface);
-    glGenBuffers(1, &EBO_poly);
+    if (VAO_surface == 0) glGenVertexArrays(1, &VAO_surface);
+    if (VAO_poly == 0) glGenVertexArrays(1, &VAO_poly);
+    if (VBO == 0) glGenBuffers(1, &VBO);
+    if (EBO_surface == 0) glGenBuffers(1, &EBO_surface);
+    if (EBO_poly == 0) glGenBuffers(1, &EBO_poly);
 
     // 1. INDEKSY DLA TESELACJI (PATCHES)
     patchIndices.clear();

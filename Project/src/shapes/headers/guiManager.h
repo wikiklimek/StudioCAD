@@ -9,6 +9,7 @@
 #include "camera.h"
 #include "sceneBezierC0.h"
 #include "transformManager.h"
+#include "sceneSurface.h"
 
 
 class GuiManager {
@@ -29,6 +30,15 @@ public:
     int newSurfType = 0; // 0: C0, 1: C2
     bool newSurfIsCylinder = false;
     int surfaceDeletionMode = 2; // 0: Tylko płat, 1: Płat i pkt, 2: Smart
+
+    // guiManager.h
+// ... reszta pól ...
+    bool isNewSurfacePanelOpen = false; // Do sterowania otwarciem
+    bool forceClosePanel = false;       // Flaga do zamknięcia po stworzeniu
+    std::shared_ptr<SceneSurface> previewSurface = nullptr;
+    std::vector<std::shared_ptr<ScenePoint>> previewPoints; // shared_ptr trzymające punkty przy życiu!
+
+    void refreshPreview(const Cursor& cursor);
 
 
     bool isStereoMode = false;

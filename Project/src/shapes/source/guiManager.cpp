@@ -269,25 +269,50 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         ImGui::Separator();
 
 
-        if (ImGui::CollapsingHeader("Nowy Płat Łączony"))
-        {
-            ImGui::SliderInt("Liczba płatów U", &newSurfPatchesU, 1, 10);
-            ImGui::SliderInt("Liczba płatów V", &newSurfPatchesV, 1, 10);
-            ImGui::DragFloat("Szerokość/Promień", &newSurfDimU, 0.1f, 0.1f, 50.0f);
-            ImGui::DragFloat("Wysokość", &newSurfDimV, 0.1f, 0.1f, 50.0f);
+        if (forceClosePanel) {
+            ImGui::SetNextItemOpen(false);
+            forceClosePanel = false;
+        }
 
-            const char* types[] = { "Bezier C0", "B-Spline C2" };
-            ImGui::Combo("Typ ciągłości", &newSurfType, types, IM_ARRAYSIZE(types));
+        isNewSurfacePanelOpen = ImGui::CollapsingHeader("Nowy Płat Łączony");
 
-            ImGui::Checkbox("Walec", &newSurfIsCylinder);
+        if (isNewSurfacePanelOpen) {
+            if (previewSurface == nullptr) refreshPreview(cursor);
 
-            if (ImGui::Button("Stwórz Płat"))
-            {
-                // Wywołanie logiki tworzenia (kod poniżej)
-                createSurfaceLogic(sceneObjects, cursor, newSurfPatchesU, newSurfPatchesV,
-                                   newSurfDimU, newSurfDimV, newSurfType == 0, newSurfIsCylinder);
+            bool changed = false;
+            if (ImGui::SliderInt("Płaty U", &newSurfPatchesU, 1, 10)) changed = true;
+            if (ImGui::SliderInt("Płaty V", &newSurfPatchesV, 1, 10)) changed = true;
+            if (ImGui::DragFloat("Szer/Promień", &newSurfDimU, 0.1f, 0.1f, 50.0f)) changed = true;
+            if (ImGui::DragFloat("Wysokość", &newSurfDimV, 0.1f, 0.1f, 50.0f)) changed = true;
+            if (ImGui::Combo("Typ", &newSurfType, "Bezier C0\0B-Spline C2\0")) changed = true;
+            if (ImGui::Checkbox("Walec", &newSurfIsCylinder)) changed = true;
+
+            if (changed) refreshPreview(cursor);
+
+            if (ImGui::Button("Stwórz Płat", ImVec2(-1, 30))) {
+                for (auto& p : previewPoints) {
+                    // Dodajemy tylko unikalne (ważne przy walcu!)
+                    if (std::find(sceneObjects.begin(), sceneObjects.end(), p) == sceneObjects.end()) {
+                        p->belongsToPatch = true;
+                        p->color[0] = 1.0f; p->color[1] = 1.0f; p->color[2] = 0.0f; // Reset do żółtego
+                        sceneObjects.push_back(p);
+                    }
+                }
+                previewSurface->color[0] = 1.0f; previewSurface->color[1] = 1.0f; previewSurface->color[2] = 0.0f;
+                previewSurface->name = (newSurfType == 0 ? "Płat C0" : "Płat C2");
+                sceneObjects.push_back(previewSurface);
+
+                previewSurface = nullptr;
+                previewPoints.clear();
+                forceClosePanel = true; // Zamykamy panel
             }
         }
+        else
+        {
+            if (previewSurface) { previewSurface = nullptr; previewPoints.clear(); }
+        }
+
+
 
     }
     else
@@ -797,8 +822,10 @@ void GuiManager::createSurfaceLogic(std::vector<std::shared_ptr<SceneObject>>& s
     std::vector<std::shared_ptr<ScenePoint>> surfacePoints;
     Vect3 center = cursor.transform.getPosition();
 
-    for (int v = 0; v < sizeV; ++v) {
-        for (int u = 0; u < sizeU; ++u) {
+    for (int v = 0; v < sizeV; ++v)
+    {
+        for (int u = 0; u < sizeU; ++u)
+        {
             // Logika walca: ostatnia kolumna to te same wskaźniki co pierwsza
             if (isCylinder && u == sizeU - 1) {
                 surfacePoints.push_back(surfacePoints[v * sizeU]);
@@ -807,11 +834,14 @@ void GuiManager::createSurfaceLogic(std::vector<std::shared_ptr<SceneObject>>& s
 
             Transformations t;
             Vect3 localPos;
-            if (isCylinder) {
+            if (isCylinder)
+            {
                 float angle = (float)u / (sizeU - 1) * 2.0f * (float)M_PI;
                 float radius = dimU; // U traktujemy jako promień
                 localPos = Vect3(radius * cos(angle), (float)v / (sizeV - 1) * dimV, radius * sin(angle));
-            } else {
+            }
+            else
+            {
                 localPos = Vect3((float)u / (sizeU - 1) * dimU, 0, (float)v / (sizeV - 1) * dimV);
             }
 
@@ -832,4 +862,80 @@ void GuiManager::createSurfaceLogic(std::vector<std::shared_ptr<SceneObject>>& s
 
     surface->Init();
     sceneObjects.push_back(surface);
+}
+
+void GuiManager::refreshPreview(const Cursor& cursor) {
+    bool isC0 = (newSurfType == 0);
+
+    // Zabezpieczenie przed błędem ujemnych indeksów
+    if (newSurfPatchesU < 1) newSurfPatchesU = 1;
+    if (newSurfPatchesV < 1) newSurfPatchesV = 1;
+
+    int sizeU = isC0 ? (newSurfPatchesU * 3 + 1) : (newSurfPatchesU + 3);
+    int sizeV = isC0 ? (newSurfPatchesV * 3 + 1) : (newSurfPatchesV + 3);
+
+    // Obliczamy ile UNIKALNYCH punktów w pamięci fizycznie potrzebujemy
+    // Dla walca ostatnia kolumna dzieli wskaźniki z pierwszą, więc potrzebujemy mniej punktów!
+    int requiredUniquePoints = newSurfIsCylinder ? (sizeU - 1) * sizeV : sizeU * sizeV;
+
+    // --- 1. ZARZĄDZANIE PULĄ PUNKTÓW (Object Pooling) ---
+    // Jeśli mamy za mało punktów w podglądzie, dorabiamy je
+    while (previewPoints.size() < requiredUniquePoints) {
+        auto p = std::make_shared<ScenePoint>("P", Transformations());
+        p->Init();
+        p->color[0] = 0.5f; p->color[1] = 0.5f; p->color[2] = 0.5f; // Szary kolor podglądu
+        previewPoints.push_back(p);
+    }
+    // Jeśli po zmniejszeniu liczby płatów mamy za dużo punktów, usuwamy nadmiar
+    if (previewPoints.size() > requiredUniquePoints) {
+        previewPoints.resize(requiredUniquePoints);
+    }
+
+    // --- 2. ZARZĄDZANIE POWIERZCHNIĄ ---
+    ObjectType requiredSurfaceType = isC0 ? ObjectType::BezierSurfaceC0 : ObjectType::BezierSurfaceC2;
+
+    // Tworzymy nową powierzchnię TYLKO jeśli jeszcze jej nie ma lub zmieniliśmy tryb C0/C2
+    if (previewSurface == nullptr || previewSurface->objectType != requiredSurfaceType) {
+        if (isC0)
+            previewSurface = std::make_shared<SceneSurfaceC0>("Preview Surface", Transformations());
+        else
+            previewSurface = std::make_shared<SceneSurfaceC2>("Preview Surface", Transformations());
+    }
+
+    previewSurface->sizeU = sizeU;
+    previewSurface->sizeV = sizeV;
+    previewSurface->isCylinder = newSurfIsCylinder;
+    previewSurface->color[0] = 0.6f; previewSurface->color[1] = 0.6f; previewSurface->color[2] = 0.6f;
+    previewSurface->points.clear(); // Opróżniamy starą siatkę z samej powierzchni
+
+    // --- 3. ROZSTAWIANIE PUNKTÓW ---
+    Vect3 center = cursor.transform.getPosition();
+    int uniqueIdx = 0; // Wskaźnik, który punkt z naszej "puli" teraz bierzemy
+
+    for (int v = 0; v < sizeV; ++v) {
+        for (int u = 0; u < sizeU; ++u) {
+            // Logika walca - ostatnia kolumna wskaźników to pierwsza kolumna wskaźników
+            if (newSurfIsCylinder && u == sizeU - 1) {
+                previewSurface->points.push_back(previewSurface->points[v * sizeU]);
+                continue;
+            }
+
+            // Bierzemy istniejący punkt z puli i aktualizujemy jego pozycję
+            auto p = previewPoints[uniqueIdx++];
+
+            Vect3 localPos;
+            if (newSurfIsCylinder) {
+                float angle = (float)u / (sizeU - 1) * 2.0f * (float)M_PI;
+                localPos = Vect3(newSurfDimU * cos(angle), (float)v / (sizeV - 1) * newSurfDimV, newSurfDimU * sin(angle));
+            } else {
+                localPos = Vect3((float)u / (sizeU - 1) * newSurfDimU, 0, (float)v / (sizeV - 1) * newSurfDimV);
+            }
+
+            p->transformations.setPosition(center + localPos);
+            previewSurface->points.push_back(p);
+        }
+    }
+
+    // Przebudowa indeksów dla nowego rozmiaru
+    previewSurface->Init();
 }
