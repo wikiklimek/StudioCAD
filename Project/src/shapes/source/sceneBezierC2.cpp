@@ -127,7 +127,7 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
         liveD[i] = getPreviewPosition(p, ctx);
 
         if (p->wasGuiEdited ||
-            (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0)))
+            (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0 || p->isSelectedViaPatch)))
         {
             dirtyIndices.push_back(i);
         }
