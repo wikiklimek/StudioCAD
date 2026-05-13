@@ -18,7 +18,9 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
     {
         if (obj->objectType == ObjectType::BezierCurveC0 ||
         obj->objectType == ObjectType::BezierCurveC2 ||
-        obj->objectType == ObjectType::SplineInterpolating)
+        obj->objectType == ObjectType::SplineInterpolating ||
+        obj->objectType == ObjectType::BezierSurfaceC0 ||
+        obj->objectType == ObjectType::BezierSurfaceC2)
             continue; // nie transformuje sie krzywej
 
         bool shouldBake = obj->isSelected;
@@ -27,7 +29,7 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
-            if (p->selectedCurvesCount > 0)
+            if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
                 shouldBake = true;
             asDeBoor = p->isSelectedAsDeBoore;
             vWeight = p->virtualWeight;
@@ -64,7 +66,9 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
         {
             if (obj->objectType == ObjectType::BezierCurveC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
-            obj->objectType == ObjectType::SplineInterpolating)
+            obj->objectType == ObjectType::SplineInterpolating||
+            obj->objectType == ObjectType::BezierSurfaceC0 ||
+            obj->objectType == ObjectType::BezierSurfaceC2)
                 continue;
 
             bool shouldBake = obj->isSelected;
@@ -73,7 +77,7 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
             if (obj->objectType == ObjectType::Point)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-                if (p->selectedCurvesCount > 0)
+                if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
                     shouldBake = true;
 
                 asDeBoor = p->isSelectedAsDeBoore;

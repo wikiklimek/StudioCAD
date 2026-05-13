@@ -6,7 +6,10 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
     Vect3 pos = p->transformations.getPosition();
 
 
-    if (!ctx.isTransforming || (!p->isSelected && p->selectedCurvesCount == 0 && !p->isSelectedAsDeBoore))
+    if (!ctx.isTransforming || (!p->isSelected &&
+                                p->selectedCurvesCount == 0 &&
+                                !p->isSelectedAsDeBoore &&
+                                !p->isSelectedViaPatch))
         return pos;
 
     Vect3 delta(0.0f);
@@ -30,8 +33,13 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
 
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
-    //tutaj bedziemy robili draw BezierC2 bo rysujemy duszki punktów beziera
-    if (obj->objectType == ObjectType::BezierCurveC0) return;
+    //tutaj bedziemy robili draw:
+    //      BezierC2
+    //      SplineInterpolatibg
+    //      BezierSurfaceC2
+    // bo rysujemy duszki punktów beziera
+    if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierSurfaceC0)
+        return;
 
     bool isTarget = obj->isSelected;
     bool asDeBoore = false;
@@ -39,7 +47,7 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
     if (obj->objectType == ObjectType::Point)
     {
         auto p = std::static_pointer_cast<ScenePoint>(obj);
-        if (p->selectedCurvesCount > 0)
+        if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
             isTarget = true;
         if (p->isSelectedAsDeBoore)
             asDeBoore = true;

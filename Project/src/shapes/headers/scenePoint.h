@@ -16,6 +16,17 @@ public:
     float virtualWeight = 0.0f;
 
 
+    // NOWE FLAGI
+    bool belongsToPatch = false;      // Blokada usuwania (wymóg zadania 7)
+    bool isSelectedViaPatch = false; // Czy płat, do którego należę, jest wybrany
+    int globalCurvesCount = 0;       // Całkowita liczba struktur używających tego punktu
+
+    // Metoda pomocnicza dla GUI
+    bool canBeDeleted() const {
+        return !belongsToPatch;
+    }
+
+
     ScenePoint(std::string n, Transformations spawnTransform);
     ScenePoint(std::string n, float s, Transformations spawnTransform);
     ~ScenePoint() override;

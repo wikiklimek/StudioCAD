@@ -1,0 +1,25 @@
+#version 410 core
+layout (quads, equal_spacing, ccw) in;
+in vec3 tcPos[];
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+vec4 bernstein(float t) {
+    float invT = 1.0 - t;
+    return vec4(invT * invT * invT, 3.0 * t * invT * invT, 3.0 * t * t * invT, t * t * t);
+}
+
+void main() {
+    vec4 bu = bernstein(gl_TessCoord.x);
+    vec4 bv = bernstein(gl_TessCoord.y);
+
+    vec3 finalPos = vec3(0.0);
+    for(int i = 0; i < 4; i++) {
+        for(int j = 0; j < 4; j++) {
+            finalPos += tcPos[j * 4 + i] * bu[i] * bv[j];
+        }
+    }
+    gl_Position = projection * view * model * vec4(finalPos, 1.0);
+}

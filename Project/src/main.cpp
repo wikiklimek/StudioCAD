@@ -43,6 +43,7 @@ float const PI = (float)M_PI;
 #include "sceneBezierC2.h"
 #include "sceneSplineInterpolating.h"
 #include "selectionManager.h"
+#include "sceneSurface.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -94,6 +95,9 @@ int main()
     Shader bsplineGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bspline_geom.gs");
 
     Shader splineAlgebraicInterpolationShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/spline_algebraic_geom.gs");
+
+    Shader* surfaceShaderC0 = new Shader("src/shaders/surface.vs", "src/shaders/surface.fs", "src/shaders/surface.tcs", "src/shaders/surfaceC0.tes");
+    Shader* surfaceShaderC2 = new Shader("src/shaders/surface.vs", "src/shaders/surface.fs", "src/shaders/surface.tcs", "src/shaders/surfaceC2.tes");
 
     BezierDrawMode currentBezierDrawMode = GEOMETRY;
     Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
@@ -420,6 +424,9 @@ int main()
             updateShader(bsplineShader);
             updateShader(interpolatingShader);
 
+            updateShader(surfaceShaderC0);
+            updateShader(surfaceShaderC2);
+
             shader.use();
             for (auto& obj : sceneObjects)
             {
@@ -448,11 +455,26 @@ int main()
                     activeShader->use();
                     s->DrawBezier(*activeShader, P * V, winWidth, winHeight, previewCtx, currentBezierDrawMode);
                 }
+                //DODAJ RYSOWANIE PŁATÓW
+                else if (obj->objectType == ObjectType::BezierSurfaceC0)
+                {
+                    auto s = std::static_pointer_cast<SceneSurfaceC0>(obj);
+                    s->DrawSurface(*surfaceShaderC0, previewCtx);
+                    s->DrawPolygon(shader, previewCtx); // shader to Twój podstawowy shader bez teselacji
+                }
+                else if (obj->objectType == ObjectType::BezierSurfaceC2)
+                {
+                    auto s = std::static_pointer_cast<SceneSurfaceC2>(obj);
+                    s->DrawSurface(*surfaceShaderC2, previewCtx);
+                    s->DrawPolygon(shader, previewCtx);
+                }
             }
 
             shader.use();
             for (auto& obj : sceneObjects)
             {
+                //DO IFA DODAJ PŁATY PO TYM JAK DASZ IM DZIAŁAJACE FUNKCJ ALBO CHOCIAZ WYDMUSZKI
+                // a tutaj w innym miejsvcu rysuje polygon
                 if (obj->objectType == ObjectType::BezierCurveC0 ||
                 obj->objectType == ObjectType::BezierCurveC2 ||
                 obj->objectType == ObjectType::SplineInterpolating)
@@ -506,6 +528,75 @@ int main()
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
+
+
+
+        // --- CZYSZCZENIE POWIĄZAŃ PRZED USUNIĘCIEM OBIEKTÓW ---
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->pendingDelete)
+            {
+                // Jeśli usuwamy krzywą, dekrementujemy liczniki jej punktów
+                if (obj->objectType == ObjectType::BezierCurveC0 ||
+                    obj->objectType == ObjectType::BezierCurveC2 ||
+                    obj->objectType == ObjectType::SplineInterpolating)
+                {
+                    auto b = std::static_pointer_cast<SceneBezier>(obj);
+                    for (auto& wp : b->points)
+                    {
+                        if (auto p = wp.lock())
+                            p->globalCurvesCount--;
+                    }
+                }
+
+                    // Jeśli usuwamy płat (Surface)
+                else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
+                         obj->objectType == ObjectType::BezierSurfaceC2)
+                {
+                    auto s = std::static_pointer_cast<SceneSurface>(obj);
+                    for (auto& wp : s->points)
+                    {
+                        if (auto p = wp.lock())
+                        {
+                            // Przy usuwaniu płata musimy też zdjąć blokadę belongsToPatch,
+                            // aby punkty, które przeżyją, można było usunąć ręcznie.
+                            p->belongsToPatch = false;
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+
+        // main.cpp - pętla przed sceneObjects.erase
+        for (auto& obj : sceneObjects)
+        {
+            if (obj->pendingDelete && (obj->objectType == ObjectType::BezierSurfaceC0 || obj->objectType == ObjectType::BezierSurfaceC2))
+            {
+                auto s = std::static_pointer_cast<SceneSurface>(obj);
+                for (auto& wp : s->points)
+                {
+                    if (auto p = wp.lock())
+                    {
+                        p->belongsToPatch = false; // Płat zwalnia punkt
+
+                        if (guiManager.surfaceDeletionMode == 1) {
+                            // Tryb 1: Usuń płat i wszystkie jego punkty
+                            p->pendingDelete = true;
+                        }
+                        else if (guiManager.surfaceDeletionMode == 2) {
+                            // Tryb 2: Smart Delete - usuń punkt tylko jeśli nie jest w żadnej krzywej
+                            if (p->globalCurvesCount == 0) p->pendingDelete = true;
+                        }
+                        // Tryb 0: Tylko płat (punkty zostają, belongsToPatch już jest false)
+                    }
+                }
+            }
+        }
+
+
 
         // Skasuj obiekty (w tym puste krzywe)
         sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),

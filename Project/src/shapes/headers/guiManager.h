@@ -22,6 +22,15 @@ public:
     int max_density_R = 80, min_density_R = 3;
     int max_density_r = 80, min_density_r = 3;
 
+
+    // guiManager.h - dodaj do sekcji public
+    int newSurfPatchesU = 1, newSurfPatchesV = 1;
+    float newSurfDimU = 5.0f, newSurfDimV = 5.0f;
+    int newSurfType = 0; // 0: C0, 1: C2
+    bool newSurfIsCylinder = false;
+    int surfaceDeletionMode = 2; // 0: Tylko płat, 1: Płat i pkt, 2: Smart
+
+
     bool isStereoMode = false;
     float eyeSeparation = 0.5f;
     float focalDistance = 20.0f;
@@ -70,5 +79,7 @@ public:
 
 
     void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
-
+    void static createSurfaceLogic(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
+                                   const Cursor& cursor, int patchesU, int patchesV,
+                                   float dimU, float dimV, bool isC0, bool isCylinder);
 };

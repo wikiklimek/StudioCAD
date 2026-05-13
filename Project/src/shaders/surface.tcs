@@ -1,0 +1,23 @@
+#version 410 core
+layout (vertices = 16) out; // 16 punktów wyjściowych dla patcha
+
+in vec3 vPos[];
+out vec3 tcPos[];
+
+uniform int u_tessLevelU;
+uniform int u_tessLevelV;
+
+void main() {
+    tcPos[gl_InvocationID] = vPos[gl_InvocationID];
+
+    // Ustawiamy gęstość siatki tylko raz dla całej łatki
+    if (gl_InvocationID == 0)
+    {
+        gl_TessLevelOuter[0] = u_tessLevelV;
+        gl_TessLevelOuter[1] = u_tessLevelU;
+        gl_TessLevelOuter[2] = u_tessLevelV;
+        gl_TessLevelOuter[3] = u_tessLevelU;
+        gl_TessLevelInner[0] = u_tessLevelU;
+        gl_TessLevelInner[1] = u_tessLevelV;
+    }
+}

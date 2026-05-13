@@ -16,7 +16,9 @@ enum class ObjectType {
     Torus,
     BezierCurveC0,
     BezierCurveC2,
-    SplineInterpolating // <--- NOWE
+    SplineInterpolating,
+    BezierSurfaceC0,
+    BezierSurfaceC2
 };
 
 enum class InterpolationBasisMode {

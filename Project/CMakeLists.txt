@@ -10,6 +10,9 @@ find_package(glfw3 REQUIRED)
 
 add_subdirectory("/home/wiktoria/projects/MG1/MathLib" "MathLib_build")
 
+# --- NOWA LINIJKA: Dodajemy submoduł JSON ---
+add_subdirectory(external/nlohmann_json)
+
 # Wskazujemy, gdzie leżą nagłówki GLAD i ImGui
 include_directories(
         external/glad/include
@@ -70,6 +73,10 @@ add_executable(${PROJECT_NAME}
         src/shapes/headers/selectionManager.h
         src/shapes/source/selectionManager.cpp
         src/shapes/headers/VirtualPoints.h
+        src/shapes/headers/sceneSurface.h
+        src/shapes/headers/sceneSerializer.h
+        src/shapes/source/sceneSerializer.cpp
+        src/shapes/source/sceneSurface.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
@@ -77,3 +84,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE src/shapes/headers)
 
 # Łączymy projekt z bibliotekami systemowymi
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL glfw MathLib)
+
+# Łączymy projekt z bibliotekami systemowymi
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL glfw MathLib nlohmann_json::nlohmann_json)
