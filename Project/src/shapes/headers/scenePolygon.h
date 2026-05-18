@@ -1,6 +1,4 @@
-
-
-
+#pragma once
 #include "shader.h"
 #include "previewContext.h"
 

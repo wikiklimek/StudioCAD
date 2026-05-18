@@ -473,17 +473,19 @@ int main()
             for (auto& obj : sceneObjects)
             {
                 if (obj->objectType == ObjectType::BezierCurveC0 ||
-                obj->objectType == ObjectType::BezierCurveC2 ||
-                obj->objectType == ObjectType::SplineInterpolating)
+                    obj->objectType == ObjectType::BezierCurveC2 ||
+                    obj->objectType == ObjectType::SplineInterpolating ||
+                    obj->objectType == ObjectType::BezierSurfaceC0 ||
+                    obj->objectType == ObjectType::BezierSurfaceC2)
                 {
-                    auto b = std::static_pointer_cast<SceneBezier>(obj);
-                    b->DrawPolygon(shader, previewCtx);
-                }
-                else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
-                        obj->objectType == ObjectType::BezierSurfaceC2)
-                {
-                    auto s = std::static_pointer_cast<SceneSurface>(obj);
-                    s->DrawPolygon(shader, previewCtx);
+                    std::shared_ptr<ScenePolygon> poly = std::dynamic_pointer_cast<ScenePolygon>(obj);
+
+                    // Jeśli rzutowanie się powiodło (czyli obiekt dziedziczy po ScenePolygon), to tu bedzie git
+                    if (poly)
+                    {
+                        poly->DrawPolygon(shader, previewCtx);
+                    }
+
                 }
             }
 
