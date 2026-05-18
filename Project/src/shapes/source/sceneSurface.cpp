@@ -14,7 +14,10 @@ SceneSurface::~SceneSurface()
     if (EBO_poly) glDeleteBuffers(1, &EBO_poly);
 }
 
-void SceneSurface::Init()
+
+// WSPÓLNE FUNKCJE POMOCNICZE BAZY do metody init
+
+void SceneSurface::InitBuffers()
 {
     if (VAO_surface == 0) glGenVertexArrays(1, &VAO_surface);
     if (VAO_poly == 0) glGenVertexArrays(1, &VAO_poly);
@@ -22,46 +25,33 @@ void SceneSurface::Init()
     if (EBO_surface == 0) glGenBuffers(1, &EBO_surface);
     if (EBO_poly == 0) glGenBuffers(1, &EBO_poly);
 
-    // 1. INDEKSY DLA TESELACJI (PATCHES)
     patchIndices.clear();
-    int patchesU = (objectType == ObjectType::BezierSurfaceC0) ? (sizeU - 1) / 3 : sizeU - 3;
-    int patchesV = (objectType == ObjectType::BezierSurfaceC0) ? (sizeV - 1) / 3 : sizeV - 3;
+}
 
-    for (int pv = 0; pv < patchesV; ++pv) {
-        for (int pu = 0; pu < patchesU; ++pu) {
-            int startU = (objectType == ObjectType::BezierSurfaceC0) ? pu * 3 : pu;
-            int startV = (objectType == ObjectType::BezierSurfaceC0) ? pv * 3 : pv;
-            for (int j = 0; j < 4; ++j) {
-                for (int i = 0; i < 4; ++i) {
-                    patchIndices.push_back((startV + j) * sizeU + (startU + i));
-                }
-            }
-        }
-    }
-
-    // 2. INDEKSY DLA WIELOBOKU KONTROLNEGO (Siatka poziomo-pionowa)
+void SceneSurface::InitPolygonAndUpload()
+{
     polyIndices.clear();
+
     // Linie poziome
-    for (int v = 0; v < sizeV; ++v) {
-        for (int u = 0; u < sizeU - 1; ++u) {
+    for (int v = 0; v < sizeV; ++v)
+    {
+        for (int u = 0; u < sizeU - 1; ++u)
+        {
             polyIndices.push_back(v * sizeU + u);
             polyIndices.push_back(v * sizeU + u + 1);
         }
-        // Domknięcie walca dla siatki
-        if (isCylinder) {
-            polyIndices.push_back(v * sizeU + (sizeU - 1));
-            polyIndices.push_back(v * sizeU + 0);
-        }
     }
     // Linie pionowe
-    for (int u = 0; u < sizeU; ++u) {
-        for (int v = 0; v < sizeV - 1; ++v) {
+    for (int u = 0; u < sizeU; ++u)
+    {
+        for (int v = 0; v < sizeV - 1; ++v)
+        {
             polyIndices.push_back(v * sizeU + u);
             polyIndices.push_back((v + 1) * sizeU + u);
         }
     }
 
-    // 3. REZERWACJA PAMIĘCI VBO (Używamy jednego VBO dla obu VAO)
+    // Ładowanie VBO
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(Vect3), nullptr, GL_DYNAMIC_DRAW);
 
@@ -82,22 +72,115 @@ void SceneSurface::Init()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, polyIndices.size() * sizeof(unsigned int), polyIndices.data(), GL_STATIC_DRAW);
 }
 
-// BAZOWA METODA RYSOWANIA POWIERZCHNI
+
+void SceneSurfaceC0::Init()
+{
+    InitBuffers();
+
+    int patchesU = (sizeU - 1) / 3;
+    int patchesV = (sizeV - 1) / 3;
+
+    for (int pv = 0; pv < patchesV; ++pv)
+    {
+        for (int pu = 0; pu < patchesU; ++pu)
+        {
+            int startU = pu * 3;
+            int startV = pv * 3;
+
+            for (int j = 0; j < 4; ++j)
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    patchIndices.push_back((startV + j) * sizeU + (startU + i));
+                }
+            }
+        }
+    }
+
+    InitPolygonAndUpload();
+}
+
+
+void SceneSurfaceC2::Init()
+{
+    InitBuffers();
+
+    int patchesV = sizeV - 3;
+    int patchesU = isCylinder ? (sizeU - 1) : (sizeU - 3);
+
+    for (int pv = 0; pv < patchesV; ++pv)
+    {
+        for (int pu = 0; pu < patchesU; ++pu)
+        {
+            int startU = pu;
+            int startV = pv;
+
+            for (int j = 0; j < 4; ++j)
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    int u_idx = startU + i;
+
+                    // MAGIC WRAP FOR C2 CYLINDER
+                    if (isCylinder)
+                    {
+                        if (u_idx >= sizeU)
+                        {
+                            u_idx = u_idx - sizeU + 1;
+                        }
+                    }
+
+                    patchIndices.push_back((startV + j) * sizeU + u_idx);
+                }
+            }
+        }
+    }
+
+    InitPolygonAndUpload();
+}
+
 void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& ctx)
 {
     if (points.empty() || patchIndices.empty()) return;
 
-    // Przeliczenie pozycji (Myszka / Transformacje)
     std::vector<Vect3> currentPositions;
     currentPositions.reserve(points.size());
-    for (auto& wp : points) {
-        if (auto p = wp.lock()) currentPositions.push_back(getPreviewPosition(p, ctx));
-        else currentPositions.push_back(Vect3(0.0f));
+    for (auto& wp : points)
+    {
+        if (auto p = wp.lock())
+            currentPositions.push_back(getPreviewPosition(p, ctx));
+        else
+            currentPositions.push_back(Vect3(0.0f));
     }
 
-    // Wrzutka do VBO
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, currentPositions.size() * sizeof(Vect3), currentPositions.data());
+
+    bool needsUpload = false;
+    if (currentPositions.size() != prevPositions.size())
+    {
+        needsUpload = true;
+    }
+    else
+    {
+        for (size_t i = 0; i < currentPositions.size(); ++i)
+        {
+            if (currentPositions[i].x != prevPositions[i].x ||
+                currentPositions[i].y != prevPositions[i].y ||
+                currentPositions[i].z != prevPositions[i].z)
+            {
+                needsUpload = true;
+                break; // Znaleźliśmy zmianę - nie musimy sprawdzać reszty
+            }
+        }
+    }
+
+
+    if (needsUpload)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, currentPositions.size() * sizeof(Vect3), currentPositions.data());
+
+        prevPositions = currentPositions;
+    }
 
     shader.use();
     glUniform1i(glGetUniformLocation(shader.ID, "u_tessLevelU"), samplesU);
@@ -108,19 +191,23 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
 
     glBindVertexArray(VAO_surface);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glPatchParameteri(GL_PATCH_VERTICES, 16);
+
+    // stałe v, rysowanie krzywych poziomych
+    glUniform1i(glGetUniformLocation(shader.ID, "swapUV"), 0);
     glDrawElements(GL_PATCHES, patchIndices.size(), GL_UNSIGNED_INT, 0);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    // stałe u, rysiwania krzywych pionowych
+    glUniform1i(glGetUniformLocation(shader.ID, "swapUV"), 1);
+    glDrawElements(GL_PATCHES, patchIndices.size(), GL_UNSIGNED_INT, 0);
 }
 
-// RYSOWANIE SIATKI (WIELOBOKU) ZWYKŁYMI LINIAMI
+
 void SceneSurface::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
     if (!showPolygon || points.empty() || polyIndices.empty()) return;
 
-    // Pozycje są już w VBO zaktualizowane przez RenderSurfaceInternal
-    // więc nie musimy ich liczyć ponownie, wystarczy narysować!
+    // Pozycje są już w VBO zaktualizowane przez RenderSurfaceInterna bo było wczesniej wywołane
 
     lineShader.use();
     Mat4 id(1.0f);

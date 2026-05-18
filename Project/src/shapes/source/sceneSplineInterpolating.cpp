@@ -33,7 +33,7 @@ void SceneSplineInterpolating::UpdateVirtualPointsIfNeeded(const PreviewContext 
         liveP.push_back(getPreviewPosition(p, ctx));
 
         if (p->wasGuiEdited ||
-            (ctx.isTransforming && (p->isSelected || p->isSelectedAsDeBoore || p->selectedCurvesCount > 0 || p->isSelectedViaPatch)))
+            (ctx.isTransforming && (p->isAnyWaySelected())))
             needsUpdate = true;
     }
 

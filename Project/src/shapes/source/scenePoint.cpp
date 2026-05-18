@@ -17,6 +17,10 @@ ScenePoint::~ScenePoint() {
     if (VBO) glDeleteBuffers(1, &VBO);
 }
 
+bool ScenePoint::isAnyWaySelected() {
+    return isSelected || (selectedCurvesCount > 0) || isSelectedViaPatch || isSelectedAsDeBoore;
+}
+
 void ScenePoint::Init()  {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);

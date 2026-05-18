@@ -57,6 +57,7 @@ public:
 
     bool wasSelectionChanged = false;
     bool wasBaked = false;
+    bool deleteSelectedPressed = false;
 
     Transformations getGuiDelta() const
     {

@@ -2,28 +2,28 @@
 #include "sceneObject.h"
 #include "scenePoint.h"
 #include "previewContext.h"
+#include "scenePolygon.h"
 #include <vector>
 #include <memory>
 
-class SceneSurface : public SceneObject {
+class SceneSurface : public SceneObject, public ScenePolygon {
 public:
     int sizeU = 0, sizeV = 0;
     int samplesU = 4, samplesV = 4;
+
     bool isCylinder = false;
     bool showPolygon = true;
 
     std::vector<std::weak_ptr<ScenePoint>> points;
+    std::vector<Vect3> prevPositions;
 
     SceneSurface(std::string n, Transformations spawnTransform, ObjectType type);
     virtual ~SceneSurface();
 
-    void Init() override;
+    void Init() override = 0;
 
-    // Wirtualna metoda - dzieci zadecydują, jakiego shadera użyć
     virtual void DrawSurface(Shader& shader, const PreviewContext& ctx) = 0;
-
-    // Metoda do rysowania pomocniczych linii wieloboku
-    void DrawPolygon(Shader& lineShader, const PreviewContext& ctx);
+    void DrawPolygon(Shader& lineShader, const PreviewContext& ctx) override;
 
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
@@ -32,19 +32,22 @@ protected:
     unsigned int VAO_surface = 0, VBO = 0, EBO_surface = 0;
     unsigned int VAO_poly = 0, EBO_poly = 0;
 
-    std::vector<unsigned int> patchIndices; // Dla teselacji
-    std::vector<unsigned int> polyIndices;  // Dla siatki kontrolnej
+    std::vector<unsigned int> patchIndices;
+    std::vector<unsigned int> polyIndices;
 
     void RenderSurfaceInternal(Shader& shader, const PreviewContext& ctx);
+
+    void InitBuffers();
+    void InitPolygonAndUpload();
 };
 
-// --- KLASY POCHODNE ---
 
 class SceneSurfaceC0 : public SceneSurface {
 public:
     SceneSurfaceC0(std::string n, Transformations spawnTransform)
             : SceneSurface(std::move(n), spawnTransform, ObjectType::BezierSurfaceC0) {}
 
+    void Init() override;
     void DrawSurface(Shader& shader, const PreviewContext& ctx) override {
         RenderSurfaceInternal(shader, ctx);
     }
@@ -55,6 +58,7 @@ public:
     SceneSurfaceC2(std::string n, Transformations spawnTransform)
             : SceneSurface(std::move(n), spawnTransform, ObjectType::BezierSurfaceC2) {}
 
+    void Init() override;
     void DrawSurface(Shader& shader, const PreviewContext& ctx) override {
         RenderSurfaceInternal(shader, ctx);
     }

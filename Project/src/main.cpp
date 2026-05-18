@@ -44,6 +44,7 @@ float const PI = (float)M_PI;
 #include "sceneSplineInterpolating.h"
 #include "selectionManager.h"
 #include "sceneSurface.h"
+#include "deleteManager.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -264,6 +265,7 @@ int main()
                                 "Punkt " + std::to_string(sceneObjects.size()+1),
                                 cursor.transform);
                         p->Init();
+                        p->globalCurvesCount++;
                         sceneObjects.push_back(p);
                         magicCurve->points.push_back(p);
                     }
@@ -455,26 +457,21 @@ int main()
                     activeShader->use();
                     s->DrawBezier(*activeShader, P * V, winWidth, winHeight, previewCtx, currentBezierDrawMode);
                 }
-                //DODAJ RYSOWANIE PŁATÓW
                 else if (obj->objectType == ObjectType::BezierSurfaceC0)
                 {
                     auto s = std::static_pointer_cast<SceneSurfaceC0>(obj);
                     s->DrawSurface(*surfaceShaderC0, previewCtx);
-                    s->DrawPolygon(shader, previewCtx); // shader to Twój podstawowy shader bez teselacji
                 }
                 else if (obj->objectType == ObjectType::BezierSurfaceC2)
                 {
                     auto s = std::static_pointer_cast<SceneSurfaceC2>(obj);
                     s->DrawSurface(*surfaceShaderC2, previewCtx);
-                    s->DrawPolygon(shader, previewCtx);
                 }
             }
 
             shader.use();
             for (auto& obj : sceneObjects)
             {
-                //DO IFA DODAJ PŁATY PO TYM JAK DASZ IM DZIAŁAJACE FUNKCJ ALBO CHOCIAZ WYDMUSZKI
-                // a tutaj w innym miejsvcu rysuje polygon
                 if (obj->objectType == ObjectType::BezierCurveC0 ||
                 obj->objectType == ObjectType::BezierCurveC2 ||
                 obj->objectType == ObjectType::SplineInterpolating)
@@ -482,14 +479,20 @@ int main()
                     auto b = std::static_pointer_cast<SceneBezier>(obj);
                     b->DrawPolygon(shader, previewCtx);
                 }
+                else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
+                        obj->objectType == ObjectType::BezierSurfaceC2)
+                {
+                    auto s = std::static_pointer_cast<SceneSurface>(obj);
+                    s->DrawPolygon(shader, previewCtx);
+                }
             }
 
-            // main.cpp - wewnątrz RenderScenePass
-            if (guiManager.isNewSurfacePanelOpen && guiManager.previewSurface) {
+            // ta płaszczyzna preview
+            if (guiManager.isNewSurfacePanelOpen && guiManager.previewSurface)
+            {
                 PreviewContext dummyCtx;
                 auto ps = guiManager.previewSurface;
 
-                // 1. Rysujemy samą powierzchnię
                 if (ps->objectType == ObjectType::BezierSurfaceC0)
                     ps->DrawSurface(*surfaceShaderC0, dummyCtx);
                 else
@@ -497,9 +500,10 @@ int main()
 
                 ps->DrawPolygon(shader, dummyCtx);
 
-                // 2. Rysujemy punkty podglądu (inaczej ich nie zobaczysz!)
+
                 shader.use();
-                for (auto& p : guiManager.previewPoints) {
+                for (auto& p : guiManager.previewPoints)
+                {
                     p->Draw(shader);
                 }
             }
@@ -542,85 +546,13 @@ int main()
 
 
 
-
-
-
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
 
 
-
-        // --- CZYSZCZENIE POWIĄZAŃ PRZED USUNIĘCIEM OBIEKTÓW ---
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->pendingDelete)
-            {
-                // Jeśli usuwamy krzywą, dekrementujemy liczniki jej punktów
-                if (obj->objectType == ObjectType::BezierCurveC0 ||
-                    obj->objectType == ObjectType::BezierCurveC2 ||
-                    obj->objectType == ObjectType::SplineInterpolating)
-                {
-                    auto b = std::static_pointer_cast<SceneBezier>(obj);
-                    for (auto& wp : b->points)
-                    {
-                        if (auto p = wp.lock())
-                            p->globalCurvesCount--;
-                    }
-                }
-
-                    // Jeśli usuwamy płat (Surface)
-                else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
-                         obj->objectType == ObjectType::BezierSurfaceC2)
-                {
-                    auto s = std::static_pointer_cast<SceneSurface>(obj);
-                    for (auto& wp : s->points)
-                    {
-                        if (auto p = wp.lock())
-                        {
-                            // Przy usuwaniu płata musimy też zdjąć blokadę belongsToPatch,
-                            // aby punkty, które przeżyją, można było usunąć ręcznie.
-                            p->belongsToPatch = false;
-                        }
-                    }
-                }
-            }
-        }
-
-
-
-
-        // main.cpp - pętla przed sceneObjects.erase
-        for (auto& obj : sceneObjects)
-        {
-            if (obj->pendingDelete && (obj->objectType == ObjectType::BezierSurfaceC0 || obj->objectType == ObjectType::BezierSurfaceC2))
-            {
-                auto s = std::static_pointer_cast<SceneSurface>(obj);
-                for (auto& wp : s->points)
-                {
-                    if (auto p = wp.lock())
-                    {
-                        p->belongsToPatch = false; // Płat zwalnia punkt
-
-                        if (guiManager.surfaceDeletionMode == 1) {
-                            // Tryb 1: Usuń płat i wszystkie jego punkty
-                            p->pendingDelete = true;
-                        }
-                        else if (guiManager.surfaceDeletionMode == 2) {
-                            // Tryb 2: Smart Delete - usuń punkt tylko jeśli nie jest w żadnej krzywej
-                            if (p->globalCurvesCount == 0) p->pendingDelete = true;
-                        }
-                        // Tryb 0: Tylko płat (punkty zostają, belongsToPatch już jest false)
-                    }
-                }
-            }
-        }
-
-
-
-        // Skasuj obiekty (w tym puste krzywe)
-        sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
-                                          [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());
+        //Potezny Mechanizm Usuwania Obiektów
+        deleteObjects(guiManager, sceneObjects);
 
         // Resetowanie jednorazowaych flag
         for (auto& obj : sceneObjects)
@@ -637,6 +569,7 @@ int main()
         tm.wasBaked = false;
         guiManager.wasSelectionChanged = false;
         guiManager.wasBaked = false;
+        guiManager.deleteSelectedPressed = false;
     }
 
 

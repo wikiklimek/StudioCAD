@@ -77,6 +77,9 @@ add_executable(${PROJECT_NAME}
         src/shapes/headers/sceneSerializer.h
         src/shapes/source/sceneSerializer.cpp
         src/shapes/source/sceneSurface.cpp
+        src/shapes/headers/deleteManager.h
+        src/shapes/source/deleteManager.cpp
+        src/shapes/headers/scenePolygon.h
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

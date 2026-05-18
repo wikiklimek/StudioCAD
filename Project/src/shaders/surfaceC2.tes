@@ -1,10 +1,15 @@
 #version 410 core
-layout (quads, equal_spacing, ccw) in;
+layout (isolines, equal_spacing, ccw) in;
 in vec3 tcPos[];
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform bool swapUV;
+
+// Odbieramy zmienne wysłane z C++
+uniform int u_tessLevelU;
+uniform int u_tessLevelV;
 
 vec4 bspline(float t) {
     float t2 = t * t;
@@ -18,8 +23,22 @@ vec4 bspline(float t) {
 }
 
 void main() {
-    vec4 bu = bspline(gl_TessCoord.x);
-    vec4 bv = bspline(gl_TessCoord.y);
+    float u_tess = gl_TessCoord.x;
+    float v_tess = gl_TessCoord.y;
+
+    float u, v;
+    if (!swapUV) {
+        float divV = max(1.0, float(u_tessLevelV));
+        v = v_tess * (divV + 1.0) / divV;
+        u = u_tess;
+    } else {
+        float divU = max(1.0, float(u_tessLevelU));
+        u = v_tess * (divU + 1.0) / divU;
+        v = u_tess;
+    }
+
+    vec4 bu = bspline(u);
+    vec4 bv = bspline(v);
 
     vec3 finalPos = vec3(0.0);
     for(int i = 0; i < 4; i++) {

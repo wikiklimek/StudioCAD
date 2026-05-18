@@ -3,12 +3,13 @@
 #include "scenePoint.h"
 #include "shader.h"
 #include "previewContext.h"
+#include "scenePolygon.h"
 #include <vector>
 #include <memory>
 #include <string>
 
 
-class SceneBezier : public SceneObject {
+class SceneBezier : public SceneObject, public ScenePolygon {
 public:
     SceneBezier(std::string n, Transformations spawnTransform, ObjectType type);
     virtual ~SceneBezier();
@@ -25,7 +26,6 @@ public:
     // Funkcje rysujące. Słowo 'virtual' oznacza, że dzieci (C0 i C2) muszą je napisać po swojemu.
     // 'override' połączymy w klasach pochodnych.
     virtual void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode) = 0;
-    virtual void DrawPolygon(Shader& lineShader, const PreviewContext& ctx) = 0;
 
 protected:
 

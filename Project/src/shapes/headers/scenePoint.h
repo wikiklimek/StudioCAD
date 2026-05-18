@@ -26,6 +26,8 @@ public:
         return !belongsToPatch;
     }
 
+    bool isAnyWaySelected();
+
 
     ScenePoint(std::string n, Transformations spawnTransform);
     ScenePoint(std::string n, float s, Transformations spawnTransform);
