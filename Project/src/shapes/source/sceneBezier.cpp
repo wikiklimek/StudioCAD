@@ -40,8 +40,9 @@ void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shade
 
     if (flatPoints.size() < (isBSpline ? 4 : 2)) return;
 
+
     glBindVertexArray(VAO_bezier);
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
     int step = isBSpline ? 1 : 3;
 
@@ -93,8 +94,9 @@ void SceneBezier::RenderLineStripMode(const std::vector<Vect3>& flatPoints, Shad
 
     if (flatPoints.size() < (isBSpline ? 4 : 2)) return;
 
+
     glBindVertexArray(VAO_bezier);
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
     int step = isBSpline ? 1 : 3;
     int limit = isBSpline ? (int)flatPoints.size() - 3 : (int)flatPoints.size() - 1;

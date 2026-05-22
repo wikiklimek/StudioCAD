@@ -118,7 +118,7 @@ void SceneSplineInterpolating::DrawBezier(Shader& shader, Mat4 VP, int winWidth,
         return; // Zabezpieczenie przed rysowaniem pustej krzywej
 
     shader.use();
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
     if (currentBasis == InterpolationBasisMode::ALGEBRAIC)
     {

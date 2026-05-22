@@ -106,7 +106,7 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 
 
     // ostatnie to dlatego ze na povczarku punktów nie ma
-    bool needsFullRebuild = ctx.anySelectionChanged || ctx.wasBaked || basisChangedToBernstein ||
+    bool needsFullRebuild = basisChangedToBernstein ||
             (currentNumP > expectedNumP) || (currentNumP == 0 && currentBasis == BezierBasisMode::BERNSTEIN);
 
     bool haveToAddPoints = !needsFullRebuild && (currentNumP < expectedNumP);
@@ -120,18 +120,22 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
     std::vector<int> dirtyIndices;
     std::vector<Vect3> liveD(numD, Vect3(0.0f));
 
+
+
     for (int i = 0; i < numD; ++i)
     {
         auto p = points[i].lock();
 
         liveD[i] = getPreviewPosition(p, ctx);
 
-        if (p->wasGuiEdited ||
+        if (ctx.anySelectionChanged || ctx.wasBaked || //bo jezeli selection changed to wszytskie punkty na nowow przeliczamy
+            p->wasGuiEdited ||
             (ctx.isTransforming && (p->isAnyWaySelected())))
         {
             dirtyIndices.push_back(i);
         }
     }
+
 
     if (dirtyIndices.empty() && !needsFullRebuild && !haveToAddPoints)
     {
@@ -174,6 +178,7 @@ void SceneBezierC2::rebuildAllVirtualPoints(const std::vector<Vect3>& liveD)
         vp->color[0] = 0;
         vp->color[1] = 1;
         vp->color[2] = 0;
+        vp->getUpdatedColorToDraw();
         vp->isVirtual = true;
         virtualPoints.push_back(vp);
     }
@@ -201,6 +206,7 @@ void SceneBezierC2::addVirtualPoints(int oldNumD, int newNumD, const std::vector
             vp->color[0] = 0;
             vp->color[1] = 1;
             vp->color[2] = 0;
+            vp->getUpdatedColorToDraw();
             vp->isVirtual = true;
             return vp;
         };

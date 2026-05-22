@@ -304,7 +304,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             forceClosePanel = false;
         }
 
-        isNewSurfacePanelOpen = ImGui::CollapsingHeader("Nowy Płat Łączony");
+        isNewSurfacePanelOpen = ImGui::CollapsingHeader("Nowy Plat Laczony");
 
         if (isNewSurfacePanelOpen)
         {
@@ -325,6 +325,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 newSurfPatchesU = minPatchesU;
                 changed = true; // Wymusza przeliczenie
             }
+
 
 
             if (ImGui::SliderInt("Platy U", &newSurfPatchesU, minPatchesU, 10)) changed = true;

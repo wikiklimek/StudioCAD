@@ -188,7 +188,7 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
 
     Mat4 id(1.0f);
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, id.table);
-    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, color);
+    glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
     glBindVertexArray(VAO_surface);
     glPatchParameteri(GL_PATCH_VERTICES, 16);
