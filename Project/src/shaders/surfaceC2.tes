@@ -7,7 +7,6 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform bool swapUV;
 
-// Odbieramy zmienne wysłane z C++
 uniform int u_tessLevelU;
 uniform int u_tessLevelV;
 

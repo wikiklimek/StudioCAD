@@ -7,7 +7,6 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform bool swapUV;
 
-// Odbieramy zmienne wysłane z C++
 uniform int u_tessLevelU;
 uniform int u_tessLevelV;
 
@@ -23,7 +22,7 @@ void main() {
     float u, v;
     if (!swapUV)
     {
-        // Skalowanie interwału z powrotem do [0, 1]
+        // -> [0, 1]
         float divV = max(1.0, float(u_tessLevelV));
         v = v_tess * (divV + 1.0) / divV;
         u = u_tess;

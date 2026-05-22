@@ -313,25 +313,31 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
             bool changed = false;
 
-            // --- OGRANICZENIE MINIMALNEJ ILOŚCI PŁATÓW ---
-            int minPatchesU = (newSurfType == 1 && newSurfIsCylinder) ? 3 : 1;
-            if (newSurfPatchesU < minPatchesU) {
-                newSurfPatchesU = minPatchesU;
-                changed = true; // Wymusza przeliczenie przy zmianie typu/walca
+            // minimalna ilosc platów
+            int minPatchesU = 1; // płaszczyzna 1
+            if (newSurfIsCylinder)
+            {
+                minPatchesU = (newSurfType == 1) ? 3 : 2; // Walec C2: 3, Walec C0: 2
             }
 
-            // Przekazujemy zmienny limit do suwaka!
-            if (ImGui::SliderInt("Płaty U", &newSurfPatchesU, minPatchesU, 10)) changed = true;
-            if (ImGui::SliderInt("Płaty V", &newSurfPatchesV, 1, 10)) changed = true;
-            if (ImGui::DragFloat("Szer/Promień", &newSurfDimU, 0.1f, 0.1f, 50.0f)) changed = true;
-            if (ImGui::DragFloat("Wysokość", &newSurfDimV, 0.1f, 0.1f, 50.0f)) changed = true;
+            if (newSurfPatchesU < minPatchesU)
+            {
+                newSurfPatchesU = minPatchesU;
+                changed = true; // Wymusza przeliczenie
+            }
+
+
+            if (ImGui::SliderInt("Platy U", &newSurfPatchesU, minPatchesU, 10)) changed = true;
+            if (ImGui::SliderInt("Platy V", &newSurfPatchesV, 1, 10)) changed = true;
+            if (ImGui::DragFloat("Szer/Promien", &newSurfDimU, 0.1f, 0.1f, 50.0f)) changed = true;
+            if (ImGui::DragFloat("Wysokosc", &newSurfDimV, 0.1f, 0.1f, 50.0f)) changed = true;
             if (ImGui::Combo("Typ", &newSurfType, "Bezier C0\0B-Spline C2\0")) changed = true;
             if (ImGui::Checkbox("Walec", &newSurfIsCylinder)) changed = true;
 
             if (changed)
                 refreshPreview(cursor);
 
-            if (ImGui::Button("Stwórz Płat", ImVec2(-1, 30)))
+            if (ImGui::Button("Stworz Plat", ImVec2(-1, 30)))
             {
                 for (auto& p : previewPoints)
                 {
@@ -348,7 +354,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 previewSurface->color[0] = 1.0f;
                 previewSurface->color[1] = 1.0f;
                 previewSurface->color[2] = 0.0f;
-                previewSurface->name = (newSurfType == 0 ? "Płat C0" : "Płat C2");
+                previewSurface->name = (newSurfType == 0 ? "Plat C0" : "Plat C2");
                 sceneObjects.push_back(previewSurface);
 
                 previewSurface = nullptr;
@@ -462,13 +468,13 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     }
 
     ImGui::RadioButton("Zaznacz. Lokalne", reinterpret_cast<int *>(&state.transformMode), LOCAL);
-    ImGui::SameLine(); ImGui::RadioButton("Wspolny Środek", reinterpret_cast<int *>(&state.transformMode), COMMON_CENTER);
+    ImGui::SameLine(); ImGui::RadioButton("Wspolny Srodek", reinterpret_cast<int *>(&state.transformMode), COMMON_CENTER);
     ImGui::SameLine(); ImGui::RadioButton("Wzgledem Kursora", reinterpret_cast<int *>(&state.transformMode), CURSOR_CENTER);
 
     ImGui::Separator();
     ImGui::Text("Metoda transformacji:");
 
-    if (ImGui::RadioButton("Mysz (Skróty klawiszowe)", reinterpret_cast<int *>(&state.inputMode), INPUT_MOUSE) && state.prevInputMode == INPUT_GUI)
+    if (ImGui::RadioButton("Mysz (Skroty klawiszowe)", reinterpret_cast<int *>(&state.inputMode), INPUT_MOUSE) && state.prevInputMode == INPUT_GUI)
     {
         Vect3 center =  ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
@@ -548,7 +554,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     }
 
     ImGui::Separator();
-    if (ImGui::CollapsingHeader("Sterowanie Kamerą"))
+    if (ImGui::CollapsingHeader("Sterowanie Kamera"))
     {
         if (!isCamDragging)
         {
@@ -687,16 +693,16 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
         if (obj->objectType == ObjectType::BezierSurfaceC0 || obj->objectType == ObjectType::BezierSurfaceC2)
         {
             auto s = std::static_pointer_cast<SceneSurface>(obj);
-            ImGui::Text("Gęstość siatki (samples):");
+            ImGui::Text("Gestosc siatki (samples):");
             ImGui::SliderInt("U", &s->samplesU, 1, 64);
             ImGui::SliderInt("V", &s->samplesV, 1, 64);
-            ImGui::Checkbox("Pokaż wielobok kontrolny", &s->showPolygon);
+            ImGui::Checkbox("Pokaz wielobok kontrolny", &s->showPolygon);
 
             ImGui::Separator();
             ImGui::Text("Tryb usuwania:");
-            ImGui::RadioButton("Tylko płat", &surfaceDeletionMode, 0);
-            ImGui::RadioButton("Płat i wszystkie punkty", &surfaceDeletionMode, 1);
-            ImGui::RadioButton("Smart (tylko nieużywane pkt)", &surfaceDeletionMode, 2);
+            ImGui::RadioButton("Tylko plat", &surfaceDeletionMode, 0);
+            ImGui::RadioButton("Plat i wszystkie punkty", &surfaceDeletionMode, 1);
+            ImGui::RadioButton("Smart (tylko nieuzywane pkt)", &surfaceDeletionMode, 2);
         }
         else if (obj->objectType == ObjectType::BezierCurveC0)
         {
@@ -853,8 +859,12 @@ void GuiManager::refreshPreview(const Cursor& cursor)
 {
     bool isC0 = (newSurfType == 0);
 
+    int minPatchesU = 1; // płaszczyzna: 1
+    if (newSurfIsCylinder)
+    {
+        minPatchesU = isC0 ? 2 : 3; // Walec C2: 3, Walec C0: 2
+    }
 
-    int minPatchesU = (!isC0 && newSurfIsCylinder) ? 3 : 1;
     if (newSurfPatchesU < minPatchesU)
         newSurfPatchesU = minPatchesU;
     if (newSurfPatchesV < 1)
@@ -874,7 +884,7 @@ void GuiManager::refreshPreview(const Cursor& cursor)
         {
             uniqueU = newSurfPatchesU; // Suwak już wymusza minimum 3
         }
-        sizeU = uniqueU + 1; // 1 dubel na końcu dla formatu
+        sizeU = uniqueU + 1; // 1 powtorzony na końcu dla formatu
     }
     else
     {
@@ -940,18 +950,51 @@ void GuiManager::refreshPreview(const Cursor& cursor)
             if (newSurfIsCylinder)
             {
                 float delta = 2.0f * (float)M_PI / (float)uniqueU;
-                float angle = (float)u * delta;
                 float H = newSurfDimV;
 
                 if (isC0)
                 {
                     float R = newSurfDimU;
+                    // kąt przypadający na jeden plat
+                    float theta = 2.0f * (float)M_PI / (float)newSurfPatchesU;
+
+                    // apriksymacja dla beziera
+                    float L = (4.0f / 3.0f) * tan(theta / 4.0f) * R;
+
+
+                    int patchIdx = u / 3;
+                    int pointType = u % 3;
+
+                    float angle = (float)patchIdx * theta;
+                    float nextAngle = (float)(patchIdx + 1) * theta;
+
+                    float x, z;
+                    if (pointType == 0)
+                    {
+                        // P0: Węzeł leży idealnie na okręgu
+                        x = R * cos(angle);
+                        z = R * sin(angle);
+                    }
+                    else if (pointType == 1)
+                    {
+                        // P1: od P0 wzdluz stycznej
+                        x = R * cos(angle) - L * sin(angle);
+                        z = R * sin(angle) + L * cos(angle);
+                    }
+                    else if (pointType == 2)
+                    {
+                        // P2: Cofamy od P3, po wektorze stycznym
+                        x = R * cos(nextAngle) + L * sin(nextAngle);
+                        z = R * sin(nextAngle) - L * cos(nextAngle);
+                    }
+
                     float y = (float)v * (H / (newSurfPatchesV * 3.0f));
-                    localPos = Vect3(R * cos(angle), y, R * sin(angle));
+                    localPos = Vect3(x, y, z);
                 }
-                else
-                { // C2 (B-Spline)
+                else // C2 (B-Spline)
+                {
                     float R_dB = newSurfDimU * 3.0f / (cos(delta) + 2.0f);
+                    float angle = (float)u * delta;
                     float y = (float)(v - 1) * (H / newSurfPatchesV);
                     localPos = Vect3(R_dB * cos(angle), y, R_dB * sin(angle));
                 }

@@ -121,7 +121,7 @@ void SceneSurfaceC2::Init()
                 {
                     int u_idx = startU + i;
 
-                    // MAGIC WRAP FOR C2 CYLINDER
+                    // C2 CYLINDER
                     if (isCylinder)
                     {
                         if (u_idx >= sizeU)
@@ -168,7 +168,7 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
                 currentPositions[i].z != prevPositions[i].z)
             {
                 needsUpload = true;
-                break; // Znaleźliśmy zmianę - nie musimy sprawdzać reszty
+                break; // Znaleźliśmy zmianę, uciekamy
             }
         }
     }
