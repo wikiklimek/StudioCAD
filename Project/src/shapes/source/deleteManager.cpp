@@ -79,7 +79,9 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             if (obj->objectType == ObjectType::Point && obj->isSelected)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-                if (p->globalCurvesCount == 0 && !p->belongsToPatch)
+                if (!p->belongsToPatch
+                    //&& p->globalCurvesCount == 0  // -> to jakbysmy chcieci aby NIE USUWALY sie nalezace do krzywych punkty
+                    )
                 {
                     p->pendingDelete = true;
                 }
