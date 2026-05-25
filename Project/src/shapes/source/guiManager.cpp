@@ -133,7 +133,11 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         deleteSelectedPressed = true;
     }
     ImGui::Separator();
-
+    if (ImGui::Button("Zlacz Punkty (Kolaps)"))
+    {
+        MergeSelectedPoints(sceneObjects);
+    }
+    ImGui::Separator();
     bool isGuiDisabledThisFrame = false;
     static int selectedBezierIndex = 0;
 
@@ -345,13 +349,24 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                     // Dodajemy tylko unikalne (ważne przy walcu!)
                     if (std::find(sceneObjects.begin(), sceneObjects.end(), p) == sceneObjects.end())
                     {
-                        p->belongsToPatch = true;
+                        //p->belongsToPatch = true;
+
                         p->color[0] = 1.0f;
                         p->color[1] = 1.0f;
                         p->color[2] = 0.0f; // Reset do żółtego
                         sceneObjects.push_back(p);
                     }
                 }
+
+                //tak, zeby punkty w miejscu zwijania wlaca, czyli te ktore naleza do niego podwoijne,, dostały licznik 2
+                for (auto& wp : previewSurface->points)
+                {
+                    if (auto p = wp.lock())
+                    {
+                        p->globalSurfacesCount++;
+                    }
+                }
+
                 previewSurface->color[0] = 1.0f;
                 previewSurface->color[1] = 1.0f;
                 previewSurface->color[2] = 0.0f;
@@ -617,7 +632,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
 
         ImVec4 textColor = p->isAnyWaySelected() ? ImVec4(0.2f, 1.0f, 0.2f, 1.0f) : ImVec4(1.0f, 0.2f, 0.2f, 1.0f);
 
-        ImGui::TextColored(textColor, "K:%d P:%d ", p->globalCurvesCount, (p->belongsToPatch ? 1 : 0));
+        ImGui::TextColored(textColor, "K:%d P:%d ", p->globalCurvesCount, p->globalSurfacesCount);
         ImGui::SameLine();
     }
 
@@ -717,13 +732,15 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             }
 
             ImGui::Text("Punkty kontrolne:");
+            int ptIdx = 0;
             for (auto it = b->points.begin(); it != b->points.end(); )
             {
                 if (auto ptr = it->lock())
                 {
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
-                    ImGui::PushID(ptr.get());
+
+                    ImGui::PushID(ptIdx); //(używamy indeksu pętli)
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -733,6 +750,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                     else ++it;
 
                     ImGui::PopID();
+                    ptIdx++; // <--- NOWE
                 }
                 else
                 {
@@ -763,13 +781,15 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                 b2->currentBasis = BezierBasisMode::BERNSTEIN;
 
             ImGui::Text("Punkty (de Boora):");
+            int ptIdx = 0; // <--- NOWE
             for (auto it = b2->points.begin(); it != b2->points.end(); )
             {
                 if (auto ptr = it->lock())
                 {
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
-                    ImGui::PushID(ptr.get());
+
+                    ImGui::PushID(ptIdx); // <--- ZMIANA
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -779,6 +799,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                     else ++it;
 
                     ImGui::PopID();
+                    ptIdx++; // <--- NOWE
                 }
                 else
                 {
@@ -807,13 +828,15 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                 s->currentBasis = InterpolationBasisMode::BERNSTEIN;
 
             ImGui::Text("Punkty Interpolacyjne:");
+            int ptIdx = 0; // <--- NOWE
             for (auto it = s->points.begin(); it != s->points.end(); )
             {
                 if (auto ptr = it->lock())
                 {
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
-                    ImGui::PushID(ptr.get());
+
+                    ImGui::PushID(ptIdx); // <--- ZMIANA
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -823,6 +846,7 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
                     else ++it;
 
                     ImGui::PopID();
+                    ptIdx++; // <--- NOWE
                 }
                 else
                 {
@@ -1020,4 +1044,90 @@ void GuiManager::refreshPreview(const Cursor& cursor)
 
     // Przebudowa indeksów
     previewSurface->Init();
+}
+
+
+
+void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+{
+    std::vector<std::shared_ptr<ScenePoint>> selectedPoints;
+
+    // 1. Zbieramy tylko zaznaczone obiekty, które są punktami (nie wirtualnymi)
+    for (auto& obj : sceneObjects)
+    {
+        if (obj->objectType == ObjectType::Point && obj->isSelected)
+        {
+            selectedPoints.push_back(std::static_pointer_cast<ScenePoint>(obj));
+        }
+    }
+
+    // Zabezpieczenie: Funkcja działa TYLKO dla dokładnie 2 punktów
+    if (selectedPoints.size() != 2)
+    {
+        return;
+    }
+
+    auto p1 = selectedPoints[0];
+    auto p2 = selectedPoints[1];
+
+    // 2. Wyliczamy nową średnią pozycję
+    Vect3 pos1 = p1->transformations.getPosition();
+    Vect3 pos2 = p2->transformations.getPosition();
+    Vect3 avgPos = Vect3((pos1.x + pos2.x) * 0.5f, (pos1.y + pos2.y) * 0.5f, (pos1.z + pos2.z) * 0.5f);
+
+    // Przypisujemy uśrednioną pozycję pierwszemu punktowi
+    p1->transformations.setPosition(avgPos);
+    p1->wasGuiEdited = true; // Wymusza przeliczenie wirtualnych punktów (np. dla B-Spline C2)
+
+    // 3. Przepinamy wskaźniki (Słabe wskaźniki)
+    for (auto& obj : sceneObjects)
+    {
+        // Sprawdzamy krzywe
+        if (obj->objectType == ObjectType::BezierCurveC0 ||
+            obj->objectType == ObjectType::BezierCurveC2 ||
+            obj->objectType == ObjectType::SplineInterpolating)
+        {
+            auto b = std::static_pointer_cast<SceneBezier>(obj);
+            for (auto& wp : b->points)
+            {
+                if (wp.lock() == p2)
+                {
+                    wp = p1; // Zamieniamy słaby wskaźnik na nowy punkt
+                }
+            }
+        }
+            // Sprawdzamy powierzchnie (płaty)
+        else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
+                 obj->objectType == ObjectType::BezierSurfaceC2)
+        {
+            auto s = std::static_pointer_cast<SceneSurface>(obj);
+            for (auto& wp : s->points)
+            {
+                if (wp.lock() == p2)
+                {
+                    wp = p1; // Zamieniamy słaby wskaźnik na nowy punkt
+                }
+            }
+        }
+    }
+
+    // 4. Przenosimy odpowiedzialność (Liczniki)
+    p1->globalCurvesCount += p2->globalCurvesCount;
+    p1->globalSurfacesCount += p2->globalSurfacesCount;
+
+    // (Opcjonalnie przenosimy zaznaczenia, choć odświeżą się same przy kolejnej klatce GUI)
+    p1->selectedCurvesCount += p2->selectedCurvesCount;
+    p1->selectedSurfacesCount += p2->selectedSurfacesCount;
+
+    // 5. Egzekucja p2 (Usuwamy powiązania i znaczmy do usunięcia)
+    p2->globalCurvesCount = 0;
+    p2->globalSurfacesCount = 0;
+    p2->selectedCurvesCount = 0;
+    p2->selectedSurfacesCount = 0;
+
+    p2->isSelected = false;
+    p2->isSelectedAsDeBoore = false; // na wszelki wypadek
+
+    // Gwoźdź do trumny - menedżer usuwania posprząta go pod koniec klatki
+    p2->pendingDelete = true;
 }

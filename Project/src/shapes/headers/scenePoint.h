@@ -17,13 +17,13 @@ public:
 
 
     // NOWE FLAGI
-    bool belongsToPatch = false;      // Blokada usuwania (wymóg zadania 7)
-    bool isSelectedViaPatch = false; // Czy płat, do którego należę, jest wybrany
+    int globalSurfacesCount = 0;     // Blokada usuwania (wymóg zadania 7)
+    int selectedSurfacesCount = 0;// Czy płat, do którego należę, jest wybrany
     int globalCurvesCount = 0;       // Całkowita liczba struktur używających tego punktu
 
     // Metoda pomocnicza dla GUI
     bool canBeDeleted() const {
-        return !belongsToPatch;
+        return globalSurfacesCount == 0;
     }
 
     bool isAnyWaySelected();

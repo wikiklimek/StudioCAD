@@ -136,7 +136,8 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
                 for (auto& p : getCP())
                 {
                     surface->points.push_back(p);
-                    p->belongsToPatch = true;
+                    //p->belongsToPatch = true;
+                    p->globalSurfacesCount++;
                 }
 
                 // Wymóg z readme.md: Sprawdzanie zawinięcia walca po referencjach

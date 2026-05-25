@@ -18,7 +18,7 @@ ScenePoint::~ScenePoint() {
 }
 
 bool ScenePoint::isAnyWaySelected() {
-    return isSelected || (selectedCurvesCount > 0) || isSelectedViaPatch || isSelectedAsDeBoore;
+    return isSelected || (selectedCurvesCount > 0) || (selectedSurfacesCount > 0) || isSelectedAsDeBoore;
 }
 
 void ScenePoint::Init()  {

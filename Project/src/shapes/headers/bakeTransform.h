@@ -29,7 +29,7 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
-            if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
+            if (p->selectedCurvesCount > 0 || p->selectedSurfacesCount > 0)
                 shouldBake = true;
             asDeBoor = p->isSelectedAsDeBoore;
             vWeight = p->virtualWeight;
@@ -77,7 +77,7 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
             if (obj->objectType == ObjectType::Point)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-                if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
+                if (p->selectedCurvesCount > 0 || p->selectedSurfacesCount > 0)
                     shouldBake = true;
 
                 asDeBoor = p->isSelectedAsDeBoore;

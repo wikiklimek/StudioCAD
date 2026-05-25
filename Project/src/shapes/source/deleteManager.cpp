@@ -36,6 +36,16 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
                         p->globalCurvesCount--;
                 }
             }
+            else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
+                    obj->objectType == ObjectType::BezierSurfaceC2)
+            {
+                auto s = std::static_pointer_cast<SceneSurface>(obj);
+                for (auto& wp : s->points)
+                {
+                    if (auto p = wp.lock())
+                        p->globalSurfacesCount--;
+                }
+            }
         }
     }
 
@@ -51,17 +61,13 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             {
                 if (auto p = wp.lock())
                 {
-                    p->belongsToPatch = false;
+                    //p->belongsToPatch = false;
 
-                    if (guiManager.surfaceDeletionMode == 1)
+                    //tymvzasowo to połaczmy, ale zmieimy na jeden guzik
+                    if (guiManager.surfaceDeletionMode == 1 || guiManager.surfaceDeletionMode == 2)
                     {
-                        // Tryb 1: Usuń wszystkie punkty płata
-                        p->pendingDelete = true;
-                    }
-                    else if (guiManager.surfaceDeletionMode == 2)
-                    {
-                        // Tryb 2: usuń punkt tylko jeśli nie jest w żadnej krzywej
-                        if (p->globalCurvesCount == 0)
+                        // Tryb 2: usuń punkt tylko jeśli nie jest w żadnej krzywej lub powierzchni
+                        if (p->globalCurvesCount == 0 && p->globalSurfacesCount == 0)
                             p->pendingDelete = true;
                     }
                     // Tryb 0: usuń tylko płat (punkty zostają)
@@ -79,7 +85,8 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             if (obj->objectType == ObjectType::Point && obj->isSelected)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-                if (!p->belongsToPatch
+                if (p->globalSurfacesCount == 0
+                        //!p->belongsToPatch
                     //&& p->globalCurvesCount == 0  // -> to jakbysmy chcieci aby NIE USUWALY sie nalezace do krzywych punkty
                     )
                 {

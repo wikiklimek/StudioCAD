@@ -9,7 +9,7 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
     if (!ctx.isTransforming || (!p->isSelected &&
                                 p->selectedCurvesCount == 0 &&
                                 !p->isSelectedAsDeBoore &&
-                                !p->isSelectedViaPatch))
+                                p->selectedSurfacesCount == 0))
         return pos;
 
     Vect3 delta(0.0f);
@@ -47,7 +47,7 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
     if (obj->objectType == ObjectType::Point)
     {
         auto p = std::static_pointer_cast<ScenePoint>(obj);
-        if (p->selectedCurvesCount > 0 || p->isSelectedViaPatch)
+        if (p->selectedCurvesCount > 0 || p->selectedSurfacesCount > 0)
             isTarget = true;
         if (p->isSelectedAsDeBoore)
             asDeBoore = true;

@@ -90,7 +90,6 @@ public:
 
 
     void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
-    void static createSurfaceLogic(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
-                                   const Cursor& cursor, int patchesU, int patchesV,
-                                   float dimU, float dimV, bool isC0, bool isCylinder);
+
+    void static MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
 };
