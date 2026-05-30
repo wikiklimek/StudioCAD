@@ -12,6 +12,7 @@
 #include "sceneSplineInterpolating.h"
 #include "sceneSurface.h"
 #include "sceneSerializer.h"
+#include "holeManager.h"
 
 
 void GuiManager::clearGuiState()
@@ -93,7 +94,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         {
             ImGui::Indent();
             ImGui::SliderFloat("Rozstaw Oczu (IOD)", &eyeSeparation, 0.0f, 5.0f);
-            ImGui::SliderFloat("Odleglosc Ekranu (ZPD)", &focalDistance, 1.0f, 100.0f);
+            ImGui::SliderFloat("Odleglosc Ekranu (ZPD)", &focalDistance, 0.01f, 100.0f);
             ImGui::Unindent();
         }
     }
@@ -136,6 +137,20 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     if (ImGui::Button("Zlacz Punkty (Kolaps)"))
     {
         MergeSelectedPoints(sceneObjects);
+    }
+
+    if (ImGui::Button("Wykryj i Zaklej Otwory (Gregory)"))
+    {
+        auto holes = FindHoles(sceneObjects);
+        if (holes.empty())
+        {
+            std::cout << "Nie znaleziono otworow o dlugosci 3 krawedzi!\n";
+        }
+        else
+        {
+            std::cout << "Znaleziono " << holes.size() << " otworow! Gotowe do wygenerowania laty.\n";
+            // Tutaj przejdziemy do KROKU 2: Generowania platow!
+        }
     }
     ImGui::Separator();
     bool isGuiDisabledThisFrame = false;
