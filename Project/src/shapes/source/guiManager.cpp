@@ -70,6 +70,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             // Wywołujemy nasz loader, który automatycznie odtworzy relacje shared/weak_ptr
             // oraz przełoży układ współrzędnych z OpenGL (Y-up) na Twój świat (Z-up)
             SceneSerializer::LoadScene(sceneFilename, sceneObjects);
+
+            //zmienia sie liczba dziur
+            holesPotentialChanges = true;
         }
     }
     ImGui::Separator();
@@ -140,31 +143,13 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         MergeSelectedPoints(sceneObjects);
     }
 
+
     // =========================================================
-    // NOWA SEKCJA: WYKRYWANIE I LISTA OTWORÓW
+    // NOWA SEKCJA: REAKTYWNA LISTA OTWORÓW
     // =========================================================
-    static std::vector<HoleCycle> currentFoundHoles; // Pamięć GUI o znalezionych dziurach
-
-    if (ImGui::Button("Wykryj Otwory (Gregory)"))
-    {
-        currentFoundHoles = FindHoles(sceneObjects);
-        if (currentFoundHoles.empty())
-        {
-            ImGui::OpenPopup("Wynik");
-        }
-    }
-
-    if (ImGui::BeginPopupModal("Wynik", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("Nie znaleziono otworow o dlugosci 3 krawedzi!");
-        if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
-        ImGui::EndPopup();
-    }
-
-    // Rysowanie listy znalezionych dziur
     if (!currentFoundHoles.empty())
     {
-        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Znaleziono %zu otwor(ow):", currentFoundHoles.size());
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Niezałatane otwory (%zu):", currentFoundHoles.size());
 
         for (size_t i = 0; i < currentFoundHoles.size(); )
         {
@@ -172,28 +157,27 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             ImGui::Text("Otwor #%zu", i + 1);
             ImGui::SameLine();
 
-            // Przycisk generowania DLA TEJ KONKRETNEJ DZIURY
             if (ImGui::Button("Wygeneruj Plat"))
             {
                 auto newPatch = GenerateGregoryPatchForHole(currentFoundHoles[i], sceneObjects);
                 if (newPatch) {
                     sceneObjects.push_back(newPatch);
+                    holesPotentialChanges = true; // Płat zrobiony = UI musi się samo odświeżyć i dziura zniknie!
                 }
 
-                // Usuwamy wygenerowaną dziurę z listy
+                // Wywalamy dziurę od razu, by przycisk zniknął zanim nastąpi kolejna klatka
                 currentFoundHoles.erase(currentFoundHoles.begin() + i);
                 ImGui::PopID();
-                continue; // Pomijamy inkrementację 'i', bo usunęliśmy element z wektora
+                continue;
             }
 
-            // Rozwijana lista punktów tworzących tę dziurę
+            // Rozwijana lista
             if (ImGui::TreeNode("Lista punktow otworu"))
             {
                 for (size_t eIdx = 0; eIdx < currentFoundHoles[i].edges.size(); ++eIdx)
                 {
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Krawedz %zu:", eIdx + 1);
-                    for (int pIdx = 0; pIdx < 4; ++pIdx)
-                    {
+                    for (int pIdx = 0; pIdx < 4; ++pIdx) {
                         if (auto pt = currentFoundHoles[i].edges[eIdx].p[pIdx]) {
                             ImGui::Text(" - %s", pt->name.c_str());
                         }
@@ -207,6 +191,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         }
     }
     // =========================================================
+
     ImGui::Separator();
     bool isGuiDisabledThisFrame = false;
     static int selectedBezierIndex = 0;
@@ -446,6 +431,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 previewSurface = nullptr;
                 previewPoints.clear();
                 forceClosePanel = true; // Zamykamy panel
+
+                //potencjana zniama liczy dziur
+                holesPotentialChanges = true;
             }
         }
         else
@@ -1222,4 +1210,33 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
 
     // Gwoźdź do trumny - menedżer usuwania posprząta go pod koniec klatki
     p2->pendingDelete = true;
+
+    //potencjalna zmaina liczby dziur
+    holesPotentialChanges = true;
+}
+
+
+void GuiManager::UpdateHoles(const std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+{
+    auto allHoles = FindHoles(sceneObjects);
+    currentFoundHoles.clear();
+
+    for (const auto& hole : allHoles) {
+        bool alreadyCovered = false;
+        // Sprawdzamy czy na scenie jest już płat Gregory'ego z tym samym ID
+        for (const auto& obj : sceneObjects) {
+            if (obj->objectType == ObjectType::GregoryPatch) {
+                auto patch = std::static_pointer_cast<SceneGregoryPatch>(obj);
+                if (patch->id_gregory == hole.id_gregory) {
+                    alreadyCovered = true;
+                    break;
+                }
+            }
+        }
+
+        // Jeśli dziura nie jest zaklejona, wrzucamy na listę GUI
+        if (!alreadyCovered) {
+            currentFoundHoles.push_back(hole);
+        }
+    }
 }

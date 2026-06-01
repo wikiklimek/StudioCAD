@@ -400,17 +400,17 @@ int main()
 
 
 
+
+
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-
-
+        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
 
         Mat4 Base_View = camera.getViewMatrix();
         Mat4 Base_Proj = camera.getProjectionMatrix(aspectRatio);
 
-        PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
 
         // rysowanie całej sceny
         auto RenderScenePass = [&](Mat4 V, Mat4 P, bool stereoscopy, Vect3 sColor)
@@ -567,6 +567,12 @@ int main()
         //Potezny Mechanizm Usuwania Obiektów
         deleteObjects(guiManager, sceneObjects);
 
+
+        //teraz aktualziujemy liste dziur - dopiero po całych akcjach gui
+        if (guiManager.holesPotentialChanges || previewCtx.anySelectionChanged) {
+            guiManager.UpdateHoles(sceneObjects);
+        }
+
         // Resetowanie jednorazowaych flag
         for (auto& obj : sceneObjects)
         {
@@ -583,6 +589,7 @@ int main()
         guiManager.wasSelectionChanged = false;
         guiManager.wasBaked = false;
         guiManager.deleteSelectedPressed = false;
+        guiManager.holesPotentialChanges = false;
     }
 
 

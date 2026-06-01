@@ -10,6 +10,7 @@
 #include "sceneBezierC0.h"
 #include "transformManager.h"
 #include "sceneSurface.h"
+#include "holeManager.h"
 
 
 class GuiManager {
@@ -59,6 +60,15 @@ public:
     bool wasBaked = false;
     bool deleteSelectedPressed = false;
 
+
+    bool holesPotentialChanges = true; // Na start true, aby wyliczyło przy odpaleniu
+    std::vector<HoleCycle> currentFoundHoles;
+
+    // Metoda odświeżająca listę (z odfiltrowaniem zaklejonych)
+    void UpdateHoles(const std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
+
+
+
     Transformations getGuiDelta() const
     {
         Transformations t;
@@ -91,5 +101,5 @@ public:
 
     void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
 
-    void static MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
+    void MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
 };

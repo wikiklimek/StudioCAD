@@ -135,6 +135,21 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
         }
     }
 
+
+    // Przed kasowaniem, sprawdzamy czy cokolwiek zaraz zostanie usunięte
+    bool anyObjectDeleted = false;
+    for (const auto& obj : sceneObjects) {
+        if (obj->pendingDelete) {
+            anyObjectDeleted = true;
+            break;
+        }
+    }
+
+    if (anyObjectDeleted) {
+        guiManager.holesPotentialChanges = true; // potancjalna zmiana liczny dziur
+    }
+
+
     // Skasuj obiekty (w tym puste krzywe)
     sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
                                       [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());

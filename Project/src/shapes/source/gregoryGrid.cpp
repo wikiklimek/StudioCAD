@@ -22,10 +22,16 @@ void SubdivideBezier(const Vect3 P[4], Vect3 L[4], Vect3 R[4])
 std::shared_ptr<SceneGregoryPatch> GenerateGregoryPatchForHole(
         const HoleCycle& hole, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
-    // Aplikacja obsługuje otwory składające się z 3 krawędzi (zaznaczonych powierzchni C0)
+    // Aplikacja obsługuje otwory składające się z 3 krawędzi
     if (hole.edges.size() != 3) return nullptr;
 
     auto patch = std::make_shared<SceneGregoryPatch>("Plat Gregorego", Transformations());
+
+    // =======================================================
+    // NOWE: Po prostu przepisujemy gotowe ID z dziury!
+    // =======================================================
+    patch->id_gregory = hole.id_gregory;
+
     patch->points.resize(60);
 
     // KROK 1 & 2 & 4: Zbieranie danych z Beziera i de Casteljau
