@@ -26,8 +26,10 @@ protected:
         }
         return color_to_draw;
     }
-
+    inline static unsigned int GLOBAL_ID_COUNTER = 1;
 public:
+
+    const unsigned int id;
     const ObjectType objectType;
 
     Transformations transformations;
@@ -38,7 +40,10 @@ public:
     float color[3] = {1.0f, 1.0f, 0.0f };
 
     SceneObject(std::string n, Transformations spawnTransform, ObjectType type)
-            : name(std::move(n)), transformations(spawnTransform), objectType(type) {}
+            : id(GLOBAL_ID_COUNTER++),
+              name(std::move(n)),
+              transformations(spawnTransform),
+              objectType(type) {}
     virtual ~SceneObject() = default;
 
     virtual void Init() = 0;

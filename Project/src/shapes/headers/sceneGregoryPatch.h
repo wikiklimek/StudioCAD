@@ -10,6 +10,7 @@ class SceneGregoryPatch : public SceneObject {
 public:
     // Przechowujemy dokładnie 60 punktów (3 sub-płaty po 20 punktów)
     std::vector<std::weak_ptr<ScenePoint>> points;
+    size_t id_gregory = 0;
 
     // Zmienne do kontrolowania gęstości siatki NIEZALEŻNIE dla każdego z 3 sub-płatów
     std::array<int, 3> samplesU = {4, 4, 4};
