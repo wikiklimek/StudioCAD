@@ -45,6 +45,7 @@ float const PI = (float)M_PI;
 #include "selectionManager.h"
 #include "sceneSurface.h"
 #include "deleteManager.h"
+#include "sceneGregoryPatch.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -99,6 +100,8 @@ int main()
 
     Shader* surfaceShaderC0 = new Shader("src/shaders/surface.vs", "src/shaders/surface.fs", "src/shaders/surface.tcs", "src/shaders/surfaceC0.tes");
     Shader* surfaceShaderC2 = new Shader("src/shaders/surface.vs", "src/shaders/surface.fs", "src/shaders/surface.tcs", "src/shaders/surfaceC2.tes");
+
+    Shader* gregoryShader = new Shader("src/shaders/surface.vs", "src/shaders/surface.fs", "src/shaders/gregory.tcs", "src/shaders/gregory.tes");
 
     BezierDrawMode currentBezierDrawMode = GEOMETRY;
     Shader * bezierShader = currentBezierDrawMode == GEOMETRY ?  &bezierGeomShader : &bezierLineStripShader;
@@ -428,6 +431,7 @@ int main()
 
             updateShader(surfaceShaderC0);
             updateShader(surfaceShaderC2);
+            updateShader(gregoryShader);
 
             shader.use();
             for (auto& obj : sceneObjects)
@@ -466,6 +470,13 @@ int main()
                 {
                     auto s = std::static_pointer_cast<SceneSurfaceC2>(obj);
                     s->DrawSurface(*surfaceShaderC2, previewCtx);
+                }
+                else if (obj->objectType == ObjectType::GregoryPatch)
+                {
+                    auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
+                    s->DrawSurface(*gregoryShader, previewCtx);
+                    s->DrawPolygon(shader, previewCtx);
+                    s->DrawVectors(shader, previewCtx);
                 }
             }
 

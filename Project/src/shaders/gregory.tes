@@ -1,0 +1,76 @@
+#version 410 core
+layout (isolines, equal_spacing, ccw) in;
+in vec3 tcPos[];
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+uniform bool swapUV;
+
+uniform int u_tessLevelU;
+uniform int u_tessLevelV;
+
+vec4 bernstein(float t) {
+    float invT = 1.0 - t;
+    return vec4(invT * invT * invT, 3.0 * t * invT * invT, 3.0 * t * t * invT, t * t * t);
+}
+
+void main()
+{
+    float u_tess = gl_TessCoord.x;
+    float v_tess = gl_TessCoord.y;
+
+    float u, v;
+    if (!swapUV)
+    {
+        float divV = max(1.0, float(u_tessLevelV));
+        v = v_tess * (divV + 1.0) / divV;
+        u = u_tess;
+    }
+    else
+    {
+        float divU = max(1.0, float(u_tessLevelU));
+        u = v_tess * (divU + 1.0) / divU;
+        v = u_tess;
+    }
+
+    vec4 bu = bernstein(u);
+    vec4 bv = bernstein(v);
+
+    // Wyciągamy twarde punkty z 20-elementowej tablicy (mapowanie płaskie na macierz Gregory'ego)
+    vec3 p00 = tcPos[0];  vec3 p01 = tcPos[1];  vec3 p02 = tcPos[2];  vec3 p03 = tcPos[3];
+
+    vec3 p10 = tcPos[4];  vec3 p11u= tcPos[5];  vec3 p11v= tcPos[6];
+    vec3 p12u= tcPos[7];  vec3 p12v= tcPos[8];  vec3 p13 = tcPos[9];
+
+    vec3 p20 = tcPos[10]; vec3 p21u= tcPos[11]; vec3 p21v= tcPos[12];
+    vec3 p22u= tcPos[13]; vec3 p22v= tcPos[14]; vec3 p23 = tcPos[15];
+
+    vec3 p30 = tcPos[16]; vec3 p31 = tcPos[17]; vec3 p32 = tcPos[18]; vec3 p33 = tcPos[19];
+
+    // Magia Gregory'ego: Łączenie wektorów skręcenia (Rational Blending)
+    // Używamy małego epsilonu 1e-6, żeby uniknąć dzielenia przez zero w narożnikach!
+    vec3 p11 = (u * p11u + v * p11v) / (u + v + 1e-6);
+    vec3 p12 = (u * p12u + (1.0 - v) * p12v) / (u + (1.0 - v) + 1e-6);
+    vec3 p21 = ((1.0 - u) * p21u + v * p21v) / ((1.0 - u) + v + 1e-6);
+    vec3 p22 = ((1.0 - u) * p22u + (1.0 - v) * p22v) / ((1.0 - u) + (1.0 - v) + 1e-6);
+
+    // Rekonstrukcja wirtualnej macierzy 4x4 dla tego konkretnego punktu (u,v)
+    vec3 G[16] = vec3[](
+        p00, p01, p02, p03,
+        p10, p11, p12, p13,
+        p20, p21, p22, p23,
+        p30, p31, p32, p33
+    );
+
+    vec3 finalPos = vec3(0.0);
+    for(int i = 0; i < 4; i++)
+    {
+        for(int j = 0; j < 4; j++)
+        {
+            finalPos += G[j * 4 + i] * bu[i] * bv[j];
+        }
+    }
+
+    gl_Position = projection * view * model * vec4(finalPos, 1.0);
+}

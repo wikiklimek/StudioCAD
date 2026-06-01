@@ -13,6 +13,7 @@
 #include "sceneSurface.h"
 #include "sceneSerializer.h"
 #include "holeManager.h"
+#include "gregoryGrid.h"
 
 
 void GuiManager::clearGuiState()
@@ -139,19 +140,73 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         MergeSelectedPoints(sceneObjects);
     }
 
-    if (ImGui::Button("Wykryj i Zaklej Otwory (Gregory)"))
+    // =========================================================
+    // NOWA SEKCJA: WYKRYWANIE I LISTA OTWORÓW
+    // =========================================================
+    static std::vector<HoleCycle> currentFoundHoles; // Pamięć GUI o znalezionych dziurach
+
+    if (ImGui::Button("Wykryj Otwory (Gregory)"))
     {
-        auto holes = FindHoles(sceneObjects);
-        if (holes.empty())
+        currentFoundHoles = FindHoles(sceneObjects);
+        if (currentFoundHoles.empty())
         {
-            std::cout << "Nie znaleziono otworow o dlugosci 3 krawedzi!\n";
-        }
-        else
-        {
-            std::cout << "Znaleziono " << holes.size() << " otworow! Gotowe do wygenerowania laty.\n";
-            // Tutaj przejdziemy do KROKU 2: Generowania platow!
+            ImGui::OpenPopup("Wynik");
         }
     }
+
+    if (ImGui::BeginPopupModal("Wynik", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Nie znaleziono otworow o dlugosci 3 krawedzi!");
+        if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+        ImGui::EndPopup();
+    }
+
+    // Rysowanie listy znalezionych dziur
+    if (!currentFoundHoles.empty())
+    {
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Znaleziono %zu otwor(ow):", currentFoundHoles.size());
+
+        for (size_t i = 0; i < currentFoundHoles.size(); )
+        {
+            ImGui::PushID((int)i);
+            ImGui::Text("Otwor #%zu", i + 1);
+            ImGui::SameLine();
+
+            // Przycisk generowania DLA TEJ KONKRETNEJ DZIURY
+            if (ImGui::Button("Wygeneruj Plat"))
+            {
+                auto newPatch = GenerateGregoryPatchForHole(currentFoundHoles[i], sceneObjects);
+                if (newPatch) {
+                    sceneObjects.push_back(newPatch);
+                }
+
+                // Usuwamy wygenerowaną dziurę z listy
+                currentFoundHoles.erase(currentFoundHoles.begin() + i);
+                ImGui::PopID();
+                continue; // Pomijamy inkrementację 'i', bo usunęliśmy element z wektora
+            }
+
+            // Rozwijana lista punktów tworzących tę dziurę
+            if (ImGui::TreeNode("Lista punktow otworu"))
+            {
+                for (size_t eIdx = 0; eIdx < currentFoundHoles[i].edges.size(); ++eIdx)
+                {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Krawedz %zu:", eIdx + 1);
+                    for (int pIdx = 0; pIdx < 4; ++pIdx)
+                    {
+                        if (auto pt = currentFoundHoles[i].edges[eIdx].p[pIdx]) {
+                            ImGui::Text(" - %s", pt->name.c_str());
+                        }
+                    }
+                }
+                ImGui::TreePop();
+            }
+            ImGui::Separator();
+            ImGui::PopID();
+            ++i;
+        }
+    }
+    // =========================================================
     ImGui::Separator();
     bool isGuiDisabledThisFrame = false;
     static int selectedBezierIndex = 0;
@@ -432,7 +487,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating ||
             obj->objectType == ObjectType::BezierSurfaceC0 ||
-            obj->objectType == ObjectType::BezierCurveC2)
+            obj->objectType == ObjectType::BezierCurveC2 ||
+                obj->objectType == ObjectType::GregoryPatch)
             continue;
 
 
@@ -691,7 +747,8 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
            obj->objectType != ObjectType::BezierCurveC2 &&
            obj->objectType != ObjectType::SplineInterpolating &&
            obj->objectType != ObjectType::BezierSurfaceC0 &&
-           obj->objectType != ObjectType::BezierSurfaceC2)
+           obj->objectType != ObjectType::BezierSurfaceC2 &&
+                obj->objectType != ObjectType::GregoryPatch)
         {
             ImGui::Text("Transformacja obiektu:");
             if (ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos))
@@ -734,6 +791,26 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             ImGui::RadioButton("Tylko plat", &surfaceDeletionMode, 0);
             ImGui::RadioButton("Plat i wszystkie punkty", &surfaceDeletionMode, 1);
             ImGui::RadioButton("Smart (tylko nieuzywane pkt)", &surfaceDeletionMode, 2);
+        }
+        else if (obj->objectType == ObjectType::GregoryPatch)
+        {
+            auto greg = std::static_pointer_cast<SceneGregoryPatch>(obj);
+
+            ImGui::Checkbox("Pokaz wielobok", &greg->showPolygon);
+            ImGui::Separator();
+            ImGui::Checkbox("Pokaz wektory", &greg->showVectors);
+            ImGui::Separator();
+
+            ImGui::Text("Gestosc siatki (niezalezna):");
+            // Iterujemy po 3 sub-płatach
+            for (int i = 0; i < 3; ++i)
+            {
+                ImGui::PushID(i);
+                ImGui::Text("Sub-plat %d:", i + 1);
+                ImGui::SliderInt("U", &greg->samplesU[i], 1, 64);
+                ImGui::SliderInt("V", &greg->samplesV[i], 1, 64);
+                ImGui::PopID();
+            }
         }
         else if (obj->objectType == ObjectType::BezierCurveC0)
         {

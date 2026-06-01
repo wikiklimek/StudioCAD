@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -41,7 +42,7 @@ using TopologyGraph = std::unordered_map<std::shared_ptr<ScenePoint>, std::vecto
 // ----------------------------------------------------------------------------------
 // Algorytm Ograniczonego DFS z Nawrotami (Szukanie cykli prostych o DOWOLNEJ długości)
 // ----------------------------------------------------------------------------------
-void BoundedDFS(
+inline void BoundedDFS(
         std::shared_ptr<ScenePoint> current,
         std::shared_ptr<ScenePoint> start,
         std::vector<HoleSegment>& path,
@@ -115,7 +116,7 @@ void BoundedDFS(
 // ----------------------------------------------------------------------------------
 // Główna funkcja wywoływana przez interfejs (Zmieniona nazwa dla precyzji)
 // ----------------------------------------------------------------------------------
-std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
+inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
     std::vector<HoleSegment> allEdges;
 
@@ -204,4 +205,38 @@ std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneObject>>
     }
 
     return results;
+}
+
+
+// Pobieranie wewnętrznego rzędu płata Beziera
+inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4])
+{
+    auto s = edge.owner;
+    int sizeU = s->sizeU, sizeV = s->sizeV;
+    int u0 = -1, v0 = -1, du = 0, dv = 0;
+
+    for (int v = 0; v < sizeV; ++v) {
+        for (int u = 0; u < sizeU; ++u) {
+            if (s->points[v * sizeU + u].lock() == edge.p[0]) {
+                if (u + 1 < sizeU && s->points[v * sizeU + u + 1].lock() == edge.p[1]) { u0=u; v0=v; du=1; dv=0; break; }
+                if (u - 1 >= 0 && s->points[v * sizeU + u - 1].lock() == edge.p[1]) { u0=u; v0=v; du=-1; dv=0; break; }
+                if (v + 1 < sizeV && s->points[(v + 1) * sizeU + u].lock() == edge.p[1]) { u0=u; v0=v; du=0; dv=1; break; }
+                if (v - 1 >= 0 && s->points[(v - 1) * sizeU + u].lock() == edge.p[1]) { u0=u; v0=v; du=0; dv=-1; break; }
+            }
+        }
+        if (du != 0 || dv != 0) break;
+    }
+
+    int inner_du = 0, inner_dv = 0;
+    if (du != 0) inner_dv = (v0 == 0) ? 1 : -1;
+    else         inner_du = (u0 == 0) ? 1 : -1;
+
+    for (int k = 0; k < 4; ++k) {
+        int u_I = u0 + k * du + inner_du;
+        int v_I = v0 + k * dv + inner_dv;
+        if (u_I >= 0 && u_I < sizeU && v_I >= 0 && v_I < sizeV) {
+            if (auto pt = s->points[v_I * sizeU + u_I].lock()) I[k] = pt->transformations.getPosition();
+            else I[k] = edge.p[k]->transformations.getPosition();
+        } else I[k] = edge.p[k]->transformations.getPosition();
+    }
 }

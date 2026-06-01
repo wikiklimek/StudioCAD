@@ -81,6 +81,10 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/deleteManager.cpp
         src/shapes/headers/scenePolygon.h
         src/shapes/headers/holeManager.h
+        src/shapes/headers/sceneGregoryPatch.h
+        src/shapes/source/sceneGregoryPatch.cpp
+        src/shapes/source/gregoryGrid.cpp
+        src/shapes/headers/gregoryGrid.h
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

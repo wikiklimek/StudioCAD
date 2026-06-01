@@ -1,4 +1,5 @@
 #include "deleteManager.h"
+#include "sceneGregoryPatch.h"
 
 void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
@@ -46,6 +47,21 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
                         p->globalSurfacesCount--;
                 }
             }
+                // ============================================
+                // NOWE: Zdejmowanie liczników Płata Gregory'ego
+                // ============================================
+            else if (obj->objectType == ObjectType::GregoryPatch)
+            {
+                auto g = std::static_pointer_cast<SceneGregoryPatch>(obj);
+                for (auto& wp : g->points)
+                {
+                    if (auto p = wp.lock())
+                    {
+                        if (!p->isVirtual) // Wirtualne żyją i umierają z płatem, nie mają globalnego licznika!
+                            p->globalSurfacesCount--;
+                    }
+                }
+            }
         }
     }
 
@@ -54,9 +70,32 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
     // dla każdego pending delete - prywatnego i globalnego
     for (auto& obj : sceneObjects)
     {
-        if (obj->pendingDelete && (obj->objectType == ObjectType::BezierSurfaceC0 || obj->objectType == ObjectType::BezierSurfaceC2))
+        if (obj->pendingDelete &&
+            (obj->objectType == ObjectType::BezierSurfaceC0 ||
+            obj->objectType == ObjectType::BezierSurfaceC2))
         {
             auto s = std::static_pointer_cast<SceneSurface>(obj);
+            for (auto& wp : s->points)
+            {
+                if (auto p = wp.lock())
+                {
+                    //p->belongsToPatch = false;
+
+                    //tymvzasowo to połaczmy, ale zmieimy na jeden guzik
+                    if (guiManager.surfaceDeletionMode == 1 || guiManager.surfaceDeletionMode == 2)
+                    {
+                        // Tryb 2: usuń punkt tylko jeśli nie jest w żadnej krzywej lub powierzchni
+                        if (p->globalCurvesCount == 0 && p->globalSurfacesCount == 0)
+                            p->pendingDelete = true;
+                    }
+                    // Tryb 0: usuń tylko płat (punkty zostają)
+                }
+            }
+        }
+        else if (obj->pendingDelete &&
+            obj->objectType == ObjectType::GregoryPatch)
+        {
+            auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
             for (auto& wp : s->points)
             {
                 if (auto p = wp.lock())
