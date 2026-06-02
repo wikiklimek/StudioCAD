@@ -35,13 +35,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 {
     ImGui::Begin("Sterowanie i Obiekty");
 
-    // =========================================================================
-    // PANEL: ZAPIS I ODCZYT SCENY (JSON)
-    // =========================================================================
+
     if (ImGui::CollapsingHeader("Zapis i Odczyt Sceny"))
     {
-        // Statyczny bufor tekstowy, dzięki czemu użytkownik może wpisać własną nazwę pliku
-        // Domyślnie ustawiamy na "example_scene.json", czyli nazwę z Twoich materiałów
         static char sceneFilename[128] = "example_scene.json";
         ImGui::InputText("Nazwa pliku", sceneFilename, IM_ARRAYSIZE(sceneFilename));
 
@@ -76,7 +72,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         }
     }
     ImGui::Separator();
-    // =========================================================================
+
 
     if (isBoxSelecting)
     {
@@ -143,13 +139,13 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         MergeSelectedPoints(sceneObjects);
     }
 
-
-    // =========================================================
-    // NOWA SEKCJA: REAKTYWNA LISTA OTWORÓW
-    // =========================================================
-    if (!currentFoundHoles.empty())
+    if (currentFoundHoles.empty())
     {
-        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Niezałatane otwory (%zu):", currentFoundHoles.size());
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "Niezalatane otwory (%zu):", 0);
+    }
+    else //if (!currentFoundHoles.empty())
+    {
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Niezalatane otwory (%zu):", currentFoundHoles.size());
 
         for (size_t i = 0; i < currentFoundHoles.size(); )
         {
@@ -160,25 +156,28 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             if (ImGui::Button("Wygeneruj Plat"))
             {
                 auto newPatch = GenerateGregoryPatchForHole(currentFoundHoles[i], sceneObjects);
-                if (newPatch) {
+                if (newPatch)
+                {
                     sceneObjects.push_back(newPatch);
-                    holesPotentialChanges = true; // Płat zrobiony = UI musi się samo odświeżyć i dziura zniknie!
+                    holesPotentialChanges = true;
                 }
 
-                // Wywalamy dziurę od razu, by przycisk zniknął zanim nastąpi kolejna klatka
+                // Wywalamy dziurę od razu
                 currentFoundHoles.erase(currentFoundHoles.begin() + i);
                 ImGui::PopID();
                 continue;
             }
 
-            // Rozwijana lista
+
             if (ImGui::TreeNode("Lista punktow otworu"))
             {
                 for (size_t eIdx = 0; eIdx < currentFoundHoles[i].edges.size(); ++eIdx)
                 {
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Krawedz %zu:", eIdx + 1);
-                    for (int pIdx = 0; pIdx < 4; ++pIdx) {
-                        if (auto pt = currentFoundHoles[i].edges[eIdx].p[pIdx]) {
+                    for (int pIdx = 0; pIdx < 4; ++pIdx)
+                    {
+                        if (auto pt = currentFoundHoles[i].edges[eIdx].p[pIdx])
+                        {
                             ImGui::Text(" - %s", pt->name.c_str());
                         }
                     }
@@ -190,7 +189,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             ++i;
         }
     }
-    // =========================================================
+
 
     ImGui::Separator();
     bool isGuiDisabledThisFrame = false;
@@ -1132,7 +1131,7 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
 {
     std::vector<std::shared_ptr<ScenePoint>> selectedPoints;
 
-    // 1. Zbieramy tylko zaznaczone obiekty, które są punktami (nie wirtualnymi)
+    // Zbieramy tylko zaznaczone obiekty, które są punktami (nie wirtualnymi)
     for (auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::Point && obj->isSelected)
@@ -1141,7 +1140,7 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
         }
     }
 
-    // Zabezpieczenie: Funkcja działa TYLKO dla dokładnie 2 punktów
+    // Funkcja działa TYLKO dla dokładnie 2 punktów
     if (selectedPoints.size() != 2)
     {
         return;
@@ -1150,19 +1149,18 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
     auto p1 = selectedPoints[0];
     auto p2 = selectedPoints[1];
 
-    // 2. Wyliczamy nową średnią pozycję
+
     Vect3 pos1 = p1->transformations.getPosition();
     Vect3 pos2 = p2->transformations.getPosition();
     Vect3 avgPos = Vect3((pos1.x + pos2.x) * 0.5f, (pos1.y + pos2.y) * 0.5f, (pos1.z + pos2.z) * 0.5f);
 
-    // Przypisujemy uśrednioną pozycję pierwszemu punktowi
+    // pierwszy punkt zostaje iprzejmuje wlłaściwośi 2, drugi znaika
     p1->transformations.setPosition(avgPos);
-    p1->wasGuiEdited = true; // Wymusza przeliczenie wirtualnych punktów (np. dla B-Spline C2)
+    p1->wasGuiEdited = true; // Wymusza przeliczenie wirtualnych punktów
 
-    // 3. Przepinamy wskaźniki (Słabe wskaźniki)
+    // Przepinamy wskazniki
     for (auto& obj : sceneObjects)
     {
-        // Sprawdzamy krzywe
         if (obj->objectType == ObjectType::BezierCurveC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating)
@@ -1172,11 +1170,10 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
             {
                 if (wp.lock() == p2)
                 {
-                    wp = p1; // Zamieniamy słaby wskaźnik na nowy punkt
+                    wp = p1;
                 }
             }
         }
-            // Sprawdzamy powierzchnie (płaty)
         else if (obj->objectType == ObjectType::BezierSurfaceC0 ||
                  obj->objectType == ObjectType::BezierSurfaceC2)
         {
@@ -1185,13 +1182,24 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
             {
                 if (wp.lock() == p2)
                 {
-                    wp = p1; // Zamieniamy słaby wskaźnik na nowy punkt
+                    wp = p1;
+                }
+            }
+        }
+        else if (obj->objectType == ObjectType::GregoryPatch)
+        {
+            auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
+            for (auto& wp : s->points)
+            {
+                if (wp.lock() == p2)
+                {
+                    wp = p1;
                 }
             }
         }
     }
 
-    // 4. Przenosimy odpowiedzialność (Liczniki)
+    //(Liczniki)
     p1->globalCurvesCount += p2->globalCurvesCount;
     p1->globalSurfacesCount += p2->globalSurfacesCount;
 
@@ -1199,16 +1207,16 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
     p1->selectedCurvesCount += p2->selectedCurvesCount;
     p1->selectedSurfacesCount += p2->selectedSurfacesCount;
 
-    // 5. Egzekucja p2 (Usuwamy powiązania i znaczmy do usunięcia)
+
     p2->globalCurvesCount = 0;
     p2->globalSurfacesCount = 0;
     p2->selectedCurvesCount = 0;
     p2->selectedSurfacesCount = 0;
 
     p2->isSelected = false;
-    p2->isSelectedAsDeBoore = false; // na wszelki wypadek
+    p2->isSelectedAsDeBoore = false;
 
-    // Gwoźdź do trumny - menedżer usuwania posprząta go pod koniec klatki
+
     p2->pendingDelete = true;
 
     //potencjalna zmaina liczby dziur
@@ -1221,21 +1229,25 @@ void GuiManager::UpdateHoles(const std::vector<std::shared_ptr<SceneObject>>& sc
     auto allHoles = FindHoles(sceneObjects);
     currentFoundHoles.clear();
 
-    for (const auto& hole : allHoles) {
+    for (const auto& hole : allHoles)
+    {
         bool alreadyCovered = false;
-        // Sprawdzamy czy na scenie jest już płat Gregory'ego z tym samym ID
-        for (const auto& obj : sceneObjects) {
-            if (obj->objectType == ObjectType::GregoryPatch) {
+        // czy na scenie jest już płat Gregory'ego z tym samym ID
+        for (const auto& obj : sceneObjects)
+        {
+            if (obj->objectType == ObjectType::GregoryPatch)
+            {
                 auto patch = std::static_pointer_cast<SceneGregoryPatch>(obj);
-                if (patch->id_gregory == hole.id_gregory) {
+                if (patch->id_gregory == hole.id_gregory)
+                {
                     alreadyCovered = true;
                     break;
                 }
             }
         }
 
-        // Jeśli dziura nie jest zaklejona, wrzucamy na listę GUI
-        if (!alreadyCovered) {
+        if (!alreadyCovered)
+        {
             currentFoundHoles.push_back(hole);
         }
     }

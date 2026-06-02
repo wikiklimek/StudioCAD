@@ -20,7 +20,8 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
         obj->objectType == ObjectType::BezierCurveC2 ||
         obj->objectType == ObjectType::SplineInterpolating ||
         obj->objectType == ObjectType::BezierSurfaceC0 ||
-        obj->objectType == ObjectType::BezierSurfaceC2)
+        obj->objectType == ObjectType::BezierSurfaceC2 ||
+        obj->objectType == ObjectType::GregoryPatch)
             continue; // nie transformuje sie krzywej
 
         bool shouldBake = obj->isSelected;
@@ -68,7 +69,8 @@ inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& scene
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating||
             obj->objectType == ObjectType::BezierSurfaceC0 ||
-            obj->objectType == ObjectType::BezierSurfaceC2)
+            obj->objectType == ObjectType::BezierSurfaceC2 ||
+            obj->objectType == ObjectType::GregoryPatch)
                 continue;
 
             bool shouldBake = obj->isSelected;

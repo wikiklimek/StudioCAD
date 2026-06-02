@@ -13,9 +13,9 @@ SceneGregoryPatch::~SceneGregoryPatch()
 {
     if (VAO_surface) glDeleteVertexArrays(1, &VAO_surface);
     if (VAO_poly) glDeleteVertexArrays(1, &VAO_poly);
-    if (VAO_vectors) glDeleteVertexArrays(1, &VAO_vectors); // Czyszczenie
+    if (VAO_vectors) glDeleteVertexArrays(1, &VAO_vectors);
     if (VBO) glDeleteBuffers(1, &VBO);
-    if (VBO_vectors) glDeleteBuffers(1, &VBO_vectors);       // Czyszczenie
+    if (VBO_vectors) glDeleteBuffers(1, &VBO_vectors);
     if (EBO_poly) glDeleteBuffers(1, &EBO_poly);
 }
 
@@ -23,10 +23,10 @@ void SceneGregoryPatch::InitBuffers()
 {
     if (VAO_surface == 0) glGenVertexArrays(1, &VAO_surface);
     if (VAO_poly == 0) glGenVertexArrays(1, &VAO_poly);
-    if (VAO_vectors == 0) glGenVertexArrays(1, &VAO_vectors); // Inicjalizacja
+    if (VAO_vectors == 0) glGenVertexArrays(1, &VAO_vectors);
 
     if (VBO == 0) glGenBuffers(1, &VBO);
-    if (VBO_vectors == 0) glGenBuffers(1, &VBO_vectors);       // Inicjalizacja
+    if (VBO_vectors == 0) glGenBuffers(1, &VBO_vectors);
     if (EBO_poly == 0) glGenBuffers(1, &EBO_poly);
 }
 
@@ -98,8 +98,7 @@ void SceneGregoryPatch::DrawPolygon(Shader& lineShader, const PreviewContext& ct
     glDrawElements(GL_LINES, polyIndices.size(), GL_UNSIGNED_INT, 0);
 }
 
-// NOWA FUNKCJA DO RYSOWANIA WEKTORÓW C1 NA BRZEGU OTWORU
-// NOWA FUNKCJA DO RYSOWANIA WEKTORÓW C1 Z GROTAMI
+
 void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ctx)
 {
     if (!showVectors || points.size() != 60) return;
@@ -269,9 +268,6 @@ void SceneGregoryPatch::Init()
     InitBuffers();
     InitPolygonIndices();
 
-    // ========================================================
-    // KRYTYCZNA POPRAWKA: Konfiguracja VAO dla powierzchni!
-    // ========================================================
     glBindVertexArray(VAO_surface);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     // Mówimy GPU: "Bierz 3 floaty z bufora jako 1 wierzchołek"

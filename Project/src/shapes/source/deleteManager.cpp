@@ -47,9 +47,6 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
                         p->globalSurfacesCount--;
                 }
             }
-                // ============================================
-                // NOWE: Zdejmowanie liczników Płata Gregory'ego
-                // ============================================
             else if (obj->objectType == ObjectType::GregoryPatch)
             {
                 auto g = std::static_pointer_cast<SceneGregoryPatch>(obj);
@@ -57,8 +54,7 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
                 {
                     if (auto p = wp.lock())
                     {
-                        if (!p->isVirtual) // Wirtualne żyją i umierają z płatem, nie mają globalnego licznika!
-                            p->globalSurfacesCount--;
+                        p->globalSurfacesCount--;
                     }
                 }
             }
@@ -138,14 +134,17 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
 
     // Przed kasowaniem, sprawdzamy czy cokolwiek zaraz zostanie usunięte
     bool anyObjectDeleted = false;
-    for (const auto& obj : sceneObjects) {
-        if (obj->pendingDelete) {
+    for (const auto& obj : sceneObjects)
+    {
+        if (obj->pendingDelete)
+        {
             anyObjectDeleted = true;
             break;
         }
     }
 
-    if (anyObjectDeleted) {
+    if (anyObjectDeleted)
+    {
         guiManager.holesPotentialChanges = true; // potancjalna zmiana liczny dziur
     }
 

@@ -12,21 +12,17 @@ void Cursor::Init()
 {
     std::vector<Vect3> vertices;
 
-    // ==========================================
-    // 1. LINIE BAZOWE (Indeksy 0 - 5)
-    // ==========================================
+    // linie (Indeksy 0 - 5)
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(1.0f, 0.0f, 0.0f)); // X
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(0.0f, 1.0f, 0.0f)); // Y
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(0.0f, 0.0f, 1.0f)); // Z
 
-    // ==========================================
-    // 2. FUNKCJA GENERUJĄCA GROTY (Czworościany)
-    // ==========================================
+    // generowanie gortów
     auto appendArrowhead = [&](Vect3 A, Vect3 B) {
         Vect3 D = B - A;
-        Vect3 dir = D.normalize(); // Korzystamy z Twojej wbudowanej biblioteki
+        Vect3 dir = D.normalize();
 
-        float h = 0.2f; // Zmniejszony rozmiar grotu specjalnie dla kursora
+        float h = 0.2f; // skala rozmiaru grota
         float r = h / 1.4142f;
 
         Vect3 C = B - dir * h;
@@ -41,14 +37,25 @@ void Cursor::Init()
         Vect3 P1 = C + U * (-0.5f * r) + V * (0.866025f * r);
         Vect3 P2 = C + U * (-0.5f * r) + V * (-0.866025f * r);
 
-        // 4 ściany (po 3 wierzchołki) = 12 wierzchołków na 1 grot
-        vertices.push_back(B);  vertices.push_back(P0); vertices.push_back(P1);
-        vertices.push_back(B);  vertices.push_back(P1); vertices.push_back(P2);
-        vertices.push_back(B);  vertices.push_back(P2); vertices.push_back(P0);
-        vertices.push_back(P0); vertices.push_back(P2); vertices.push_back(P1);
+
+        vertices.push_back(B);
+        vertices.push_back(P0);
+        vertices.push_back(P1);
+
+        vertices.push_back(B);
+        vertices.push_back(P1);
+        vertices.push_back(P2);
+
+        vertices.push_back(B);
+        vertices.push_back(P2);
+        vertices.push_back(P0);
+
+        vertices.push_back(P0);
+        vertices.push_back(P2);
+        vertices.push_back(P1);
     };
 
-    // Generujemy groty na końcach osi (Indeksy 6 - 41)
+    // groty (Indeksy 6 - 41)
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(1.0f, 0.0f, 0.0f)); // Grot X
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 1.0f, 0.0f)); // Grot Y
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 1.0f)); // Grot Z
@@ -70,14 +77,12 @@ void Cursor::Draw(Shader& shader)
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, modelMat.table);
     glBindVertexArray(VAO);
 
-    float colorX[3] = { 1.0f, 0.0f, 0.0f }; // Czerwony
-    float colorY[3] = { 0.0f, 1.0f, 0.0f }; // Zielony
-    float colorZ[3] = { 0.1f, 0.5f, 1.0f }; // Niebieski
-    float black[3]  = { 0.0f, 0.0f, 0.0f }; // Czarne obramowanie
+    float colorX[3] = { 1.0f, 0.0f, 0.0f };
+    float colorY[3] = { 0.0f, 1.0f, 0.0f };
+    float colorZ[3] = { 0.1f, 0.5f, 1.0f };
+    float black[3]  = { 0.0f, 0.0f, 0.0f };
 
-    // ==========================================
-    // ETAP 1: Rysowanie Linii (Osi)
-    // ==========================================
+    // rysowanie linnii w roznych kolorach
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorX);
     glDrawArrays(GL_LINES, 0, 2); // Linia X
 
@@ -87,9 +92,7 @@ void Cursor::Draw(Shader& shader)
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorZ);
     glDrawArrays(GL_LINES, 4, 2); // Linia Z
 
-    // ==========================================
-    // ETAP 2: Rysowanie Grotów (Wypełnienie)
-    // ==========================================
+    // rysowanie gortów
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
 
@@ -102,9 +105,7 @@ void Cursor::Draw(Shader& shader)
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorZ);
     glDrawArrays(GL_TRIANGLES, 30, 12); // Grot Z (indeksy 30-41)
 
-    // ==========================================
-    // ETAP 3: Czarne obramowanie wokół grotów
-    // ==========================================
+    //rysowanie robramowania grotów
     glDisable(GL_POLYGON_OFFSET_FILL);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 

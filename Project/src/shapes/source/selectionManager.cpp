@@ -2,6 +2,7 @@
 #include "scenePoint.h"
 #include "sceneBezierC2.h"
 #include "sceneSurface.h"
+#include "sceneGregoryPatch.h"
 
 
 void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
@@ -52,6 +53,26 @@ void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::sha
             obj->objectType == ObjectType::BezierSurfaceC2)
         {
             auto s = std::static_pointer_cast<SceneSurface>(obj);
+            if (s->wasGuiSelectionChanged)
+            {
+                if(s->isSelected)
+                    for (auto& wp : s->points)
+                    {
+                        if (auto p = wp.lock())
+                            p->selectedSurfacesCount++;
+                    }
+                else
+                    for (auto& wp : s->points)
+                    {
+                        if (auto p = wp.lock())
+                            p->selectedSurfacesCount--;
+                    }
+            }
+        }
+
+        if (obj->objectType == ObjectType::GregoryPatch)
+        {
+            auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
             if (s->wasGuiSelectionChanged)
             {
                 if(s->isSelected)
