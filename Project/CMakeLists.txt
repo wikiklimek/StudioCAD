@@ -18,6 +18,7 @@ include_directories(
         external/glad/include
         external/imgui
         external/imgui/backends
+        external/imgui-filebrowser
 )
 
 # Zbieramy pliki źródłowe interfejsu

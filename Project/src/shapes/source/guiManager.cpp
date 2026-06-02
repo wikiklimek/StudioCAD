@@ -14,6 +14,7 @@
 #include "sceneSerializer.h"
 #include "holeManager.h"
 #include "gregoryGrid.h"
+#include "imfilebrowser.h"
 
 
 void GuiManager::clearGuiState()
@@ -36,10 +37,28 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     ImGui::Begin("Sterowanie i Obiekty");
 
 
+    // 1. Deklaracja przeglądarki (najlepiej jako static, by trzymała stan między klatkami)
+    static ImGui::FileBrowser fileDialog;
+    static bool isBrowserInitialized = false;
+
+    // Ustawienia początkowe (wykonają się tylko raz)
+    if (!isBrowserInitialized)
+    {
+        fileDialog.SetTitle("Wybierz plik sceny");
+        fileDialog.SetTypeFilters({ ".json" }); // Filtrujemy tylko pliki JSON
+        isBrowserInitialized = true;
+    }
+
+    static char sceneFilename[128] = "example_scene.json";
+
     if (ImGui::CollapsingHeader("Zapis i Odczyt Sceny"))
     {
-        static char sceneFilename[128] = "example_scene.json";
-        ImGui::InputText("Nazwa pliku", sceneFilename, IM_ARRAYSIZE(sceneFilename));
+        // Zastępujemy InputText przyciskiem wywołującym okienko
+        if (ImGui::Button("znajdz plik")) {
+            fileDialog.Open();
+        }
+        ImGui::SameLine();
+        ImGui::Text("Plik: %s", sceneFilename);
 
         // Przycisk Zapisu (zajmuje połowę dostępnej szerokości okna)
         if (ImGui::Button("Zapisz Scenę", ImVec2(ImGui::GetContentRegionAvail().x * 0.5f, 0)))
@@ -51,28 +70,37 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         // Przycisk Odczytu (zajmuje pozostałą przestrzeń)
         if (ImGui::Button("Wczytaj Scenę", ImVec2(-1, 0)))
         {
-            // KROK KRYTYCZNY: Czyścimy obecny wektor obiektów sceny,
-            // aby wczytywane elementy nie nałożyły się ani nie zdublowały z obecnymi!
+            // KROK KRYTYCZNY: Czyścimy obecny wektor obiektów...
             sceneObjects.clear();
 
-            // Czyścimy również naszą nową pulę obiektów podglądu (preview),
-            // na wypadek gdyby użytkownik miał otwarty panel tworzenia płata
             if (previewSurface)
             {
                 previewSurface = nullptr;
                 previewPoints.clear();
             }
 
-            // Wywołujemy nasz loader, który automatycznie odtworzy relacje shared/weak_ptr
-            // oraz przełoży układ współrzędnych z OpenGL (Y-up) na Twój świat (Z-up)
             SceneSerializer::LoadScene(sceneFilename, sceneObjects);
-
-            //zmienia sie liczba dziur
             holesPotentialChanges = true;
         }
     }
     ImGui::Separator();
 
+// 2. MUSI BYĆ WYWOŁANE CO KLATKĘ (poza CollapsingHeader, żeby okienko mogło się rysować)
+    fileDialog.Display();
+
+// 3. Logika przypisania wybranego pliku, gdy użytkownik kliknie "Ok" w okienku
+    if (fileDialog.HasSelected())
+    {
+        // Pobieramy ścieżkę
+        std::string filePath = fileDialog.GetSelected().string();
+
+        // Kopiujemy stringa do Twojej tablicy charów (zabezpieczając przed przepełnieniem)
+        strncpy(sceneFilename, filePath.c_str(), sizeof(sceneFilename) - 1);
+        sceneFilename[sizeof(sceneFilename) - 1] = '\0'; // Gwarancja null-terminatora
+
+        // Resetujemy stan przeglądarki
+        fileDialog.ClearSelected();
+    }
 
     if (isBoxSelecting)
     {
