@@ -213,7 +213,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
         }
     }
 
-    // ETAP 2: Odrzucanie szwów
+    // 2: Odrzucanie szwów
     std::vector<HoleSegment> boundaryEdges;
     std::unordered_map<size_t, int> edgeOccurrences;
 
@@ -348,81 +348,3 @@ inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4])
     }
 }
 
-
-// Nowa funkcja pobierająca TRZECI rząd od brzegu (II)
-inline void GetSecondInnerRow(const HoleSegment& edge, Vect3 II[4])
-{
-    auto s = edge.owner;
-    int sizeU = s->sizeU, sizeV = s->sizeV;
-    int u0 = -1, v0 = -1, du = 0, dv = 0;
-
-    for (int v = 0; v < sizeV; ++v)
-    {
-        for (int u = 0; u < sizeU; ++u)
-        {
-            if (s->points[v * sizeU + u].lock() == edge.p[0])
-            {
-                if (u + 1 < sizeU && s->points[v * sizeU + u + 1].lock() == edge.p[1])
-                {
-                    u0=u;
-                    v0=v;
-                    du=1;
-                    dv=0;
-                    break;
-                }
-                if (u - 1 >= 0 && s->points[v * sizeU + u - 1].lock() == edge.p[1])
-                {
-                    u0=u;
-                    v0=v;
-                    du=-1;
-                    dv=0;
-                    break;
-                }
-                if (v + 1 < sizeV && s->points[(v + 1) * sizeU + u].lock() == edge.p[1])
-                {
-                    u0=u;
-                    v0=v;
-                    du=0;
-                    dv=1;
-                    break;
-                }
-                if (v - 1 >= 0 && s->points[(v - 1) * sizeU + u].lock() == edge.p[1])
-                {
-                    u0=u;
-                    v0=v;
-                    du=0;
-                    dv=-1;
-                    break;
-                }
-            }
-        }
-
-        if (du != 0 || dv != 0)
-            break;
-    }
-
-    int inner_du = 0, inner_dv = 0;
-    if (du != 0)
-        inner_dv = (v0 == 0) ? 1 : -1;
-    else
-        inner_du = (u0 == 0) ? 1 : -1;
-
-    for (int k = 0; k < 4; ++k)
-    {
-        // Mnożymy inner_du i inner_dv przez 2 -> wchodzimy o 2 rzedy wgłąb
-        int u_II = u0 + k * du + 2 * inner_du;
-        int v_II = v0 + k * dv + 2 * inner_dv;
-
-        if (u_II >= 0 && u_II < sizeU && v_II >= 0 && v_II < sizeV)
-        {
-            if (auto pt = s->points[v_II * sizeU + u_II].lock())
-                II[k] = pt->transformations.getPosition();
-            else
-                II[k] = edge.p[k]->transformations.getPosition();
-        }
-        else
-        {
-            II[k] = edge.p[k]->transformations.getPosition(); // Fallback zapasowy
-        }
-    }
-}

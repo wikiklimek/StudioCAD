@@ -46,7 +46,7 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
 
     std::unordered_map<int, std::shared_ptr<ScenePoint>> pointMap;
 
-    // 1. WCZYTYWANIE PUNKTÓW
+    // WCZYTYWANIE PUNKTÓW
     if (j.contains("points"))
     {
         for (const auto& pJson : j["points"])
@@ -163,9 +163,7 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
     j["points"] = json::array();
     j["geometry"] = json::array();
 
-    // =======================================================
     // 0. PRE-PASS: Analiza wystąpień punktów w płatach Gregory'ego
-    // =======================================================
     std::unordered_map<ScenePoint*, int> gregoryUsages;
     for (const auto& obj : sceneObjects)
     {
@@ -183,9 +181,7 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
     std::unordered_map<ScenePoint*, int> pointToId;
     int pointIdCounter = 1;
 
-    // =======================================================
     // 1. ZAPIS PUNKTÓW
-    // =======================================================
     for (const auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::Point)
@@ -214,9 +210,7 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
         }
     }
 
-    // =======================================================
     // 2. ZAPIS GEOMETRII
-    // =======================================================
     int geomIdCounter = 1;
     for (const auto& obj : sceneObjects)
     {

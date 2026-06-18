@@ -37,7 +37,7 @@ void main()
     vec4 bu = bernstein(u);
     vec4 bv = bernstein(v);
 
-    // Wyciągamy twarde punkty z 20-elementowej tablicy (mapowanie płaskie na macierz Gregory'ego)
+    // punkty z 20-elementowej tablicy (mapowanie płaskie na macierz Gregory'ego)
     vec3 p00 = tcPos[0];  vec3 p01 = tcPos[1];  vec3 p02 = tcPos[2];  vec3 p03 = tcPos[3];
 
     vec3 p10 = tcPos[4];  vec3 p11u= tcPos[5];  vec3 p11v= tcPos[6];
@@ -48,14 +48,14 @@ void main()
 
     vec3 p30 = tcPos[16]; vec3 p31 = tcPos[17]; vec3 p32 = tcPos[18]; vec3 p33 = tcPos[19];
 
-    // Magia Gregory'ego: Łączenie wektorów skręcenia (Rational Blending)
-    // Używamy małego epsilonu 1e-6, żeby uniknąć dzielenia przez zero w narożnikach!
+    // Łączenie wektorów skręcenia
+    // 1e-6-> bexz dzielenia przez zero w narożnikach
     vec3 p11 = (u * p11u + v * p11v) / (u + v + 1e-6);
     vec3 p12 = (u * p12u + (1.0 - v) * p12v) / (u + (1.0 - v) + 1e-6);
     vec3 p21 = ((1.0 - u) * p21u + v * p21v) / ((1.0 - u) + v + 1e-6);
     vec3 p22 = ((1.0 - u) * p22u + (1.0 - v) * p22v) / ((1.0 - u) + (1.0 - v) + 1e-6);
 
-    // Rekonstrukcja wirtualnej macierzy 4x4 dla tego konkretnego punktu (u,v)
+    // macierzy 4x4 dla tego 'konkretnego' punktu (u,v)
     vec3 G[16] = vec3[](
         p00, p01, p02, p03,
         p10, p11, p12, p13,
