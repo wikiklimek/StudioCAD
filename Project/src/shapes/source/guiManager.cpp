@@ -809,6 +809,30 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         ImGui::EndDisabled();
 
     ImGui::End();
+
+    for (auto& obj : sceneObjects)
+    {
+        if (obj->objectType == ObjectType::IntersectionCurve)
+        {
+            auto ic = std::static_pointer_cast<SceneIntersectionCurve>(obj);
+
+            if (ic->showTextureA)
+            {
+                ImGui::Begin((ic->name + " - Przestrzen UV (P1)").c_str(), &ic->showTextureA);
+                ImGui::Text("Os X: u, Os Y: v");
+                // intptr_t pozwala bezpiecznie rzutować GLuint na wskaźnik wymagany przez ImGui
+                ImGui::Image((void*)(intptr_t)ic->textureA, ImVec2(512, 512));
+                ImGui::End();
+            }
+            if (ic->showTextureB)
+            {
+                ImGui::Begin((ic->name + " - Przestrzen UV (P2)").c_str(), &ic->showTextureB);
+                ImGui::Text("Os X: u, Os Y: v");
+                ImGui::Image((void*)(intptr_t)ic->textureB, ImVec2(512, 512));
+                ImGui::End();
+            }
+        }
+    }
 }
 
 
@@ -1083,6 +1107,14 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             auto p = std::static_pointer_cast<ScenePoint>(obj);
             ImGui::Text("Geometria Punktu:");
             ImGui::SliderFloat("Rozmiar", &p->size, 1.0f, 6.0f);
+        }
+        else if (obj->objectType == ObjectType::IntersectionCurve)
+        {
+            auto ic = std::static_pointer_cast<SceneIntersectionCurve>(obj);
+
+            ImGui::Text("Przestrzen parametrow (2D):");
+            ImGui::Checkbox("Pokaz maske UV (Powierzchnia 1)", &ic->showTextureA);
+            ImGui::Checkbox("Pokaz maske UV (Powierzchnia 2)", &ic->showTextureB);
         }
         ImGui::Unindent();
         ImGui::Separator();
