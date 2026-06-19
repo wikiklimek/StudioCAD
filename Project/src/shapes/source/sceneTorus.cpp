@@ -47,3 +47,55 @@ void SceneTorus::Draw(Shader& shader, Mat4 parentMatrix)  {
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
 }
+
+// =====================================================================
+// REALIZACJA KONCEPTU: EvaluableSurface (POPRAWIONA WERSJA)
+// =====================================================================
+
+Vect3 SceneTorus::EvaluatePos(float u, float v) const
+{
+    // Skalujemy u, v z [0, 1] na pełne [0, 2PI] radianów!
+    float u_rad = u * 2.0f * (float)M_PI;
+    float v_rad = v * 2.0f * (float)M_PI;
+
+    float x = (R + r * std::cos(v_rad)) * std::cos(u_rad);
+    float y = (R + r * std::cos(v_rad)) * std::sin(u_rad);
+    float z = r * std::sin(v_rad);
+
+    Mat4 modelMat = createModelMatrix(transformations.getPosition(), transformations.rotation, transformations.scale);
+    Vect4 localPos(x, y, z, 1.0f);
+
+    return (modelMat * localPos).toVect3();
+}
+
+Vect3 SceneTorus::EvaluateDu(float u, float v) const
+{
+    float u_rad = u * 2.0f * (float)M_PI;
+    float v_rad = v * 2.0f * (float)M_PI;
+
+    float dx = -(R + r * std::cos(v_rad)) * std::sin(u_rad);
+    float dy =  (R + r * std::cos(v_rad)) * std::cos(u_rad);
+    float dz = 0.0f;
+
+    Mat4 dirMat = createModelMatrix(Vect3(0.0f, 0.0f, 0.0f), transformations.rotation, transformations.scale);
+    Vect4 localDir(dx, dy, dz, 0.0f);
+
+    // REGUŁA ŁAŃCUCHOWA (Mnożymy wektor przez pochodną wnętrza, czyli 2PI)
+    return (dirMat * localDir).toVect3() * (2.0f * (float)M_PI);
+}
+
+Vect3 SceneTorus::EvaluateDv(float u, float v) const
+{
+    float u_rad = u * 2.0f * (float)M_PI;
+    float v_rad = v * 2.0f * (float)M_PI;
+
+    float dx = -r * std::sin(v_rad) * std::cos(u_rad);
+    float dy = -r * std::sin(v_rad) * std::sin(u_rad);
+    float dz =  r * std::cos(v_rad);
+
+    Mat4 dirMat = createModelMatrix(Vect3(0.0f, 0.0f, 0.0f), transformations.rotation, transformations.scale);
+    Vect4 localDir(dx, dy, dz, 0.0f);
+
+    // REGUŁA ŁAŃCUCHOWA
+    return (dirMat * localDir).toVect3() * (2.0f * (float)M_PI);
+}

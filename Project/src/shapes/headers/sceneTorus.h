@@ -21,4 +21,12 @@ public:
     void UpdateBuffers() ;
     void Draw(Shader& shader) override;
     void Draw(Shader& shader, Mat4 parentMatrix) override;
+
+
+    Vect3 EvaluatePos(float u, float v) const;
+    Vect3 EvaluateDu(float u, float v) const;
+    Vect3 EvaluateDv(float u, float v) const;
+
+    bool isWrappedU() const { return true; }
+    bool isWrappedV() const { return true; }
 };

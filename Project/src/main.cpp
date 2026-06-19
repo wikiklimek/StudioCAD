@@ -46,6 +46,7 @@ float const PI = (float)M_PI;
 #include "sceneSurface.h"
 #include "deleteManager.h"
 #include "sceneGregoryPatch.h"
+#include "sceneIntersectionCurve.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -477,6 +478,11 @@ int main()
                     s->DrawSurface(*gregoryShader, previewCtx);
                     s->DrawPolygon(shader, previewCtx);
                     s->DrawVectors(shader, previewCtx);
+                }
+                else if (obj->objectType == ObjectType::IntersectionCurve)
+                {
+                    auto ic = std::static_pointer_cast<SceneIntersectionCurve>(obj);
+                    ic->Draw(shader);
                 }
             }
 

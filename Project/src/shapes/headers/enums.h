@@ -19,7 +19,8 @@ enum class ObjectType {
     SplineInterpolating,
     BezierSurfaceC0,
     BezierSurfaceC2,
-    GregoryPatch
+    GregoryPatch,
+    IntersectionCurve
 };
 
 enum class InterpolationBasisMode {

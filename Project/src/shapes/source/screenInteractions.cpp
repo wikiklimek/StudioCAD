@@ -158,7 +158,7 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
     float minY = (float)std::min(boxStartY, boxEndY);
     float maxY = (float)std::max(boxStartY, boxEndY);
 
-    // --- KROK 1: Agregacja wszystkich zaznaczalnych obiektów ---
+    //  Agregacja wszystkich zaznaczalnych obiektów
     std::vector<std::shared_ptr<SceneObject>> selectableObjects;
     for (auto& obj : sceneObjects)
     {
@@ -173,7 +173,7 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
         // nie chcemy tez box selectowa punktów wirtualnych z BezierC2 bo by sie logika rozjechała
     }
 
-    // --- KROK 2: Sprawdzenie kolizji Boxa z wyciągniętymi obiektami ---
+    // Sprawdzenie kolizji Boxa z wyciągniętymi obiektami
     for (auto& obj : selectableObjects)
     {
         Vect3 pos = obj->transformations.getPosition();

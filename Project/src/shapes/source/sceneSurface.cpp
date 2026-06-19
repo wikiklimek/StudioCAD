@@ -73,71 +73,9 @@ void SceneSurface::InitPolygonAndUpload()
 }
 
 
-void SceneSurfaceC0::Init()
-{
-    InitBuffers();
-
-    int patchesU = (sizeU - 1) / 3;
-    int patchesV = (sizeV - 1) / 3;
-
-    for (int pv = 0; pv < patchesV; ++pv)
-    {
-        for (int pu = 0; pu < patchesU; ++pu)
-        {
-            int startU = pu * 3;
-            int startV = pv * 3;
-
-            for (int j = 0; j < 4; ++j)
-            {
-                for (int i = 0; i < 4; ++i)
-                {
-                    patchIndices.push_back((startV + j) * sizeU + (startU + i));
-                }
-            }
-        }
-    }
-
-    InitPolygonAndUpload();
-}
 
 
-void SceneSurfaceC2::Init()
-{
-    InitBuffers();
 
-    int patchesV = sizeV - 3;
-    int patchesU = isCylinder ? (sizeU - 1) : (sizeU - 3);
-
-    for (int pv = 0; pv < patchesV; ++pv)
-    {
-        for (int pu = 0; pu < patchesU; ++pu)
-        {
-            int startU = pu;
-            int startV = pv;
-
-            for (int j = 0; j < 4; ++j)
-            {
-                for (int i = 0; i < 4; ++i)
-                {
-                    int u_idx = startU + i;
-
-                    // C2 CYLINDER
-                    if (isCylinder)
-                    {
-                        if (u_idx >= sizeU)
-                        {
-                            u_idx = u_idx - sizeU + 1;
-                        }
-                    }
-
-                    patchIndices.push_back((startV + j) * sizeU + u_idx);
-                }
-            }
-        }
-    }
-
-    InitPolygonAndUpload();
-}
 
 void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& ctx)
 {
@@ -219,3 +157,6 @@ void SceneSurface::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
     glBindVertexArray(VAO_poly);
     glDrawElements(GL_LINES, polyIndices.size(), GL_UNSIGNED_INT, 0);
 }
+
+
+

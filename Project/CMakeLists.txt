@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(MG1_Project C CXX)
 
 # Ustawiamy standard C++17
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # Szukamy pakietów zainstalowanych wcześniej przez DNF na RHEL 10
 find_package(OpenGL REQUIRED)
@@ -86,6 +86,12 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/sceneGregoryPatch.cpp
         src/shapes/source/gregoryGrid.cpp
         src/shapes/headers/gregoryGrid.h
+        src/shapes/headers/evaluableSurface.h
+        src/shapes/source/sceneSurfaceC0.cpp
+        src/shapes/source/sceneSurfaceC2.cpp
+        src/shapes/headers/intersectionSolver.h
+        src/shapes/headers/sceneIntersectionCurve.h
+        src/shapes/source/sceneIntersectionCurve.cpp
 )
 
 # Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)

@@ -38,7 +38,7 @@ void SceneGregoryPatch::InitPolygonIndices()
     {
         int offset = p * 20;
 
-        // OBWIEDNIA ZEWNĘTRZNA (Ramka sub-płata)
+        // ramka zewnetrzna(Ramka sub-płata)
         // Górna
         polyIndices.push_back(offset + 0); polyIndices.push_back(offset + 1);
         polyIndices.push_back(offset + 1); polyIndices.push_back(offset + 2);

@@ -257,10 +257,6 @@ std::shared_ptr<SceneGregoryPatch> GenerateGregoryPatchForHole(
 
 
 
-
-
-
-
 void UpdateGregoryPositions(const std::weak_ptr<SceneGregoryPatch>& patch, const PreviewContext &ctx)
 {
     // Punkty z Beziera i de Casteljau w t=0.5
@@ -313,10 +309,6 @@ void UpdateGregoryPositions(const std::weak_ptr<SceneGregoryPatch>& patch, const
         Rad[i][2] = Pc_pos + (Q[i] - Pc_pos) * (2.0f / 3.0f);
         Rad[i][3] = Pc_pos;
     }
-
-
-
-
 
 
 

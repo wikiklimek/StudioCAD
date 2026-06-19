@@ -15,6 +15,7 @@
 #include "holeManager.h"
 #include "gregoryGrid.h"
 #include "imfilebrowser.h"
+#include "sceneIntersectionCurve.h"
 
 
 void GuiManager::clearGuiState()
@@ -85,10 +86,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     }
     ImGui::Separator();
 
-// 2. MUSI BYĆ WYWOŁANE CO KLATKĘ (poza CollapsingHeader, żeby okienko mogło się rysować)
+    // 2. MUSI BYĆ WYWOŁANE CO KLATKĘ (poza CollapsingHeader, żeby okienko mogło się rysować)
     fileDialog.Display();
 
-// 3. Logika przypisania wybranego pliku, gdy użytkownik kliknie "Ok" w okienku
+    // 3. Logika przypisania wybranego pliku, gdy użytkownik kliknie "Ok" w okienku
     if (fileDialog.HasSelected())
     {
         // Pobieramy ścieżkę
@@ -113,6 +114,102 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     ImGui::Text("Kursor");
     ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f, min_pos, max_pos);
     //ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
+    ImGui::Separator();
+
+    // =========================================================================
+    // PANEL ZADANIA 10: PRZECINANIE POWIERZCHNI
+    // =========================================================================
+    if (ImGui::CollapsingHeader("Przecinanie Powierzchni (Zadanie 10)", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        std::vector<std::shared_ptr<SceneObject>> selectedSurfaces;
+        for (auto& obj : sceneObjects) {
+            if (obj->isSelected && (obj->objectType == ObjectType::Torus ||
+                                    obj->objectType == ObjectType::BezierSurfaceC0 ||
+                                    obj->objectType == ObjectType::BezierSurfaceC2))
+            {
+                selectedSurfaces.push_back(obj);
+            }
+        }
+
+        static float intersectionStepSize = 0.05f;
+        static bool useCursorStart = false;
+
+        ImGui::SliderFloat("Precyzja kroczenia (d)", &intersectionStepSize, 0.005f, 0.5f);
+        ImGui::Checkbox("Szukaj startu przy kursorze 3D", &useCursorStart);
+
+        if (selectedSurfaces.size() == 2)
+        {
+            if (ImGui::Button("Znajdz Przeciecie", ImVec2(-1, 30)))
+            {
+                auto objA = selectedSurfaces[0];
+                auto objB = selectedSurfaces[1];
+                std::vector<IntersectionPoint> result;
+
+                auto tryIntersect = [&](auto surfA, auto surfB) {
+                    result = IntersectionSolver::FindIntersection(*surfA, *surfB, intersectionStepSize, useCursorStart, cursor.transform.getPosition());
+                };
+
+                #define CAST_AND_CALL(TypeA, TypeB) \
+                    if (auto a = std::dynamic_pointer_cast<TypeA>(objA)) \
+                        if (auto b = std::dynamic_pointer_cast<TypeB>(objB)) tryIntersect(a, b);
+
+                CAST_AND_CALL(SceneTorus, SceneTorus)
+                CAST_AND_CALL(SceneTorus, SceneSurfaceC0)
+                CAST_AND_CALL(SceneTorus, SceneSurfaceC2)
+                CAST_AND_CALL(SceneSurfaceC0, SceneTorus)
+                CAST_AND_CALL(SceneSurfaceC0, SceneSurfaceC0)
+                CAST_AND_CALL(SceneSurfaceC0, SceneSurfaceC2)
+                CAST_AND_CALL(SceneSurfaceC2, SceneTorus)
+                CAST_AND_CALL(SceneSurfaceC2, SceneSurfaceC0)
+                CAST_AND_CALL(SceneSurfaceC2, SceneSurfaceC2)
+
+                if (!result.empty()) {
+                    auto newCurve = std::make_shared<SceneIntersectionCurve>("Krzywa Przeciecia", result);
+                    newCurve->Init();
+                    sceneObjects.push_back(newCurve);
+                }
+            }
+        }
+        else if (selectedSurfaces.size() == 1)
+        {
+            if (ImGui::Button("Znajdz Samoprzeciecie", ImVec2(-1, 30)))
+            {
+                auto objA = selectedSurfaces[0];
+                std::vector<IntersectionPoint> result;
+
+                auto tryIntersect = [&](auto surfA) {
+                    // Wrzucamy dwa razy to samo
+                    result = IntersectionSolver::FindIntersection(*surfA, *surfA, intersectionStepSize, useCursorStart, cursor.transform.getPosition());
+                };
+
+                if (auto a = std::dynamic_pointer_cast<SceneTorus>(objA)) tryIntersect(a);
+                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC0>(objA)) tryIntersect(a);
+                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC2>(objA)) tryIntersect(a);
+
+                if (!result.empty()) {
+                    auto newCurve = std::make_shared<SceneIntersectionCurve>("Krzywa Samoprzeciecia", result);
+                    newCurve->Init();
+                    sceneObjects.push_back(newCurve);
+                }
+            }
+        }
+        else
+        {
+            ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Zaznacz dokladnie dwie powierzchnie!");
+        }
+
+        // --- KONWERSJA NA SPLAJN ---
+        for (auto& obj : sceneObjects) {
+            if (obj->isSelected && obj->objectType == ObjectType::IntersectionCurve) {
+                if (ImGui::Button("Konwertuj krzywa na Splajn", ImVec2(-1, 30))) {
+                    auto interCurve = std::dynamic_pointer_cast<SceneIntersectionCurve>(obj);
+                    auto spline = interCurve->convertToSpline(sceneObjects, 10);
+                    sceneObjects.push_back(spline);
+                }
+                break;
+            }
+        }
+    }
     ImGui::Separator();
 
     if (ImGui::CollapsingHeader("Ustawienia Stereoskopii (3D Anaglif)", ImGuiTreeNodeFlags_DefaultOpen))
@@ -503,7 +600,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             obj->objectType == ObjectType::SplineInterpolating ||
             obj->objectType == ObjectType::BezierSurfaceC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
-                obj->objectType == ObjectType::GregoryPatch)
+                obj->objectType == ObjectType::GregoryPatch ||
+                obj->objectType == ObjectType::IntersectionCurve)
             continue;
 
 
@@ -763,7 +861,8 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
            obj->objectType != ObjectType::SplineInterpolating &&
            obj->objectType != ObjectType::BezierSurfaceC0 &&
            obj->objectType != ObjectType::BezierSurfaceC2 &&
-                obj->objectType != ObjectType::GregoryPatch)
+                obj->objectType != ObjectType::GregoryPatch &&
+                obj->objectType != ObjectType::IntersectionCurve)
         {
             ImGui::Text("Transformacja obiektu:");
             if (ImGui::DragFloat3("Pozycja (XYZ)", &obj->transformations.posX, 0.1f, min_pos, max_pos))
@@ -1215,20 +1314,8 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
             }
         }
 
-        //tegi nie tzreba - punkty sa wirtualne, niewysaeitlane, niezaznacaalne
-        /*
-        else if (obj->objectType == ObjectType::GregoryPatch)
-        {
-            auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
-            for (auto& wp : s->points)
-            {
-                if (wp.lock() == p2)
-                {
-                    wp = p1;
-                }
-            }
-        }
-         */
+        //Gregorego - punkty sa wirtualne, niewysaeitlane, niezaznacaalne
+
     }
 
     //(Liczniki)
