@@ -7,10 +7,12 @@
 #include <array>
 
 //przygotowane typowo pod 3 þłaty - łatwo zmienic
-class SceneGregoryPatch : public SceneObject {
+class SceneGregoryPatch : public SceneObject, public std::enable_shared_from_this<SceneGregoryPatch> {
 public:
 
-    std::vector<std::weak_ptr<ScenePoint>> points;
+    std::vector<std::shared_ptr<ScenePoint>> points;
+    std::vector<std::weak_ptr<ScenePoint>> bezierPatchPoints;
+    std::vector<std::weak_ptr<ScenePoint>> bezierPatchPointsInner;
     size_t id_gregory = 0;
 
 
@@ -46,4 +48,5 @@ public:
 private:
     void InitBuffers();
     void InitPolygonIndices();
+    void UpdateIfNeeded(const PreviewContext &ctx);
 };

@@ -17,7 +17,8 @@ ScenePoint::~ScenePoint() {
     if (VBO) glDeleteBuffers(1, &VBO);
 }
 
-bool ScenePoint::isAnyWaySelected() {
+bool ScenePoint::isAnyWaySelected()
+{
     return isSelected || (selectedCurvesCount > 0) || (selectedSurfacesCount > 0) || isSelectedAsDeBoore;
 }
 

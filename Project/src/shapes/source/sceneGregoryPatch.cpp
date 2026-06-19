@@ -1,5 +1,6 @@
 #include "sceneGregoryPatch.h"
 #include "previewFunctions.h"
+#include "gregoryGrid.h"
 #include <glad/glad.h>
 #include <GL/gl.h>
 
@@ -145,8 +146,8 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
         int off = p * 20;
 
         auto addVectorLine = [&](int edgeIdx, int innerIdx){
-            auto p_edge = points[off + edgeIdx].lock();
-            auto p_inner = points[off + innerIdx].lock();
+            auto p_edge = points[off + edgeIdx];
+            auto p_inner = points[off + innerIdx];
 
             Vect3 pEdge = getPreviewPosition(p_edge, ctx);
             Vect3 pInner = getPreviewPosition(p_inner, ctx);
@@ -255,15 +256,43 @@ void SceneGregoryPatch::Init()
     glBindVertexArray(0);
 }
 
+
+void SceneGregoryPatch::UpdateIfNeeded( const PreviewContext& ctx)
+{
+    bool global = ctx.anySelectionChanged || ctx.wasBaked;
+
+    if(!global)
+        for(int i =0; i< 12; i++)
+        {
+            auto p = bezierPatchPoints[i].lock();
+            auto p_inner = bezierPatchPointsInner[i].lock();
+            if (p->wasGuiEdited || (ctx.isTransforming && (p->isAnyWaySelected())))
+            {
+                global = true;
+                break;
+            }
+            if (p_inner->wasGuiEdited || (ctx.isTransforming && (p_inner->isAnyWaySelected())))
+            {
+                global = true;
+                break;
+            }
+        }
+
+    if(global)
+        UpdateGregoryPositions(weak_from_this(), ctx);
+}
+
 void SceneGregoryPatch::DrawSurface(Shader& shader, const PreviewContext& ctx)
 {
     if (points.size() != 60) return;
+
+    UpdateIfNeeded(ctx);
 
     std::vector<Vect3> currentPositions;
     currentPositions.reserve(60);
     for (auto& wp : points)
     {
-        if (auto p = wp.lock())
+        if (auto p = wp)
             currentPositions.push_back(getPreviewPosition(p, ctx));
         else
             currentPositions.push_back(Vect3(0.0f));

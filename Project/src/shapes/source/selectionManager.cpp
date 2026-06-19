@@ -76,17 +76,31 @@ void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::sha
             if (s->wasGuiSelectionChanged)
             {
                 if(s->isSelected)
-                    for (auto& wp : s->points)
+                {
+                    for (auto &wp: s->bezierPatchPoints)
                     {
                         if (auto p = wp.lock())
                             p->selectedSurfacesCount++;
                     }
+                    for (auto &wp: s->bezierPatchPointsInner)
+                    {
+                        if (auto p = wp.lock())
+                            p->selectedSurfacesCount++;
+                    }
+                }
                 else
-                    for (auto& wp : s->points)
+                {
+                    for (auto &wp: s->bezierPatchPoints)
                     {
                         if (auto p = wp.lock())
                             p->selectedSurfacesCount--;
                     }
+                    for (auto &wp: s->bezierPatchPointsInner)
+                    {
+                        if (auto p = wp.lock())
+                            p->selectedSurfacesCount--;
+                    }
+                }
             }
         }
     }
@@ -103,6 +117,7 @@ void unselectObjectsAndVirtualPointsAndCleanPointsSelectedBeziers(std::vector<st
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
+
 
             //do wirtualnych punktów
             p->isSelectedAsDeBoore = false;

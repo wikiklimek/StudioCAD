@@ -50,7 +50,14 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             else if (obj->objectType == ObjectType::GregoryPatch)
             {
                 auto g = std::static_pointer_cast<SceneGregoryPatch>(obj);
-                for (auto& wp : g->points)
+                for (auto& wp : g->bezierPatchPoints)
+                {
+                    if (auto p = wp.lock())
+                    {
+                        p->globalSurfacesCount--;
+                    }
+                }
+                for (auto& wp : g->bezierPatchPointsInner)
                 {
                     if (auto p = wp.lock())
                     {
@@ -89,23 +96,29 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             }
         }
         else if (obj->pendingDelete &&
-            obj->objectType == ObjectType::GregoryPatch)
+            obj->objectType == ObjectType::GregoryPatch) //zastanów sie czy chcesz aby to tak działało
         {
             auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
-            for (auto& wp : s->points)
+            for (auto& wp : s->bezierPatchPoints)
             {
                 if (auto p = wp.lock())
                 {
-                    //p->belongsToPatch = false;
-
-                    //tymvzasowo to połaczmy, ale zmieimy na jeden guzik
                     if (guiManager.surfaceDeletionMode == 1 || guiManager.surfaceDeletionMode == 2)
                     {
-                        // Tryb 2: usuń punkt tylko jeśli nie jest w żadnej krzywej lub powierzchni
                         if (p->globalCurvesCount == 0 && p->globalSurfacesCount == 0)
                             p->pendingDelete = true;
                     }
-                    // Tryb 0: usuń tylko płat (punkty zostają)
+                }
+            }
+            for (auto& wp : s->bezierPatchPointsInner)
+            {
+                if (auto p = wp.lock())
+                {
+                    if (guiManager.surfaceDeletionMode == 1 || guiManager.surfaceDeletionMode == 2)
+                    {
+                        if (p->globalCurvesCount == 0 && p->globalSurfacesCount == 0)
+                            p->pendingDelete = true;
+                    }
                 }
             }
         }

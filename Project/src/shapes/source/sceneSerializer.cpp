@@ -164,19 +164,26 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
     j["geometry"] = json::array();
 
     // 0. PRE-PASS: Analiza wystąpień punktów w płatach Gregory'ego
+    /*
     std::unordered_map<ScenePoint*, int> gregoryUsages;
     for (const auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::GregoryPatch)
         {
             auto greg = std::static_pointer_cast<SceneGregoryPatch>(obj);
-            for (const auto& wp : greg->points)
+            for (const auto& wp : greg->bezierPatchPoints)
+            {
+                if (auto p = wp.lock())
+                    gregoryUsages[p.get()]++;
+            }
+            for (const auto& wp : greg->bezierPatchPointsInner)
             {
                 if (auto p = wp.lock())
                     gregoryUsages[p.get()]++;
             }
         }
     }
+     */
 
     std::unordered_map<ScenePoint*, int> pointToId;
     int pointIdCounter = 1;
@@ -190,11 +197,11 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
 
             // FILTR: Jeśli punkt nie należy do żadnej krzywej, a jego wystąpienia
             // na powierzchniach są zdominowane WYŁĄCZNIE przez płaty Gregory'ego...
-            int gCount = gregoryUsages[p.get()];
-            if (gCount > 0 && p->globalCurvesCount == 0 && p->globalSurfacesCount == gCount)
-            {
-                continue; // To sztuczny punkt z wnętrza łaty Gregory'ego -> POMIJAMY
-            }
+            //int gCount = gregoryUsages[p.get()];
+           // if (gCount > 0 && p->globalCurvesCount == 0 && p->globalSurfacesCount == gCount)
+           // {
+            //    continue; // To sztuczny punkt z wnętrza łaty Gregory'ego -> POMIJAMY
+           // }
 
             int id = pointIdCounter++;
             pointToId[p.get()] = id;

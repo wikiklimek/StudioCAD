@@ -275,7 +275,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
 
 
 // Pobieranie wewnętrznego rzędu płata Beziera
-inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4])
+inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4], std::weak_ptr<ScenePoint> ptrI[4])
 {
     auto s = edge.owner;
     int sizeU = s->sizeU, sizeV = s->sizeV;
@@ -339,7 +339,10 @@ inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4])
         if (u_I >= 0 && u_I < sizeU && v_I >= 0 && v_I < sizeV)
         {
             if (auto pt = s->points[v_I * sizeU + u_I].lock())
+            {
                 I[k] = pt->transformations.getPosition();
+                ptrI[k] = pt;
+            }
             else
                 I[k] = edge.p[k]->transformations.getPosition();
         }

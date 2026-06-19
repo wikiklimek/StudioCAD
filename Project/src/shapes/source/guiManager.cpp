@@ -183,7 +183,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
             if (ImGui::Button("Wygeneruj Plat"))
             {
-                auto newPatch = GenerateGregoryPatchForHole(currentFoundHoles[i], sceneObjects);
+                auto newPatch = GenerateGregoryPatchForHole(currentFoundHoles[i] /*, sceneObjects*/);
                 if (newPatch)
                 {
                     sceneObjects.push_back(newPatch);
@@ -1214,6 +1214,9 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
                 }
             }
         }
+
+        //tegi nie tzreba - punkty sa wirtualne, niewysaeitlane, niezaznacaalne
+        /*
         else if (obj->objectType == ObjectType::GregoryPatch)
         {
             auto s = std::static_pointer_cast<SceneGregoryPatch>(obj);
@@ -1225,6 +1228,7 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
                 }
             }
         }
+         */
     }
 
     //(Liczniki)
