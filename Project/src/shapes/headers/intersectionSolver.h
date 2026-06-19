@@ -45,7 +45,7 @@ public:
             float du = -( J22 * f1 - J12 * f2) * invDet;
             float dv = -(-J21 * f1 + J11 * f2) * invDet;
 
-            // Zamiast patrzeć na iloczyn skalarny, patrzymy czy parametry przestały się zmieniać!
+            // Zamiast patrzeć na iloczyn skalarny, patrzymy czy parametry przestały się zmieniać
             if (std::abs(du) < 1e-6f && std::abs(dv) < 1e-6f) return true;
 
             u += du;
@@ -61,20 +61,56 @@ public:
     }
 
     // ==============================================================================
-    // 2. GŁÓWNY ALGORYTM PRZECIĘCIA (Hunting + Dwukierunkowy Marching z pamięcią wektora)
+    // 2. GŁÓWNY ALGORYTM PRZECIĘCIA (Hybrydowy Hunting + Bidirectional Marching)
     // ==============================================================================
     template<EvaluableSurface SurfA, EvaluableSurface SurfB>
     static std::vector<IntersectionPoint> FindIntersection(const SurfA& A, const SurfB& B,
-                                                           float stepSize = 0.05f, bool useCursor = false, Vect3 cursorPos = Vect3(0,0,0))
+                                                           float stepSize = 0.05f, bool useCursor = false, Vect3 cursorPos = Vect3(0,0,0),
+                                                           bool isSelfIntersect = false)
     {
         float start_uA = 0.5f, start_vA = 0.5f, start_uB = 0.5f, start_vB = 0.5f;
 
-        if (useCursor) {
+        // --- FAZA A: HUNTING ---
+        if (useCursor && !isSelfIntersect) {
+            // Zwykłe rzutowanie dla 2 różnych powierzchni
             ProjectPointToSurface(A, cursorPos, start_uA, start_vA);
             ProjectPointToSurface(B, cursorPos, start_uB, start_vB);
-        } else {
+        }
+        else if (useCursor && isSelfIntersect) {
+            // TWOJA HYBRYDA: Część 1 z kursora...
+            ProjectPointToSurface(A, cursorPos, start_uA, start_vA);
+
+            // ...Część 2 z "losowania" blisko kursora!
+            float bestDistSq = 1e20f;
+            const int SAMPLES = 25;
+            for (int k = 0; k <= SAMPLES; ++k) {
+                float s = (float)k / SAMPLES;
+                for (int l = 0; l <= SAMPLES; ++l) {
+                    float t = (float)l / SAMPLES;
+
+                    float du = std::abs(start_uA - s); if (A.isWrappedU() && du > 0.5f) du = 1.0f - du;
+                    float dv = std::abs(start_vA - t); if (A.isWrappedV() && dv > 0.5f) dv = 1.0f - dv;
+
+                    // Szukamy punktu daleko od pierwszego w UV (zabezpieczenie)
+                    if (du * du + dv * dv < 0.05f) continue;
+
+                    Vect3 pB = B.EvaluatePos(s, t);
+                    Vect3 diff = pB - cursorPos;
+                    float distSq = diff.x*diff.x + diff.y*diff.y + diff.z*diff.z;
+                    if (distSq < bestDistSq) {
+                        bestDistSq = distSq;
+                        start_uB = s;
+                        start_vB = t;
+                    }
+                }
+            }
+            // "Dociśnięcie" hybrydowego punktu
+            ProjectPointToSurface(B, cursorPos, start_uB, start_vB);
+        }
+        else {
+            // Klasyczne losowanie z siatki dla całej sceny
             float bestDistSq = 9999999.0f;
-            const int SAMPLES = 25; // Zwiększona gęstość siatki początkowej
+            const int SAMPLES = 25;
             for (int i = 0; i <= SAMPLES; ++i) {
                 for (int j = 0; j <= SAMPLES; ++j) {
                     float u = (float)i / SAMPLES; float v = (float)j / SAMPLES;
@@ -82,6 +118,13 @@ public:
                     for(int k=0; k <= SAMPLES; k+=3) {
                         for(int l=0; l <= SAMPLES; l+=3) {
                             float s = (float)k/SAMPLES; float t = (float)l/SAMPLES;
+
+                            if (isSelfIntersect) {
+                                float du = std::abs(u - s); if (A.isWrappedU() && du > 0.5f) du = 1.0f - du;
+                                float dv = std::abs(v - t); if (A.isWrappedV() && dv > 0.5f) dv = 1.0f - dv;
+                                if (du * du + dv * dv < 0.05f) continue;
+                            }
+
                             Vect3 pB = B.EvaluatePos(s, t);
                             Vect3 diff = pA - pB;
                             float distSq = diff.x*diff.x + diff.y*diff.y + diff.z*diff.z;
@@ -96,12 +139,18 @@ public:
             }
         }
 
-        // 3-krotny ping-pong dla perfekcyjnego osadzenia punktu startowego
-        for (int k = 0; k < 3; ++k) {
+        // MOCNY PING-PONG (do 50 razy, likwiduje "wzgórze" na początku krzywej)
+        for (int k = 0; k < 50; ++k) {
             Vect3 pA = A.EvaluatePos(start_uA, start_vA);
             ProjectPointToSurface(B, pA, start_uB, start_vB);
+
             Vect3 pB = B.EvaluatePos(start_uB, start_vB);
             ProjectPointToSurface(A, pB, start_uA, start_vA);
+
+            Vect3 diff = A.EvaluatePos(start_uA, start_vA) - B.EvaluatePos(start_uB, start_vB);
+            if (diff.x*diff.x + diff.y*diff.y + diff.z*diff.z < 1e-8f) {
+                break; // Znaleziono perfekcyjny styk!
+            }
         }
 
         Vect3 diff = A.EvaluatePos(start_uA, start_vA) - B.EvaluatePos(start_uB, start_vB);
@@ -109,7 +158,7 @@ public:
             return std::vector<IntersectionPoint>();
         }
 
-        // --- FAZA B: DWUKIERUNKOWY MARCHING (Zabezpieczony przed zygzakowaniem!) ---
+        // --- FAZA B: DWUKIERUNKOWY MARCHING ---
         auto doMarch = [&](float dirSign, bool& isClosed)
         {
             std::vector<IntersectionPoint> subCurve;
@@ -120,7 +169,7 @@ public:
             subCurve.push_back(firstPt);
             isClosed = false;
 
-            Vect3 previousTangent(0.0f); // Pamięć wektora stycznej
+            Vect3 previousTangent(0.0f);
 
             const int MAX_STEPS = 3000;
             for (int step = 0; step < MAX_STEPS; ++step)
@@ -132,7 +181,6 @@ public:
                 if (tangent.x*tangent.x + tangent.y*tangent.y + tangent.z*tangent.z < 0.0001f) break;
                 tangent.normalize();
 
-                // Zamiast wektora pozycji, używamy historii stycznej!
                 if (step == 0) {
                     tangent *= dirSign;
                 } else {
@@ -140,11 +188,11 @@ public:
                         tangent *= -1.0f;
                     }
                 }
-                previousTangent = tangent; // Zapisujemy na następny krok
+                previousTangent = tangent;
 
                 Vect3 candX = subCurve.back().worldPos + tangent * stepSize;
 
-                // Ping-pong rzutowania, żeby punkt candX "przykleił się" do szwu
+                // 2 iteracje dociskania każdego kroku zapewniają, że krzywa idzie idealnie po krawędzi
                 for (int k = 0; k < 2; ++k) {
                     ProjectPointToSurface(A, candX, curr_uA, curr_vA);
                     candX = A.EvaluatePos(curr_uA, curr_vA);
@@ -152,7 +200,6 @@ public:
                     candX = B.EvaluatePos(curr_uB, curr_vB);
                 }
 
-                // Ścisłe sprawdzanie brzegów
                 if (!A.isWrappedU() && (curr_uA <= 0.0001f || curr_uA >= 0.9999f)) break;
                 if (!A.isWrappedV() && (curr_vA <= 0.0001f || curr_vA >= 0.9999f)) break;
                 if (!B.isWrappedU() && (curr_uB <= 0.0001f || curr_uB >= 0.9999f)) break;
@@ -160,11 +207,9 @@ public:
 
                 Vect3 finalPos = (A.EvaluatePos(curr_uA, curr_vA) + B.EvaluatePos(curr_uB, curr_vB)) * 0.5f;
 
-                // Zabezpieczenie przed ugrzęźnięciem w kącie
                 Vect3 stepDiff = finalPos - subCurve.back().worldPos;
                 if (stepDiff.x*stepDiff.x + stepDiff.y*stepDiff.y + stepDiff.z*stepDiff.z < (stepSize * stepSize * 0.0001f)) break;
 
-                // Sprawdzamy czy pętla się zamknęła
                 if (step > 15) {
                     Vect3 toStart = finalPos - firstPt.worldPos;
                     if (toStart.x*toStart.x + toStart.y*toStart.y + toStart.z*toStart.z < (stepSize * stepSize * 1.5f)) {
@@ -183,14 +228,12 @@ public:
         std::vector<IntersectionPoint> forwardCurve = doMarch(1.0f, isClosedLoop);
 
         if (isClosedLoop) {
-            return forwardCurve; // Zamknięta pętla - mamy wszystko
+            return forwardCurve;
         }
         else {
-            // Krzywa uderzyła w krawędź. Odpalamy kroczenie w tył (-1.0f)
             bool dummyClosed;
             std::vector<IntersectionPoint> backwardCurve = doMarch(-1.0f, dummyClosed);
 
-            // Sklejamy tył z przodem unikając powtórzenia punktu startowego (index 0)
             std::vector<IntersectionPoint> fullCurve;
             for (int i = backwardCurve.size() - 1; i > 0; --i) {
                 fullCurve.push_back(backwardCurve[i]);

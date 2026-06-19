@@ -146,7 +146,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 std::vector<IntersectionPoint> result;
 
                 auto tryIntersect = [&](auto surfA, auto surfB) {
-                    result = IntersectionSolver::FindIntersection(*surfA, *surfB, intersectionStepSize, useCursorStart, cursor.transform.getPosition());
+                    result = IntersectionSolver::FindIntersection(*surfA, *surfB,
+                                                                  intersectionStepSize, useCursorStart,
+                                                                  cursor.transform.getPosition(),
+                                                                  false);
                 };
 
                 #define CAST_AND_CALL(TypeA, TypeB) \
@@ -179,7 +182,10 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
                 auto tryIntersect = [&](auto surfA) {
                     // Wrzucamy dwa razy to samo
-                    result = IntersectionSolver::FindIntersection(*surfA, *surfA, intersectionStepSize, useCursorStart, cursor.transform.getPosition());
+                    result = IntersectionSolver::FindIntersection(*surfA, *surfA,
+                                                                  intersectionStepSize, useCursorStart,
+                                                                  cursor.transform.getPosition(),
+                                                                  true);
                 };
 
                 if (auto a = std::dynamic_pointer_cast<SceneTorus>(objA)) tryIntersect(a);
