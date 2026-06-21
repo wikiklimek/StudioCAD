@@ -35,6 +35,19 @@ void SceneTorus::Draw(Shader& shader)  {
     Mat4 finalMat = localMat;
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
+
+    // --- TRYMOWANIE ---
+    glUniform1f(glGetUniformLocation(shader.ID, "torusR"), R); // Promień Torusa niezbędny do u/v
+    glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
+    glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
+    if (useTrim) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, trimTexture);
+        glUniform1i(glGetUniformLocation(shader.ID, "trimMap"), 1);
+        glActiveTexture(GL_TEXTURE0);
+    }
+    // ------------------
+
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
 }
@@ -44,6 +57,19 @@ void SceneTorus::Draw(Shader& shader, Mat4 parentMatrix)  {
     Mat4 finalMat = parentMatrix * localMat;
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
+
+    // --- TRYMOWANIE ---
+    glUniform1f(glGetUniformLocation(shader.ID, "torusR"), R); // Promień Torusa niezbędny do u/v
+    glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
+    glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
+    if (useTrim) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, trimTexture);
+        glUniform1i(glGetUniformLocation(shader.ID, "trimMap"), 1);
+        glActiveTexture(GL_TEXTURE0);
+    }
+    // ------------------
+
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
 }

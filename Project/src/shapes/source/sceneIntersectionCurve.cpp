@@ -2,12 +2,16 @@
 #include <glad/glad.h>
 #include <cmath>
 
-SceneIntersectionCurve::SceneIntersectionCurve(std::string n, const std::vector<IntersectionPoint>& pts)
-        : SceneObject(std::move(n), Transformations(), ObjectType::IntersectionCurve), // <--- Używa nowego Enuma!
-          intersectionPoints(pts)
+SceneIntersectionCurve::SceneIntersectionCurve(std::string n, const std::vector<IntersectionPoint>& pts,
+                                               std::shared_ptr<SceneObject> objA, std::shared_ptr<SceneObject> objB,
+                                               bool wUA, bool wVA, bool wUB, bool wVB)
+        : SceneObject(std::move(n), Transformations(), ObjectType::IntersectionCurve),
+          intersectionPoints(pts), objectA(objA), objectB(objB),
+          wrapUA(wUA), wrapVA(wVA), wrapUB(wUB), wrapVB(wVB)
 {
-    color[0] = 0.0f; color[1] = 0.0f; color[2] = 0.0f; // Domyślnie czarna linia przecięcia
+    color[0] = 0.0f; color[1] = 0.0f; color[2] = 0.0f;
 }
+
 
 SceneIntersectionCurve::~SceneIntersectionCurve() {
     if (VAO) glDeleteVertexArrays(1, &VAO);
@@ -50,27 +54,80 @@ void SceneIntersectionCurve::Draw(Shader& shader, Mat4 parentMatrix) {
     Draw(shader); // Nasza krzywa i tak jest już w World Space
 }
 
-// Konwersja na Interpolacyjną Krzywą Sklejaną (Wymóg zadania 10)
-std::shared_ptr<SceneSplineInterpolating> SceneIntersectionCurve::convertToSpline(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, int pointStep)
+// =========================================================================
+// ADAPTACYJNA KONWERSJA NA SPLAJN (Algorytm Ramera-Douglasa-Peuckera)
+// =========================================================================
+namespace {
+    // Funkcja licząca najkrótszą odległość punktu P od odcinka AB w 3D
+    float pointToSegmentDistance(const Vect3& P, const Vect3& A, const Vect3& B) {
+        Vect3 AB = B - A;
+        Vect3 AP = P - A;
+        float L2 = AB.x * AB.x + AB.y * AB.y + AB.z * AB.z;
+
+        if (L2 < 1e-6f) { // Jeśli A i B leżą w tym samym miejscu
+            Vect3 diff = P - A;
+            return std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+        }
+
+        // Rzutujemy punkt P na prostą AB i sprawdzamy ułamek 't' (clamp upewnia się, że nie wyjdziemy poza odcinek)
+        float t = std::clamp(Vect3::dot(AP, AB) / L2, 0.0f, 1.0f);
+        Vect3 proj = A + AB * t;
+        Vect3 diff = P - proj;
+
+        return std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
+    }
+
+    // Rekurencyjna funkcja adaptacyjna
+    void RamerDouglasPeucker(const std::vector<IntersectionPoint>& points, float epsilon, size_t start, size_t end, std::vector<bool>& keep) {
+        float maxDist = 0.0f;
+        size_t index = start;
+
+        // Szukamy najbardziej odstającego punktu pomiędzy start a end
+        for (size_t i = start + 1; i < end; ++i) {
+            float dist = pointToSegmentDistance(points[i].worldPos, points[start].worldPos, points[end].worldPos);
+            if (dist > maxDist) {
+                maxDist = dist;
+                index = i;
+            }
+        }
+
+        // Jeśli błąd jest większy niż założona tolerancja, zachowujemy ten punkt i dzielimy problem na pół
+        if (maxDist > epsilon) {
+            keep[index] = true;
+            RamerDouglasPeucker(points, epsilon, start, index, keep);
+            RamerDouglasPeucker(points, epsilon, index, end, keep);
+        }
+    }
+}
+
+// Zmodyfikowana metoda konwersji używająca powyższej matematyki
+std::shared_ptr<SceneSplineInterpolating> SceneIntersectionCurve::convertToSpline(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, float tolerance)
 {
     auto spline = std::make_shared<SceneSplineInterpolating>(name + " (Spline)", Transformations());
     spline->Init();
 
-    for (size_t i = 0; i < intersectionPoints.size(); i += pointStep) {
-        auto pt = std::make_shared<ScenePoint>("P_int_" + std::to_string(i), intersectionPoints[i].worldPos);
-        pt->Init();
-        sceneObjects.push_back(pt);
+    if (intersectionPoints.size() < 2) return spline;
 
-        spline->points.push_back(pt);
-        pt->globalCurvesCount++;
-    }
+    // Tablica flag (domyślnie wyrzucamy wszystkie punkty)
+    std::vector<bool> keepPoint(intersectionPoints.size(), false);
 
-    if ((intersectionPoints.size() - 1) % pointStep != 0) {
-        auto pt = std::make_shared<ScenePoint>("P_int_end", intersectionPoints.back().worldPos);
-        pt->Init();
-        sceneObjects.push_back(pt);
-        spline->points.push_back(pt);
-        pt->globalCurvesCount++;
+    // Ale zawsze zachowujemy pierwszy i ostatni
+    keepPoint.front() = true;
+    keepPoint.back() = true;
+
+    // Odpalamy magię redukcji!
+    RamerDouglasPeucker(intersectionPoints, tolerance, 0, intersectionPoints.size() - 1, keepPoint);
+
+    // Na podstawie flag wstawiamy na scenę tylko te punkty kontrolne, które są absolutnie niezbędne
+    for (size_t i = 0; i < intersectionPoints.size(); ++i) {
+        if (keepPoint[i]) {
+            auto pt = std::make_shared<ScenePoint>("P_int_" + std::to_string(i), intersectionPoints[i].worldPos);
+            pt->Init();
+            sceneObjects.push_back(pt);
+
+            spline->points.push_back(pt);
+            pt->globalCurvesCount++;
+        }
     }
 
     return spline;
@@ -81,7 +138,7 @@ std::shared_ptr<SceneSplineInterpolating> SceneIntersectionCurve::convertToSplin
 // ---------------------------------------------------------
 void SceneIntersectionCurve::GenerateParametricTextures()
 {
-    const int res = 1024; // Rozdzielczość
+    const int res = 2048; // Rozdzielczość
     std::vector<unsigned char> bufferA(res * res * 4, 255);
     std::vector<unsigned char> bufferB(res * res * 4, 255);
 
@@ -157,12 +214,72 @@ void SceneIntersectionCurve::GenerateParametricTextures()
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, r, r, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf.data());
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // Zmienione na GL_REPEAT aby ewentualne filtrowanie zawijało się poprawnie!
+
+        // Zmiana na GL_NEAREST! Maska będzie idealnie ostra, koniec z pływającymi krawędziami:
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     };
+
+    // =========================================================================
+    // FLOOD FILL - Rozdzielanie tekstury na czarną i białą strefę
+    // =========================================================================
+    auto floodFill = [&](std::vector<unsigned char>& buf, bool wrapU, bool wrapV) {
+        int startX = -1, startY = -1;
+        // Szukamy pierwszego wolnego (białego) piksela
+        for (int y = 0; y < res; ++y) {
+            for (int x = 0; x < res; ++x) {
+                if (buf[(y * res + x) * 4] == 255) { startX = x; startY = y; break; }
+            }
+            if (startX != -1) break;
+        }
+        if (startX == -1) return;
+
+        std::vector<std::pair<int, int>> queue;
+        queue.push_back({startX, startY});
+        buf[(startY * res + startX) * 4] = 128; // Zaznaczamy na szaro (odwiedzony)
+
+        int head = 0;
+        while(head < queue.size()) {
+            int cx = queue[head].first;
+            int cy = queue[head].second;
+            head++;
+
+            int dx[] = {1, -1, 0, 0};
+            int dy[] = {0, 0, 1, -1};
+            for (int i=0; i<4; ++i) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+
+                if (wrapU) nx = (nx + res) % res;
+                if (wrapV) ny = (ny + res) % res;
+
+                if (nx >= 0 && nx < res && ny >= 0 && ny < res) {
+                    int idx = (ny * res + nx) * 4;
+                    if (buf[idx] == 255) { // Jeśli biały, dodaj do kolejki
+                        buf[idx] = 128;
+                        queue.push_back({nx, ny});
+                    }
+                }
+            }
+        }
+
+        // Finalne kolorowanie: Szary -> Czarny (odcięty), Biały -> Biały (zostaje), Czarny ślad -> Biały (zostaje)
+        for (int i = 0; i < res * res; ++i) {
+            if (buf[i * 4] == 128) {
+                buf[i * 4] = buf[i * 4 + 1] = buf[i * 4 + 2] = 0;
+            } else {
+                buf[i * 4] = buf[i * 4 + 1] = buf[i * 4 + 2] = 255;
+            }
+        }
+    };
+
+    floodFill(bufferA, wrapUA, wrapVA);
+    floodFill(bufferB, wrapUB, wrapVB);
+
+    // Lambda wgrywająca tekstury... (tutaj leci uploadTexture)
 
     uploadTexture(textureA, bufferA, res);
     uploadTexture(textureB, bufferB, res);

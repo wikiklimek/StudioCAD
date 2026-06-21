@@ -10,6 +10,10 @@ uniform bool swapUV;
 uniform int u_tessLevelU;
 uniform int u_tessLevelV;
 
+out vec2 fsUV;
+uniform int patchesU;
+uniform int patchesV;
+
 vec4 bernstein(float t) {
     float invT = 1.0 - t;
     return vec4(invT * invT * invT, 3.0 * t * invT * invT, 3.0 * t * t * invT, t * t * t);
@@ -46,4 +50,8 @@ void main() {
         }
     }
     gl_Position = projection * view * model * vec4(finalPos, 1.0);
+
+    float globalU = (float(gl_PrimitiveID % patchesU) + u) / float(patchesU);
+    float globalV = (float(gl_PrimitiveID / patchesU) + v) / float(patchesV);
+    fsUV = vec2(globalU, globalV);
 }

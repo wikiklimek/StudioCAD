@@ -89,7 +89,8 @@ int main()
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-    Shader shader("src/shaders/torus.vs", "src/shaders/torus.fs");
+    Shader shader("src/shaders/basic.vs", "src/shaders/basic.fs");
+    Shader shaderTorus("src/shaders/torus.vs", "src/shaders/torus.fs");
 
     Shader bezierLineStripShader("src/shaders/bezier_line_strip.vs", "src/shaders/bezier_line_strip.fs");
     Shader bezierGeomShader("src/shaders/bezier_geom.vs", "src/shaders/bezier_geom.fs", "src/shaders/bezier_geom.gs");
@@ -426,6 +427,7 @@ int main()
             };
 
             updateShader(&shader);
+            updateShader(&shaderTorus);
             updateShader(bezierShader);
             updateShader(bsplineShader);
             updateShader(interpolatingShader);
@@ -437,7 +439,7 @@ int main()
             shader.use();
             for (auto& obj : sceneObjects)
             {
-                drawObjectWithPreview(obj, shader, previewCtx);
+                drawObjectWithPreview(obj, obj->objectType ==ObjectType::Torus ? shaderTorus : shader, previewCtx);
             }
 
             for (auto& obj : sceneObjects)

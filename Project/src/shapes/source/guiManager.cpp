@@ -152,9 +152,15 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                                                                   false);
                 };
 
-                #define CAST_AND_CALL(TypeA, TypeB) \
+                bool wUA=false, wVA=false, wUB=false, wVB=false; // Zmienne pomocnicze
+
+#define CAST_AND_CALL(TypeA, TypeB) \
                     if (auto a = std::dynamic_pointer_cast<TypeA>(objA)) \
-                        if (auto b = std::dynamic_pointer_cast<TypeB>(objB)) tryIntersect(a, b);
+                        if (auto b = std::dynamic_pointer_cast<TypeB>(objB)) { \
+                            tryIntersect(a, b); \
+                            wUA = a->isWrappedU(); wVA = a->isWrappedV(); \
+                            wUB = b->isWrappedU(); wVB = b->isWrappedV(); \
+                        }
 
                 CAST_AND_CALL(SceneTorus, SceneTorus)
                 CAST_AND_CALL(SceneTorus, SceneSurfaceC0)
@@ -167,7 +173,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 CAST_AND_CALL(SceneSurfaceC2, SceneSurfaceC2)
 
                 if (!result.empty()) {
-                    auto newCurve = std::make_shared<SceneIntersectionCurve>("Krzywa Przeciecia", result);
+                    auto newCurve = std::make_shared<SceneIntersectionCurve>(
+                            "Krzywa Przeciecia", result, objA, objB, wUA, wVA, wUB, wVB);
                     newCurve->Init();
                     sceneObjects.push_back(newCurve);
                 }
@@ -180,12 +187,17 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 auto objA = selectedSurfaces[0];
                 std::vector<IntersectionPoint> result;
 
+                bool wUA=false, wVA=false; // Flagi dla samoprzecięcia
+
                 auto tryIntersect = [&](auto surfA) {
                     // Wrzucamy dwa razy to samo
                     result = IntersectionSolver::FindIntersection(*surfA, *surfA,
                                                                   intersectionStepSize, useCursorStart,
                                                                   cursor.transform.getPosition(),
                                                                   true);
+                    // Pobieramy flagi z tego jednego obiektu
+                    wUA = surfA->isWrappedU();
+                    wVA = surfA->isWrappedV();
                 };
 
                 if (auto a = std::dynamic_pointer_cast<SceneTorus>(objA)) tryIntersect(a);
@@ -193,7 +205,9 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC2>(objA)) tryIntersect(a);
 
                 if (!result.empty()) {
-                    auto newCurve = std::make_shared<SceneIntersectionCurve>("Krzywa Samoprzeciecia", result);
+                    // W samoprzecięciu obiekt A i B to to samo, flagi też dublujemy
+                    auto newCurve = std::make_shared<SceneIntersectionCurve>(
+                            "Krzywa Samoprzeciecia", result, objA, objA, wUA, wVA, wUA, wVA);
                     newCurve->Init();
                     sceneObjects.push_back(newCurve);
                 }
@@ -204,17 +218,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Zaznacz dokladnie dwie powierzchnie!");
         }
 
-        // --- KONWERSJA NA SPLAJN ---
-        for (auto& obj : sceneObjects) {
-            if (obj->isSelected && obj->objectType == ObjectType::IntersectionCurve) {
-                if (ImGui::Button("Konwertuj krzywa na Splajn", ImVec2(-1, 30))) {
-                    auto interCurve = std::dynamic_pointer_cast<SceneIntersectionCurve>(obj);
-                    auto spline = interCurve->convertToSpline(sceneObjects, 10);
-                    sceneObjects.push_back(spline);
-                }
-                break;
-            }
-        }
     }
     ImGui::Separator();
 
@@ -788,7 +791,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         for (auto& obj : sceneObjects)
         {
             if(obj->objectType != ObjectType::Point)
-                renderObjectGuiRow(obj, magicMode, magicCurve);
+                renderObjectGuiRow(sceneObjects, obj, magicMode, magicCurve);
         }
         ImGui::TreePop();
     }
@@ -799,7 +802,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         {
             if (obj->objectType == ObjectType::Point)
             {
-                renderObjectGuiRow(obj, magicMode, magicCurve);
+                renderObjectGuiRow(sceneObjects, obj, magicMode, magicCurve);
             }
         }
         ImGui::TreePop();
@@ -836,7 +839,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 }
 
 
-void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve)
+void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve)
 {
     ImGui::PushID(obj.get());
 
@@ -1113,8 +1116,35 @@ void GuiManager::renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& mag
             auto ic = std::static_pointer_cast<SceneIntersectionCurve>(obj);
 
             ImGui::Text("Przestrzen parametrow (2D):");
-            ImGui::Checkbox("Pokaz maske UV (Powierzchnia 1)", &ic->showTextureA);
-            ImGui::Checkbox("Pokaz maske UV (Powierzchnia 2)", &ic->showTextureB);
+            ImGui::Checkbox("Pokaz maske UV (P1)", &ic->showTextureA);
+            ImGui::Checkbox("Pokaz maske UV (P2)", &ic->showTextureB);
+
+            ImGui::Separator();
+            ImGui::Text("Trymowanie obiektow:");
+            if (auto a = ic->objectA.lock()) {
+                ImGui::Text("Powierzchnia A: %s", a->name.c_str());
+                if (ImGui::Button("Zastosuj maske dla A")) { a->trimTexture = ic->textureA; a->useTrim = true; }
+                ImGui::SameLine(); ImGui::Checkbox("Odwroc strone A", &a->trimFlip);
+                if (ImGui::Button("Wylacz trymowanie A")) a->useTrim = false;
+            }
+            if (auto b = ic->objectB.lock()) {
+                ImGui::Text("Powierzchnia B: %s", b->name.c_str());
+                if (ImGui::Button("Zastosuj maske dla B")) { b->trimTexture = ic->textureB; b->useTrim = true; }
+                ImGui::SameLine(); ImGui::Checkbox("Odwroc strone B", &b->trimFlip);
+                if (ImGui::Button("Wylacz trymowanie B")) b->useTrim = false;
+            }
+
+            static float splineTolerance = 0.05f;
+            ImGui::Text("Tolerancja bledu Splajnu:");
+            ImGui::SliderFloat("##splineTol", &splineTolerance, 0.001f, 0.5f);
+
+            if (ImGui::Button("Konwertuj krzywa na Splajn", ImVec2(-1, 30)))
+            {
+                auto interCurve = std::dynamic_pointer_cast<SceneIntersectionCurve>(obj);
+                auto spline = interCurve->convertToSpline(sceneObjects, splineTolerance);
+                sceneObjects.push_back(spline);
+            }
+
         }
         ImGui::Unindent();
         ImGui::Separator();

@@ -57,6 +57,9 @@ public:
 
     void Init() override;
     void DrawSurface(Shader& shader, const PreviewContext& ctx) override {
+        shader.use();
+        glUniform1i(glGetUniformLocation(shader.ID, "patchesU"), (sizeU - 1) / 3);
+        glUniform1i(glGetUniformLocation(shader.ID, "patchesV"), (sizeV - 1) / 3);
         RenderSurfaceInternal(shader, ctx);
     }
 
@@ -72,6 +75,9 @@ public:
 
     void Init() override;
     void DrawSurface(Shader& shader, const PreviewContext& ctx) override {
+        shader.use();
+        glUniform1i(glGetUniformLocation(shader.ID, "patchesU"), isCylinder ? (sizeU - 1) : (sizeU - 3));
+        glUniform1i(glGetUniformLocation(shader.ID, "patchesV"), sizeV - 3);
         RenderSurfaceInternal(shader, ctx);
     }
 

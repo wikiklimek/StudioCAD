@@ -99,7 +99,7 @@ public:
               bool isCamDragging, Vect3& centerOfSelection);
 
 
-    void renderObjectGuiRow(std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
+    void renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, std::shared_ptr<SceneObject>& obj, bool& magicMode, std::shared_ptr<SceneBezier>& magicCurve);
 
     void MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
 };

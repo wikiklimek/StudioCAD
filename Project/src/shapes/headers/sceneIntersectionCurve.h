@@ -17,15 +17,23 @@ public:
     bool showTextureA = false;
     bool showTextureB = false;
 
-    SceneIntersectionCurve(std::string n, const std::vector<IntersectionPoint>& pts);
+    // Dodaj to w sekcji public: w sceneIntersectionCurve.h
+    std::weak_ptr<SceneObject> objectA;
+    std::weak_ptr<SceneObject> objectB;
+    bool wrapUA, wrapVA, wrapUB, wrapVB;
+
+    // Zmodyfikuj konstruktor, by to wszystko przyjmował:
+    SceneIntersectionCurve(std::string n, const std::vector<IntersectionPoint>& pts,
+                           std::shared_ptr<SceneObject> objA, std::shared_ptr<SceneObject> objB,
+                           bool wUA, bool wVA, bool wUB, bool wVB);
     ~SceneIntersectionCurve() override;
 
     void Init() override;
     void Draw(Shader& shader) override;
     void Draw(Shader& shader, Mat4 parentMatrix) override;
 
-    // Wymóg: konwersja krzywej numerycznej do krzywej sklejanej C2
-    std::shared_ptr<SceneSplineInterpolating> convertToSpline(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, int pointStep = 10);
+
+    std::shared_ptr<SceneSplineInterpolating> convertToSpline(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, float tolerance = 0.05f);
 
 private:
     void GenerateParametricTextures();

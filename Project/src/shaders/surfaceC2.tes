@@ -10,6 +10,10 @@ uniform bool swapUV;
 uniform int u_tessLevelU;
 uniform int u_tessLevelV;
 
+out vec2 fsUV;
+uniform int patchesU;
+uniform int patchesV;
+
 vec4 bspline(float t) {
     float t2 = t * t;
     float t3 = t2 * t;
@@ -46,4 +50,8 @@ void main() {
         }
     }
     gl_Position = projection * view * model * vec4(finalPos, 1.0);
+
+    float globalU = (float(gl_PrimitiveID % patchesU) + u) / float(patchesU);
+    float globalV = (float(gl_PrimitiveID / patchesU) + v) / float(patchesV);
+    fsUV = vec2(globalU, globalV);
 }

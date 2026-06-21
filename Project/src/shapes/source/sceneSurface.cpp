@@ -124,6 +124,19 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
     glUniform1i(glGetUniformLocation(shader.ID, "u_tessLevelU"), samplesU);
     glUniform1i(glGetUniformLocation(shader.ID, "u_tessLevelV"), samplesV);
 
+
+    // --- TRYMOWANIE ---
+    glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
+    glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
+    if (useTrim) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, trimTexture);
+        glUniform1i(glGetUniformLocation(shader.ID, "trimMap"), 1);
+        glActiveTexture(GL_TEXTURE0);
+    }
+    // ------------------
+
+
     Mat4 id(1.0f);
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, id.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());

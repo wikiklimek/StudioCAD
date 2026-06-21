@@ -39,6 +39,10 @@ public:
     bool pendingDelete = false;
     float color[3] = {1.0f, 1.0f, 0.0f };
 
+    unsigned int trimTexture = 0;
+    bool useTrim = false;
+    bool trimFlip = false; // Pozwala odwrócić odcinaną stronę
+
     SceneObject(std::string n, Transformations spawnTransform, ObjectType type)
             : id(GLOBAL_ID_COUNTER++),
               name(std::move(n)),
