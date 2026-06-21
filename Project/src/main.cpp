@@ -436,7 +436,7 @@ int main()
             updateShader(surfaceShaderC2);
             updateShader(gregoryShader);
 
-            shader.use();
+            //shader.use();
             for (auto& obj : sceneObjects)
             {
                 drawObjectWithPreview(obj, obj->objectType ==ObjectType::Torus ? shaderTorus : shader, previewCtx);

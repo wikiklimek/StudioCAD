@@ -33,6 +33,7 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
 
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
+    shader.use();
     //tutaj bedziemy robili draw:
     //      BezierC2
     //      SplineInterpolatibg
