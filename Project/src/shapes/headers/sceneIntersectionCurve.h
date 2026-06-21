@@ -17,12 +17,12 @@ public:
     bool showTextureA = false;
     bool showTextureB = false;
 
-    // Dodaj to w sekcji public: w sceneIntersectionCurve.h
+
     std::weak_ptr<SceneObject> objectA;
     std::weak_ptr<SceneObject> objectB;
     bool wrapUA, wrapVA, wrapUB, wrapVB;
 
-    // Zmodyfikuj konstruktor, by to wszystko przyjmował:
+
     SceneIntersectionCurve(std::string n, const std::vector<IntersectionPoint>& pts,
                            std::shared_ptr<SceneObject> objA, std::shared_ptr<SceneObject> objB,
                            bool wUA, bool wVA, bool wUB, bool wVB);

@@ -116,9 +116,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     //ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
     ImGui::Separator();
 
-    // =========================================================================
-    // PANEL ZADANIA 10: PRZECINANIE POWIERZCHNI
-    // =========================================================================
+
     if (ImGui::CollapsingHeader("Przecinanie Powierzchni (Zadanie 10)", ImGuiTreeNodeFlags_DefaultOpen))
     {
         std::vector<std::shared_ptr<SceneObject>> selectedSurfaces;
@@ -134,7 +132,11 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
         static float intersectionStepSize = 0.05f;
         static bool useCursorStart = false;
 
-        ImGui::SliderFloat("Precyzja kroczenia (d)", &intersectionStepSize, 0.005f, 0.5f);
+
+        if (ImGui::InputFloat("Precyzja kroczenia (d)", &intersectionStepSize, 0.001f, 0.01f, "%.4f"))
+        {
+            intersectionStepSize = std::clamp(intersectionStepSize, 0.001f, 0.1f);
+        }
         ImGui::Checkbox("Szukaj startu przy kursorze 3D", &useCursorStart);
 
         if (selectedSurfaces.size() == 2)
@@ -154,7 +156,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
                 bool wUA=false, wVA=false, wUB=false, wVB=false; // Zmienne pomocnicze
 
-#define CAST_AND_CALL(TypeA, TypeB) \
+                #define CAST_AND_CALL(TypeA, TypeB) \
                     if (auto a = std::dynamic_pointer_cast<TypeA>(objA)) \
                         if (auto b = std::dynamic_pointer_cast<TypeB>(objB)) { \
                             tryIntersect(a, b); \

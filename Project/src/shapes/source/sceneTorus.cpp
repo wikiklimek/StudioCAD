@@ -36,7 +36,7 @@ void SceneTorus::Draw(Shader& shader)  {
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
-    // --- TRYMOWANIE ---
+    // trimming
     glUniform1f(glGetUniformLocation(shader.ID, "torusR"), R); // Promień Torusa niezbędny do u/v
     glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
     glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
@@ -46,7 +46,7 @@ void SceneTorus::Draw(Shader& shader)  {
         glUniform1i(glGetUniformLocation(shader.ID, "trimMap"), 1);
         glActiveTexture(GL_TEXTURE0);
     }
-    // ------------------
+
 
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
@@ -58,7 +58,7 @@ void SceneTorus::Draw(Shader& shader, Mat4 parentMatrix)  {
     glUniformMatrix4fv(glGetUniformLocation(shader.ID, "model"), 1, GL_FALSE, finalMat.table);
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
 
-    // --- TRYMOWANIE ---
+    // trymowanie
     glUniform1f(glGetUniformLocation(shader.ID, "torusR"), R); // Promień Torusa niezbędny do u/v
     glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
     glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
@@ -68,19 +68,17 @@ void SceneTorus::Draw(Shader& shader, Mat4 parentMatrix)  {
         glUniform1i(glGetUniformLocation(shader.ID, "trimMap"), 1);
         glActiveTexture(GL_TEXTURE0);
     }
-    // ------------------
+
 
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
 }
 
-// =====================================================================
-// REALIZACJA KONCEPTU: EvaluableSurface (POPRAWIONA WERSJA)
-// =====================================================================
+
 
 Vect3 SceneTorus::EvaluatePos(float u, float v) const
 {
-    // Skalujemy u, v z [0, 1] na pełne [0, 2PI] radianów!
+    //  u, v z [0, 1] na pełne [0, 2PI]
     float u_rad = u * 2.0f * (float)M_PI;
     float v_rad = v * 2.0f * (float)M_PI;
 

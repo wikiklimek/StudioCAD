@@ -1,7 +1,7 @@
 #version 460 core
 out vec4 FragColor;
 
-in vec3 localPos; // <--- Odbieramy surową pozycję
+in vec3 localPos;
 
 uniform vec3 objectColor;
 uniform bool isStereo;
@@ -17,12 +17,18 @@ void main()
     if (useTrim) {
         float PI = 3.14159265359;
 
-        // Liczymy UV idealnie, niezależnie dla KAŻDEGO PIKSELA (Koniec z błędami na szwach!)
+        // Liczymy UV idealnie, niezależnie dla KAŻDEGO PIKSELA
         float u = atan(localPos.y, localPos.x);
-        if (u < 0.0) u += 2.0 * PI;
+        if (u < 0.0)
+        {
+            u += 2.0 * PI;
+        }
 
         float v = atan(localPos.z, length(localPos.xy) - torusR);
-        if (v < 0.0) v += 2.0 * PI;
+        if (v < 0.0)
+        {
+            v += 2.0 * PI;
+        }
 
         vec2 fsUV = vec2(u / (2.0 * PI), v / (2.0 * PI));
 
