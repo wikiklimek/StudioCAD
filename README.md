@@ -1,0 +1,1 @@
+StudioCAD is a custom, interactive 3D CAD engine and parametric modeler built from scratch in C++20. The application allows designing and manipulating advanced geometric structures, including Bezier curves, B-Spline surfaces, and Gregory patches. It features a real-time GUI and implements highly optimized numerical solvers .
