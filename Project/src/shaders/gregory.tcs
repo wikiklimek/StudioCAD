@@ -1,5 +1,5 @@
 #version 410 core
-layout (vertices = 20) out; // <--- MAGIA: 20 punktów!
+layout (vertices = 20) out; 
 
 in vec3 vPos[];
 out vec3 tcPos[];

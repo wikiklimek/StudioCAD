@@ -104,7 +104,6 @@ Vect3 SceneTorus::EvaluateDu(float u, float v) const
     Mat4 dirMat = createModelMatrix(Vect3(0.0f, 0.0f, 0.0f), transformations.rotation, transformations.scale);
     Vect4 localDir(dx, dy, dz, 0.0f);
 
-    // REGUŁA ŁAŃCUCHOWA (Mnożymy wektor przez pochodną wnętrza, czyli 2PI)
     return (dirMat * localDir).toVect3() * (2.0f * (float)M_PI);
 }
 
@@ -120,6 +119,5 @@ Vect3 SceneTorus::EvaluateDv(float u, float v) const
     Mat4 dirMat = createModelMatrix(Vect3(0.0f, 0.0f, 0.0f), transformations.rotation, transformations.scale);
     Vect4 localDir(dx, dy, dz, 0.0f);
 
-    // REGUŁA ŁAŃCUCHOWA
     return (dirMat * localDir).toVect3() * (2.0f * (float)M_PI);
 }

@@ -7,7 +7,6 @@
 
 void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
-    //ta funkcja musi byc po operacjach z gui
 
     for(std::shared_ptr<SceneObject>& obj : sceneObjects)
     {
@@ -25,7 +24,6 @@ void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::sha
                 vp->isSelected = false;
         }
 
-        //zmianiamy selection bezrerów punktów
         if (obj->objectType == ObjectType::BezierCurveC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating)
@@ -108,7 +106,6 @@ void unselectVirtualPointsAndActualizePointsSelectedBeziers(std::vector<std::sha
 
 void unselectObjectsAndVirtualPointsAndCleanPointsSelectedBeziers(std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
-    //ta operacja musi byc w moemncie wypiekania select boxa
 
     for(auto& obj : sceneObjects)
     {
@@ -119,14 +116,11 @@ void unselectObjectsAndVirtualPointsAndCleanPointsSelectedBeziers(std::vector<st
             auto p = std::static_pointer_cast<ScenePoint>(obj);
 
 
-            //do wirtualnych punktów
             p->isSelectedAsDeBoore = false;
             p->virtualWeight = 0.0f;
 
-            //do krzywych beziera
             p->selectedCurvesCount = 0;
 
-            //do płatów
             p->selectedSurfacesCount = 0;
         }
 

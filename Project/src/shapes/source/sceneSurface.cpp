@@ -15,7 +15,6 @@ SceneSurface::~SceneSurface()
 }
 
 
-// WSPÓLNE FUNKCJE POMOCNICZE BAZY do metody init
 
 void SceneSurface::InitBuffers()
 {
@@ -32,7 +31,6 @@ void SceneSurface::InitPolygonAndUpload()
 {
     polyIndices.clear();
 
-    // Linie poziome
     for (int v = 0; v < sizeV; ++v)
     {
         for (int u = 0; u < sizeU - 1; ++u)
@@ -41,7 +39,7 @@ void SceneSurface::InitPolygonAndUpload()
             polyIndices.push_back(v * sizeU + u + 1);
         }
     }
-    // Linie pionowe
+
     for (int u = 0; u < sizeU; ++u)
     {
         for (int v = 0; v < sizeV - 1; ++v)
@@ -51,11 +49,10 @@ void SceneSurface::InitPolygonAndUpload()
         }
     }
 
-    // Ładowanie VBO
+   
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(Vect3), nullptr, GL_DYNAMIC_DRAW);
 
-    // Konfiguracja VAO_surface (Teselacja)
     glBindVertexArray(VAO_surface);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vect3), (void*)0);
@@ -63,7 +60,6 @@ void SceneSurface::InitPolygonAndUpload()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_surface);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, patchIndices.size() * sizeof(unsigned int), patchIndices.data(), GL_STATIC_DRAW);
 
-    // Konfiguracja VAO_poly (Wielobok)
     glBindVertexArray(VAO_poly);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vect3), (void*)0);
@@ -106,7 +102,7 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
                 currentPositions[i].z != prevPositions[i].z)
             {
                 needsUpload = true;
-                break; // Znaleźliśmy zmianę, uciekamy
+                break; 
             }
         }
     }
@@ -125,7 +121,6 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
     glUniform1i(glGetUniformLocation(shader.ID, "u_tessLevelV"), samplesV);
 
 
-    // trim
     glUniform1i(glGetUniformLocation(shader.ID, "useTrim"), useTrim ? 1 : 0);
     glUniform1i(glGetUniformLocation(shader.ID, "trimFlip"), trimFlip ? 1 : 0);
     if (useTrim) {
@@ -144,11 +139,9 @@ void SceneSurface::RenderSurfaceInternal(Shader& shader, const PreviewContext& c
     glBindVertexArray(VAO_surface);
     glPatchParameteri(GL_PATCH_VERTICES, 16);
 
-    // stałe v, rysowanie krzywych poziomych
     glUniform1i(glGetUniformLocation(shader.ID, "swapUV"), 0);
     glDrawElements(GL_PATCHES, patchIndices.size(), GL_UNSIGNED_INT, 0);
 
-    // stałe u, rysiwania krzywych pionowych
     glUniform1i(glGetUniformLocation(shader.ID, "swapUV"), 1);
     glDrawElements(GL_PATCHES, patchIndices.size(), GL_UNSIGNED_INT, 0);
 }
@@ -158,8 +151,7 @@ void SceneSurface::DrawPolygon(Shader& lineShader, const PreviewContext& ctx)
 {
     if (!showPolygon || points.empty() || polyIndices.empty()) return;
 
-    // Pozycje są już w VBO zaktualizowane przez RenderSurfaceInterna bo było wczesniej wywołane
-
+    
     lineShader.use();
     Mat4 id(1.0f);
     glUniformMatrix4fv(glGetUniformLocation(lineShader.ID, "model"), 1, GL_FALSE, id.table);

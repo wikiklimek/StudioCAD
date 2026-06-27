@@ -33,7 +33,6 @@ Vect3 SceneSurfaceC0::EvaluatePos(float u, float v) const
     int patchesU = (sizeU - 1) / 3;
     int patchesV = (sizeV - 1) / 3;
 
-    // Przeliczenie z globalnego [0,1] na lokalne indeksy i [0,1]
     float u_scaled = u * patchesU;
     float v_scaled = v * patchesV;
     int pu = std::clamp((int)u_scaled, 0, patchesU - 1);
@@ -76,7 +75,7 @@ Vect3 SceneSurfaceC0::EvaluateDu(float u, float v) const
             }
         }
     }
-    // Reguła łańcuchowa (Chain rule): mnożymy wynik przez ilość płatów
+    
     return du * (float)patchesU;
 }
 

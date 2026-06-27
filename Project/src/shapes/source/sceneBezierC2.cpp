@@ -45,7 +45,6 @@ void SceneBezierC2::markAffectedDeBoorPoints()
 
             if (i % 3 == 0)
             {
-                // KRAŃCOWE I WĘZŁY - Teraz wszystkie używają tego samego, ogólnego wzoru!
                 int d_index = (i + 1) / 3 + 1;
                 float multiplier = 1.5f;
 
@@ -60,7 +59,6 @@ void SceneBezierC2::markAffectedDeBoorPoints()
             }
             else
             {
-                // ŚRODKI SEGMENTÓW - Dwa punkty De Boora (Bez zmian)
                 int d1 = (i + 2) / 3;
                 int d2 = d1 + 1;
                 if (d1 >= 0 && d1 < numD)
@@ -81,7 +79,7 @@ void SceneBezierC2::markAffectedDeBoorPoints()
                     }
                 }
             }
-            break; // Znaleźliśmy ten jeden zaznaczony punkt, koniec szukania
+            break; 
         }
     }
 }
@@ -105,7 +103,6 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
     bool basisChangedToBernstein = (currentBasis != lastBasis) && (currentBasis == BezierBasisMode::BERNSTEIN);
 
 
-    // ostatnie to dlatego ze na povczarku punktów nie ma
     bool needsFullRebuild = basisChangedToBernstein ||
             (currentNumP > expectedNumP) || (currentNumP == 0 && currentBasis == BezierBasisMode::BERNSTEIN);
 
@@ -116,7 +113,6 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
         return;
     }
 
-    // jakie punkty deBoora zmaniły pozycje
     std::vector<int> dirtyIndices;
     std::vector<Vect3> liveD(numD, Vect3(0.0f));
 
@@ -152,7 +148,6 @@ void SceneBezierC2::UpdateVirtualPointsIfNeeded(const PreviewContext& ctx)
 
     if (haveToAddPoints)
     {
-        // Dodano nowe punkty De Boora
         int oldNumD = (currentNumP - 1) / 3 + 3;
         addVirtualPoints(oldNumD, numD, liveD);
     }
@@ -186,15 +181,12 @@ void SceneBezierC2::rebuildAllVirtualPoints(const std::vector<Vect3>& liveD)
 
 void SceneBezierC2::addVirtualPoints(int oldNumD, int newNumD, const std::vector<Vect3>& liveD)
 {
-    // nowe punkty berensteina dodane na koniec, stare pozostaja takie same
-    // Pętla leci tylko od miejsca w którym skończyliśmy ostatnio
     for (int j = oldNumD - 3; j <= newNumD - 4; ++j)
     {
         Vect3 d1 = liveD[j+1];
         Vect3 d2 = liveD[j+2];
         Vect3 d3 = liveD[j+3];
 
-        // 3 nowe punkty (pierwszy to ostatni stary węzeł, czyli pomijamy)
         Vect3 p1 = (d1 * 2.0f + d2) * (1.0f / 3.0f);
         Vect3 p2 = (d1 + d2 * 2.0f) * (1.0f / 3.0f);
         Vect3 p3 = (d1 + d2 * 4.0f + d3) * (1.0f / 6.0f);
@@ -278,7 +270,6 @@ void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
     }
     else // BezierBasisMode::BERNSTEIN
     {
-        //tylko w tym miejscu to robie
         UpdateVirtualPointsIfNeeded(ctx);
         if (virtualPoints.size() < 2)
             return;
@@ -294,7 +285,6 @@ void SceneBezierC2::DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHei
     else
         RenderLineStripMode(Pts, shader, VP, winWidth, winHeight, currentBasis);
 
-    //MUSI BYC NA KONCY WYKONYWANE
     lastBasis = currentBasis;
 }
 
@@ -352,5 +342,4 @@ void SceneBezierC2::Draw(Shader& shader, Mat4 parentMatrix)
     if (currentBasis == BezierBasisMode::BERNSTEIN)
         for (auto& vp : virtualPoints)
             vp->Draw(shader);
-            //vp->Draw(shader, parentMatrix);
 }

@@ -17,7 +17,6 @@ void main()
     if (useTrim) {
         float PI = 3.14159265359;
 
-        // Liczymy UV idealnie, niezależnie dla KAŻDEGO PIKSELA
         float u = atan(localPos.y, localPos.x);
         if (u < 0.0)
         {

@@ -64,7 +64,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    //antyaliasing
+    
     glfwWindowHint(GLFW_SAMPLES, 4);
 
     GLFWwindow* window = glfwCreateWindow(1024, 768, "Torus", NULL, NULL);
@@ -82,7 +82,7 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
-    // wygładzanie krawędzi
+    
     glEnable(GL_MULTISAMPLE);
     glLineWidth(1.2f);
 
@@ -169,7 +169,6 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        // rozmiar okna
         int currentW, currentH;
         glfwGetFramebufferSize(window, &currentW, &currentH);
         if (currentW > 0 && currentH > 0 && (currentW != winWidth || currentH != winHeight))
@@ -228,7 +227,6 @@ int main()
             }
             else
             {
-                // Puszczenie prawego przycisku - wypiekamy kamerę
                 if (isCamDragging)
                 {
                     camera.bake();
@@ -246,7 +244,6 @@ int main()
                 float dx_world = (dx_screen / (float)winWidth) * 2.0f;
                 float dy_world = (dy_screen / (float)winHeight) * 2.0f;
 
-                // Kamera sama sie przesuwa
                 camera.processMouseDrag(dx_world, dy_world, camMode);
             }
 
@@ -255,9 +252,8 @@ int main()
             {
                 if (magicMode)
                 {
-                    if (!isDragging) // Uruchomi się tylko raz na kliknięcie
+                    if (!isDragging) 
                     {
-                        // kursor
                         Vect3 rayDir = getRayDirection(mouseX, mouseY, winWidth, winHeight, camera);
                         Vect3 intersection = getCursorIntersectionWithCameraPlane(rayDir, camera);
 
@@ -265,7 +261,6 @@ int main()
                         cursor.screenX = (float)mouseX;
                         cursor.screenY = (float)mouseY;
 
-                        // nowy ounkt
                         auto p = std::make_shared<ScenePoint>(
                                 "Punkt " + std::to_string(sceneObjects.size()+1),
                                 cursor.transform);
@@ -288,7 +283,6 @@ int main()
                     {
                         appState.currentMode = BOX;
 
-                        // start rysowania ramki
                         isBoxSelecting = true;
                         boxStartX = mouseX;
                         boxStartY = mouseY;
@@ -306,7 +300,6 @@ int main()
                 }
 
 
-                //dzieje sie viagle przy kliknietym lewym
                 if (isBoxSelecting)
                 {
                     boxEndX = mouseX;
@@ -315,7 +308,7 @@ int main()
 
                 isDragging = true;
             }
-            else //musi sie wykonac tylko raz po puszczeniu klawisza! dbac o to!
+            else 
             {
 
                 if (isBoxSelecting)
@@ -325,14 +318,11 @@ int main()
                     tm.wasSelectionChanged = true;
 
 
-                    // dla klikania/select boxa zawsze stare obiekty pzrestaja byc zaczone
-                    // ile krzywych nalezacych do punktu jest zaznaczonych - zerowanie
                     unselectObjectsAndVirtualPointsAndCleanPointsSelectedBeziers(sceneObjects);
 
 
                     if (std::abs(boxEndX - boxStartX) < boxSmallestXY && std::abs(boxEndY - boxStartY) < boxSmallestXY)
                     {
-                        //od razu wyznaczamy punkty de bora ktore beda przesuwane
                         std::shared_ptr<SceneBezierC2> selectedVirtualBezierOwner;
                         if(handleSingleClickSelection(mouseX, mouseY, winWidth, winHeight, camera,
                                                       sceneObjects, selectedVirtualBezierOwner))
@@ -341,7 +331,7 @@ int main()
                         }
 
                     }
-                    else // select box rysowany ramką
+                    else 
                     {
                         performBoxSelection(boxStartX, boxStartY, boxEndX, boxEndY,
                                             winWidth, winHeight, camera, sceneObjects);
@@ -349,7 +339,6 @@ int main()
                 }
 
 
-                // Wypalanie transformacji
                 if(isDragging)
                 {
                     tm.bakeMouseTransformations(sceneObjects, appState);
@@ -363,7 +352,6 @@ int main()
             }
 
 
-            // transformacje myszka
             if (isDragging && appState.currentMode != BOX)
             {
                 float dx_screen = (float)(mouseX - startMouseX);
@@ -393,8 +381,6 @@ int main()
 
 
 
-        // JEZELI JEST ZANZCINY JAKIS PUNKT WIRTUALNY, TO TYLKO ON JEST ZAZNCZINY
-        // bo punktów wirtualnych nie ma na liscie gui!
         if (guiManager.wasSelectionChanged)
         {
             unselectVirtualPointsAndActualizePointsSelectedBeziers(sceneObjects);
@@ -402,19 +388,14 @@ int main()
 
 
 
-
-
-
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         PreviewContext previewCtx = buildPreviewContext(appState, tm, guiManager, cursor.transform.getPosition(), centerOfSelection);
-
 
         Mat4 Base_View = camera.getViewMatrix();
         Mat4 Base_Proj = camera.getProjectionMatrix(aspectRatio);
 
 
-        // rysowanie całej sceny
         auto RenderScenePass = [&](Mat4 V, Mat4 P, bool stereoscopy, Vect3 sColor)
         {
 
@@ -436,7 +417,6 @@ int main()
             updateShader(surfaceShaderC2);
             updateShader(gregoryShader);
 
-            //shader.use();
             for (auto& obj : sceneObjects)
             {
                 drawObjectWithPreview(obj, obj->objectType ==ObjectType::Torus ? shaderTorus : shader, previewCtx);
@@ -499,7 +479,6 @@ int main()
                 {
                     std::shared_ptr<ScenePolygon> poly = std::dynamic_pointer_cast<ScenePolygon>(obj);
 
-                    // Jeśli rzutowanie się powiodło (czyli obiekt dziedziczy po ScenePolygon), to tu bedzie git
                     if (poly)
                     {
                         poly->DrawPolygon(shader, previewCtx);
@@ -508,7 +487,6 @@ int main()
                 }
             }
 
-            // ta płaszczyzna preview
             if (guiManager.isNewSurfacePanelOpen && guiManager.previewSurface)
             {
                 PreviewContext dummyCtx;
@@ -536,7 +514,6 @@ int main()
         };
 
 
-        // stereoskopia
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         if (!guiManager.isStereoMode)
@@ -546,15 +523,13 @@ int main()
         }
         else
         {
-            // lewe oko - czerwone
             Mat4 P_Left(0, 0, 0, 0), V_LeftShift(0, 0, 0, 0);
             getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, true, P_Left, V_LeftShift);
 
             glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
             RenderScenePass(V_LeftShift * Base_View, P_Left, true, Vect3(1.0f, 0.0f, 0.0f));
 
-            // prawe oko - niebieski
-            glClear(GL_DEPTH_BUFFER_BIT); // clean depth, but colours leave alone where they are
+            glClear(GL_DEPTH_BUFFER_BIT); 
 
             Mat4 P_Right(0, 0, 0, 0), V_RightShift(0, 0, 0, 0);
             getStereoMatrices(camera.fov, aspectRatio, camera.nearPlane, camera.farPlane, guiManager.eyeSeparation, guiManager.focalDistance, false, P_Right, V_RightShift);
@@ -572,16 +547,13 @@ int main()
         glfwSwapBuffers(window);
 
 
-        //Potezny Mechanizm Usuwania Obiektów
         deleteObjects(guiManager, sceneObjects);
 
 
-        //teraz aktualziujemy liste dziur - dopiero po całych akcjach gui
         if (guiManager.holesPotentialChanges || previewCtx.anySelectionChanged) {
             guiManager.UpdateHoles(sceneObjects);
         }
 
-        // Resetowanie jednorazowaych flag
         for (auto& obj : sceneObjects)
         {
             obj->wasGuiSelectionChanged = false;

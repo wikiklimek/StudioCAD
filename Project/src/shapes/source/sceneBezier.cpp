@@ -67,7 +67,7 @@ void SceneBezier::RenderGeometryMode(const std::vector<Vect3>& flatPoints, Shade
             segPts.push_back(flatPoints[i + j]);
         }
 
-        // Padowanie dla GL_LINES_ADJACENCY (musi być 4)
+
         while(segPts.size() < 4)
             segPts.push_back(segPts.back());
 
@@ -143,7 +143,7 @@ void SceneBezier::RenderPolygon(const std::vector<Vect3>& polyPoints, Shader& li
         return;
 
     std::vector<float> data;
-    data.reserve(polyPoints.size() * 3); // Drobna optymalizacja pamięci
+    data.reserve(polyPoints.size() * 3); 
 
     for(auto& pos : polyPoints)
     {

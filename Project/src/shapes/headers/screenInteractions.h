@@ -12,11 +12,9 @@ inline bool projectWorldToScreen(Vect3 worldPos, const Mat4& VP, int winWidth, i
     Vect4 p4(worldPos.x, worldPos.y, worldPos.z, 1.0f);
     Vect4 clip = VP * p4;
 
-    // za kamerą lub w samym oku kamery
     if (clip.w < 0.0001f)
         return false;
 
-    // kostka [-1, 1]
     float nx = clip.x / clip.w;
     float ny = clip.y / clip.w;
 

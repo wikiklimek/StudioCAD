@@ -16,15 +16,13 @@ public:
 
     virtual void Init() override;
 
-    //moze w  przyszłosci jakos to sprytnie opprawimy
     void Draw(Shader& shader) override {}
     void Draw(Shader& shader, Mat4 parentMatrix) override {}
 
     std::vector<std::weak_ptr<ScenePoint>> points;
     bool showPolygon = true;
 
-    // Funkcje rysujące. Słowo 'virtual' oznacza, że dzieci (C0 i C2) muszą je napisać po swojemu.
-    // 'override' połączymy w klasach pochodnych.
+    
     virtual void DrawBezier(Shader& shader, Mat4 VP, int winWidth, int winHeight, const PreviewContext& ctx, BezierDrawMode mode) = 0;
 
 protected:

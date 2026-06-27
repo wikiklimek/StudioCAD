@@ -10,7 +10,7 @@
 #include "scenePoint.h"
 #include "sceneSurface.h"
 
-//(Mały segment = 4 punkty)
+
 struct HoleSegment {
     size_t edgeId;
     std::shared_ptr<ScenePoint> p[4];
@@ -19,7 +19,7 @@ struct HoleSegment {
 
     HoleSegment() : edgeId(0), owner(nullptr) {}
 
-    //od razu wylicza uniwersalne ID
+    //uniwersalne id
     HoleSegment(std::shared_ptr<ScenePoint> p0, std::shared_ptr<ScenePoint> p1,
                 std::shared_ptr<ScenePoint> p2, std::shared_ptr<ScenePoint> p3,
                 std::shared_ptr<SceneSurfaceC0> own)
@@ -39,11 +39,11 @@ struct HoleSegment {
         rev.p[2] = p[1];
         rev.p[3] = p[0];
         rev.owner = owner;
-        rev.edgeId = this->edgeId; // ID niezależnie od kierunku
+        rev.edgeId = this->edgeId; 
         return rev;
     }
 
-    // bo id unikalne
+    
     bool isEquivalent(const HoleSegment& other) const {
         return this->edgeId == other.edgeId;
     }
@@ -55,29 +55,28 @@ private:
         unsigned int id2 = p[2]->id;
         unsigned int id3 = p[3]->id;
 
-        // kanoniczny hasz
-        // Gwarantuje to, że (P0,P1,P2,P3) da ten sam hash co (P3,P2,P1,P0)
+        
         if (id0 > id3) {
             std::swap(id0, id3);
             std::swap(id1, id2);
         }
 
-        // Łączymy ID Ownera i znormalizowane ID punktów w string
+        
         std::string hashString = std::to_string(owner->id) + "_" +
                                  std::to_string(id0) + "_" +
                                  std::to_string(id1) + "_" +
                                  std::to_string(id2) + "_" +
                                  std::to_string(id3);
 
-        // Zwracamy unikalny Hash
+        
         return std::hash<std::string>{}(hashString);
     }
 };
 
-// cykl o DOWOLNEJ długości
+
 struct HoleCycle {
     std::vector<HoleSegment> edges;
-    size_t id_gregory = 0; // Uniwersalne ID całej dziury
+    size_t id_gregory = 0; 
 };
 
 
@@ -89,7 +88,7 @@ inline size_t CalculateGregoryId(const std::vector<HoleSegment>& edges)
         edgeIds.push_back(edge.edgeId);
     }
 
-    // Sortujemy ID krawędzi : E1->E2->E3 ten sam hash co E3->E1->E2
+    
     std::sort(edgeIds.begin(), edgeIds.end());
 
     std::string holeHashStr = "";
@@ -100,7 +99,7 @@ inline size_t CalculateGregoryId(const std::vector<HoleSegment>& edges)
     return std::hash<std::string>{}(holeHashStr);
 }
 
-// krawędz w grafie
+
 struct GraphEdge{
     size_t edgeId;
     std::shared_ptr<ScenePoint> targetNode;
@@ -110,7 +109,7 @@ struct GraphEdge{
 using TopologyGraph = std::unordered_map<std::shared_ptr<ScenePoint>, std::vector<GraphEdge>>;
 
 
-// Ograniczony DFS z Nawrotami
+
 inline void BoundedDFS(
         std::shared_ptr<ScenePoint> current,
         std::shared_ptr<ScenePoint> start,
@@ -170,7 +169,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
 {
     std::vector<HoleSegment> allEdges;
 
-    //Zbieranie wszystkich krawędzi
+    
     for (const auto& obj : sceneObjects)
     {
         if (obj->isSelected && obj->objectType == ObjectType::BezierSurfaceC0)
@@ -192,7 +191,6 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
                 {
                     if (!(pt0 == pt1 && pt1 == pt2 && pt2 == pt3))
                     {
-                        // Segment, który automatycznie liczy swoje globalne, kanoniczne ID
                         allEdges.push_back(HoleSegment(pt0, pt1, pt2, pt3, s));
                     }
                 }
@@ -213,17 +211,17 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
         }
     }
 
-    // 2: Odrzucanie szwów
+    
     std::vector<HoleSegment> boundaryEdges;
     std::unordered_map<size_t, int> edgeOccurrences;
 
-    // Zliczamy wystąpienia po uniwersalnym ID
+    
     for (const auto& edge : allEdges)
     {
         edgeOccurrences[edge.edgeId]++;
     }
 
-    // Zostawiamy tylko te, które wystąpiły 1 raz (brzegowe)
+    
     for (const auto& edge : allEdges)
     {
         if (edgeOccurrences[edge.edgeId] == 1)
@@ -232,7 +230,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
         }
     }
 
-    // Budowa Grafu
+    
     TopologyGraph graph;
     for (const auto& edge : boundaryEdges)
     {
@@ -243,7 +241,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
         graph[nodeB].push_back({edge.edgeId, nodeA, edge.reversed()});
     }
 
-    // Odpalenie DFS
+    
     std::set<std::set<size_t>> uniqueCycles;
     std::vector<std::vector<HoleSegment>> allCycles;
 
@@ -260,7 +258,7 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
         BoundedDFS(startNode, startNode, path, visitedNodes, visitedEdges, graph, maxCycleLength, uniqueCycles, allCycles);
     }
 
-    // Zwrócenie  wyników
+    
     std::vector<HoleCycle> results;
     for (const auto& cyclePath : allCycles)
     {
@@ -274,7 +272,6 @@ inline std::vector<HoleCycle> FindHoles(const std::vector<std::shared_ptr<SceneO
 }
 
 
-// Pobieranie wewnętrznego rzędu płata Beziera
 inline void GetInnerRow(const HoleSegment& edge, Vect3 I[4], std::weak_ptr<ScenePoint> ptrI[4])
 {
     auto s = edge.owner;

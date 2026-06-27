@@ -6,7 +6,6 @@
 #include <memory>
 #include <array>
 
-//przygotowane typowo pod 3 þłaty - łatwo zmienic
 class SceneGregoryPatch : public SceneObject, public std::enable_shared_from_this<SceneGregoryPatch> {
 public:
 

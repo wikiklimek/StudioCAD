@@ -34,11 +34,7 @@ Vect3 getPreviewPosition(const std::shared_ptr<ScenePoint>& p, const PreviewCont
 void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shader, const PreviewContext& ctx)
 {
     shader.use();
-    //tutaj bedziemy robili draw:
-    //      BezierC2
-    //      SplineInterpolatibg
-    //      BezierSurfaceC2
-    // bo rysujemy duszki punktów beziera
+
     if (obj->objectType == ObjectType::BezierCurveC0 || obj->objectType == ObjectType::BezierSurfaceC0)
         return;
 
@@ -69,7 +65,6 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
     }
 
 
-    //Aplikowanie i cofanie zmian dla Trybu Lokalnego
     if (ctx.isLocal)
     {
         Transformations old = obj->transformations;
@@ -83,7 +78,6 @@ void drawObjectWithPreview(const std::shared_ptr<SceneObject>& obj, Shader& shad
 
         obj->Draw(shader);
 
-        // Cofamy zmiany po rysowaniu
         obj->transformations = old;
     }
     else
@@ -114,7 +108,7 @@ PreviewContext buildPreviewContext(const AppState& state,const TransformManager&
     if (state.inputMode == INPUT_MOUSE)
     {
         activeDelta = tm.mouseDelta;
-        center = tm.centerOfTransformations; // Manager myszki sam pilnuje dobrego środka
+        center = tm.centerOfTransformations; 
     }
     else
     {

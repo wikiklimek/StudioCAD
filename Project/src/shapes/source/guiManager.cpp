@@ -38,15 +38,13 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     ImGui::Begin("Sterowanie i Obiekty");
 
 
-    // 1. Deklaracja przeglądarki (najlepiej jako static, by trzymała stan między klatkami)
     static ImGui::FileBrowser fileDialog;
     static bool isBrowserInitialized = false;
 
-    // Ustawienia początkowe (wykonają się tylko raz)
     if (!isBrowserInitialized)
     {
         fileDialog.SetTitle("Wybierz plik sceny");
-        fileDialog.SetTypeFilters({ ".json" }); // Filtrujemy tylko pliki JSON
+        fileDialog.SetTypeFilters({ ".json" }); 
         isBrowserInitialized = true;
     }
 
@@ -54,24 +52,21 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
     if (ImGui::CollapsingHeader("Zapis i Odczyt Sceny"))
     {
-        // Zastępujemy InputText przyciskiem wywołującym okienko
-        if (ImGui::Button("znajdz plik")) {
+        if (ImGui::Button("znajdz plik")) 
+        {
             fileDialog.Open();
         }
         ImGui::SameLine();
         ImGui::Text("Plik: %s", sceneFilename);
 
-        // Przycisk Zapisu (zajmuje połowę dostępnej szerokości okna)
         if (ImGui::Button("Zapisz Scenę", ImVec2(ImGui::GetContentRegionAvail().x * 0.5f, 0)))
         {
             SceneSerializer::SaveScene(sceneFilename, sceneObjects);
         }
         ImGui::SameLine();
 
-        // Przycisk Odczytu (zajmuje pozostałą przestrzeń)
         if (ImGui::Button("Wczytaj Scenę", ImVec2(-1, 0)))
         {
-            // KROK KRYTYCZNY: Czyścimy obecny wektor obiektów...
             sceneObjects.clear();
 
             if (previewSurface)
@@ -86,20 +81,15 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     }
     ImGui::Separator();
 
-    // 2. MUSI BYĆ WYWOŁANE CO KLATKĘ (poza CollapsingHeader, żeby okienko mogło się rysować)
     fileDialog.Display();
 
-    // 3. Logika przypisania wybranego pliku, gdy użytkownik kliknie "Ok" w okienku
     if (fileDialog.HasSelected())
     {
-        // Pobieramy ścieżkę
         std::string filePath = fileDialog.GetSelected().string();
 
-        // Kopiujemy stringa do Twojej tablicy charów (zabezpieczając przed przepełnieniem)
         strncpy(sceneFilename, filePath.c_str(), sizeof(sceneFilename) - 1);
-        sceneFilename[sizeof(sceneFilename) - 1] = '\0'; // Gwarancja null-terminatora
+        sceneFilename[sizeof(sceneFilename) - 1] = '\0'; 
 
-        // Resetujemy stan przeglądarki
         fileDialog.ClearSelected();
     }
 
@@ -113,7 +103,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
     ImGui::Text("Kursor");
     ImGui::DragFloat3("Pozycja (Scena)", &cursor.transform.posX, 0.1f, min_pos, max_pos);
-    //ImGui::Text("Pozycja (Ekran): X: %.1f, Y: %.1f", cursor.screenX, cursor.screenY);
+   
     ImGui::Separator();
 
 
@@ -154,7 +144,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                                                                   false);
                 };
 
-                bool wUA=false, wVA=false, wUB=false, wVB=false; // Zmienne pomocnicze
+                bool wUA=false, wVA=false, wUB=false, wVB=false; 
 
                 #define CAST_AND_CALL(TypeA, TypeB) \
                     if (auto a = std::dynamic_pointer_cast<TypeA>(objA)) \
@@ -189,25 +179,28 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 auto objA = selectedSurfaces[0];
                 std::vector<IntersectionPoint> result;
 
-                bool wUA=false, wVA=false; // Flagi dla samoprzecięcia
+                bool wUA=false, wVA=false;
 
-                auto tryIntersect = [&](auto surfA) {
-                    // Wrzucamy dwa razy to samo
+                auto tryIntersect = [&](auto surfA) 
+                {
                     result = IntersectionSolver::FindIntersection(*surfA, *surfA,
                                                                   intersectionStepSize, useCursorStart,
                                                                   cursor.transform.getPosition(),
                                                                   true);
-                    // Pobieramy flagi z tego jednego obiektu
+                    
                     wUA = surfA->isWrappedU();
                     wVA = surfA->isWrappedV();
                 };
 
-                if (auto a = std::dynamic_pointer_cast<SceneTorus>(objA)) tryIntersect(a);
-                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC0>(objA)) tryIntersect(a);
-                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC2>(objA)) tryIntersect(a);
+                if (auto a = std::dynamic_pointer_cast<SceneTorus>(objA)) 
+                tryIntersect(a);
+                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC0>(objA)) 
+                tryIntersect(a);
+                else if (auto a = std::dynamic_pointer_cast<SceneSurfaceC2>(objA)) 
+                tryIntersect(a);
 
-                if (!result.empty()) {
-                    // W samoprzecięciu obiekt A i B to to samo, flagi też dublujemy
+                if (!result.empty()) 
+                {
                     auto newCurve = std::make_shared<SceneIntersectionCurve>(
                             "Krzywa Samoprzeciecia", result, objA, objA, wUA, wVA, wUA, wVA);
                     newCurve->Init();
@@ -298,7 +291,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                     holesPotentialChanges = true;
                 }
 
-                // Wywalamy dziurę od razu
                 currentFoundHoles.erase(currentFoundHoles.begin() + i);
                 ImGui::PopID();
                 continue;
@@ -339,7 +331,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
         for (auto& obj : sceneObjects)
         {
-            // ŁAPIEMY trzy KRZYWE DO COMBOBOXA
             if (obj->objectType == ObjectType::BezierCurveC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating)
@@ -369,7 +360,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
         ImGui::SameLine();
 
-        // Zamiast jednego przycisku z zagnieżdżeniami, od razu wyświetlamy właściwe opcje!
         if (selectedBezierIndex == 0)
         {
             if (ImGui::Button("Stworz Nowa C0"))
@@ -438,7 +428,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                             selPts.push_back(p);
                     }
                 }
-                if (!selPts.empty()) {
+                if (!selPts.empty()) 
+                {
                     auto s = std::make_shared<SceneSplineInterpolating>("Splajn " + std::to_string(sceneObjects.size() + 1), Transformations());
                     s->Init();
                     for (auto &p: selPts)
@@ -448,7 +439,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                     }
                     sceneObjects.push_back(s);
                     magicMode = true;
-                    magicCurve = s; // Działa idealnie dzięki dziedziczeniu po SceneBezier!
+                    magicCurve = s; 
                 }
             }
         }
@@ -469,7 +460,7 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
                 auto b = bezierPointers[selectedBezierIndex - 1];
                 for(auto& p : selPts)
                 {
-                    bool exists = false; // czu juz ten punkt jest w tej krzywej
+                    bool exists = false; 
                     for(auto& wp : b->points)
                     {
                         if (wp.lock() == p)
@@ -507,17 +498,16 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
             bool changed = false;
 
-            // minimalna ilosc platów
-            int minPatchesU = 1; // płaszczyzna 1
+            int minPatchesU = 1; 
             if (newSurfIsCylinder)
             {
-                minPatchesU = (newSurfType == 1) ? 3 : 2; // Walec C2: 3, Walec C0: 2
+                minPatchesU = (newSurfType == 1) ? 3 : 2; 
             }
 
             if (newSurfPatchesU < minPatchesU)
             {
                 newSurfPatchesU = minPatchesU;
-                changed = true; // Wymusza przeliczenie
+                changed = true; 
             }
 
 
@@ -536,19 +526,16 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
             {
                 for (auto& p : previewPoints)
                 {
-                    // Dodajemy tylko unikalne (ważne przy walcu!)
                     if (std::find(sceneObjects.begin(), sceneObjects.end(), p) == sceneObjects.end())
                     {
-                        //p->belongsToPatch = true;
 
                         p->color[0] = 1.0f;
                         p->color[1] = 1.0f;
-                        p->color[2] = 0.0f; // Reset do żółtego
+                        p->color[2] = 0.0f; 
                         sceneObjects.push_back(p);
                     }
                 }
 
-                //tak, zeby punkty w miejscu zwijania wlaca, czyli te ktore naleza do niego podwoijne,, dostały licznik 2
                 for (auto& wp : previewSurface->points)
                 {
                     if (auto p = wp.lock())
@@ -565,9 +552,8 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
                 previewSurface = nullptr;
                 previewPoints.clear();
-                forceClosePanel = true; // Zamykamy panel
+                forceClosePanel = true; 
 
-                //potencjana zniama liczy dziur
                 holesPotentialChanges = true;
             }
         }
@@ -605,7 +591,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
 
     for (auto& obj : sceneObjects)
     {
-        //do środka ciezkosci tych obiektów nie tzreba
         if (obj->objectType == ObjectType::BezierCurveC0 ||
             obj->objectType == ObjectType::BezierCurveC2 ||
             obj->objectType == ObjectType::SplineInterpolating ||
@@ -689,8 +674,6 @@ void GuiManager::Draw(std::vector<std::shared_ptr<SceneObject>>& sceneObjects,
     {
         Vect3 center =  ((state.transformMode == CURSOR_CENTER) ? cursor.transform.getPosition() : centerOfSelection);
 
-        // bardzo ważne że zmuszamy do wypieczenia zmian w tym miejscu
-        // oraz bardzo ważne że bakeTransformation działa niezaleznie od myszka/GUI
         bakeTransformations(sceneObjects, getGuiDelta(), state.transformMode, center);
         wasBaked = true;
 
@@ -857,8 +840,6 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
 
     if (ImGui::Checkbox("##sel", &obj->isSelected))
     {
-        // Jeśli klikniesz jakikolwiek checkbox na liście, zapalamy flagi dwie
-        // w osobnj funkcji poprawiamy liczniki wyselectowanych krzywych/płatów dla punktów
         wasSelectionChanged = true;
         obj->wasGuiSelectionChanged = true;
     }
@@ -872,7 +853,6 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
 
     ImGui::SameLine();
 
-    // Jeśli to punkt i nie moze zostac usuniety (na razie tylko gdy należy do płata), blokujemy całkowicie usunięcie
     if (obj->objectType == ObjectType::Point && !std::static_pointer_cast<ScenePoint>(obj)->canBeDeleted())
     {
         ImGui::BeginDisabled();
@@ -951,7 +931,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
             ImGui::Separator();
 
             ImGui::Text("Gestosc siatki (niezalezna):");
-            // Iterujemy po 3 sub-płatach
+            
             for (int i = 0; i < 3; ++i)
             {
                 ImGui::PushID(i);
@@ -981,7 +961,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
 
-                    ImGui::PushID(ptIdx); //(używamy indeksu pętli)
+                    ImGui::PushID(ptIdx); 
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -991,7 +971,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     else ++it;
 
                     ImGui::PopID();
-                    ptIdx++; // <--- NOWE
+                    ptIdx++; 
                 }
                 else
                 {
@@ -1022,7 +1002,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                 b2->currentBasis = BezierBasisMode::BERNSTEIN;
 
             ImGui::Text("Punkty (de Boora):");
-            int ptIdx = 0; // <--- NOWE
+            int ptIdx = 0; 
             for (auto it = b2->points.begin(); it != b2->points.end(); )
             {
                 if (auto ptr = it->lock())
@@ -1030,7 +1010,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
 
-                    ImGui::PushID(ptIdx); // <--- ZMIANA
+                    ImGui::PushID(ptIdx); 
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -1040,7 +1020,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     else ++it;
 
                     ImGui::PopID();
-                    ptIdx++; // <--- NOWE
+                    ptIdx++; 
                 }
                 else
                 {
@@ -1069,7 +1049,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                 s->currentBasis = InterpolationBasisMode::BERNSTEIN;
 
             ImGui::Text("Punkty Interpolacyjne:");
-            int ptIdx = 0; // <--- NOWE
+            int ptIdx = 0; 
             for (auto it = s->points.begin(); it != s->points.end(); )
             {
                 if (auto ptr = it->lock())
@@ -1077,7 +1057,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     ImGui::Text(" - %s", ptr->name.c_str());
                     ImGui::SameLine();
 
-                    ImGui::PushID(ptIdx); // <--- ZMIANA
+                    ImGui::PushID(ptIdx); 
 
                     if (ImGui::Button("Usun z krzywej"))
                     {
@@ -1087,7 +1067,7 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
                     else ++it;
 
                     ImGui::PopID();
-                    ptIdx++; // <--- NOWE
+                    ptIdx++;
                 }
                 else
                 {
@@ -1123,17 +1103,31 @@ void GuiManager::renderObjectGuiRow(std::vector<std::shared_ptr<SceneObject>>& s
 
             ImGui::Separator();
             ImGui::Text("Trymowanie obiektow:");
-            if (auto a = ic->objectA.lock()) {
+            if (auto a = ic->objectA.lock()) 
+            {
                 ImGui::Text("Powierzchnia A: %s", a->name.c_str());
-                if (ImGui::Button("Zastosuj maske dla A")) { a->trimTexture = ic->textureA; a->useTrim = true; }
-                ImGui::SameLine(); ImGui::Checkbox("Odwroc strone A", &a->trimFlip);
-                if (ImGui::Button("Wylacz trymowanie A")) a->useTrim = false;
+                if (ImGui::Button("Zastosuj maske dla A")) 
+                { 
+                    a->trimTexture = ic->textureA; 
+                    a->useTrim = true; 
+                }
+                ImGui::SameLine(); 
+                ImGui::Checkbox("Odwroc strone A", &a->trimFlip);
+                if (ImGui::Button("Wylacz trymowanie A")) 
+                    a->useTrim = false;
             }
-            if (auto b = ic->objectB.lock()) {
+            if (auto b = ic->objectB.lock()) 
+            {
                 ImGui::Text("Powierzchnia B: %s", b->name.c_str());
-                if (ImGui::Button("Zastosuj maske dla B")) { b->trimTexture = ic->textureB; b->useTrim = true; }
-                ImGui::SameLine(); ImGui::Checkbox("Odwroc strone B", &b->trimFlip);
-                if (ImGui::Button("Wylacz trymowanie B")) b->useTrim = false;
+                if (ImGui::Button("Zastosuj maske dla B")) 
+                { 
+                    b->trimTexture = ic->textureB; 
+                    b->useTrim = true; 
+                }
+                ImGui::SameLine(); 
+                ImGui::Checkbox("Odwroc strone B", &b->trimFlip);
+                if (ImGui::Button("Wylacz trymowanie B")) 
+                    b->useTrim = false;
             }
 
             static float splineTolerance = 0.05f;
@@ -1160,10 +1154,10 @@ void GuiManager::refreshPreview(const Cursor& cursor)
 {
     bool isC0 = (newSurfType == 0);
 
-    int minPatchesU = 1; // płaszczyzna: 1
+    int minPatchesU = 1; 
     if (newSurfIsCylinder)
     {
-        minPatchesU = isC0 ? 2 : 3; // Walec C2: 3, Walec C0: 2
+        minPatchesU = isC0 ? 2 : 3; 
     }
 
     if (newSurfPatchesU < minPatchesU)
@@ -1183,9 +1177,9 @@ void GuiManager::refreshPreview(const Cursor& cursor)
         }
         else
         {
-            uniqueU = newSurfPatchesU; // Suwak już wymusza minimum 3
+            uniqueU = newSurfPatchesU; 
         }
-        sizeU = uniqueU + 1; // 1 powtorzony na końcu dla formatu
+        sizeU = uniqueU + 1; 
     }
     else
     {
@@ -1238,7 +1232,6 @@ void GuiManager::refreshPreview(const Cursor& cursor)
     {
         for (int u = 0; u < sizeU; ++u)
         {
-            // Zgodnie z formatem: powtórzenie na końcu rzędu w walcu
             if (newSurfIsCylinder && u == uniqueU)
             {
                 previewSurface->points.push_back(previewSurface->points[v * sizeU]);
@@ -1256,10 +1249,10 @@ void GuiManager::refreshPreview(const Cursor& cursor)
                 if (isC0)
                 {
                     float R = newSurfDimU;
-                    // kąt przypadający na jeden plat
+                    
                     float theta = 2.0f * (float)M_PI / (float)newSurfPatchesU;
 
-                    // apriksymacja dla beziera
+                    
                     float L = (4.0f / 3.0f) * tan(theta / 4.0f) * R;
 
 
@@ -1272,19 +1265,16 @@ void GuiManager::refreshPreview(const Cursor& cursor)
                     float x, z;
                     if (pointType == 0)
                     {
-                        // P0: Węzeł leży idealnie na okręgu
                         x = R * cos(angle);
                         z = R * sin(angle);
                     }
                     else if (pointType == 1)
                     {
-                        // P1: od P0 wzdluz stycznej
                         x = R * cos(angle) - L * sin(angle);
                         z = R * sin(angle) + L * cos(angle);
                     }
                     else if (pointType == 2)
                     {
-                        // P2: Cofamy od P3, po wektorze stycznym
                         x = R * cos(nextAngle) + L * sin(nextAngle);
                         z = R * sin(nextAngle) - L * cos(nextAngle);
                     }
@@ -1292,7 +1282,7 @@ void GuiManager::refreshPreview(const Cursor& cursor)
                     float y = (float)v * (H / (newSurfPatchesV * 3.0f));
                     localPos = Vect3(x, y, z);
                 }
-                else // C2 (B-Spline)
+                else 
                 {
                     float R_dB = newSurfDimU * 3.0f / (cos(delta) + 2.0f);
                     float angle = (float)u * delta;
@@ -1302,13 +1292,12 @@ void GuiManager::refreshPreview(const Cursor& cursor)
             }
             else
             {
-                // PŁASZCZYZNA
                 if (isC0)
                 {
                     localPos = Vect3((float)u * (newSurfDimU / 3.0f), 0.0f, (float)v * (newSurfDimV / 3.0f));
                 }
                 else
-                { // C2
+                { 
                     localPos = Vect3((float)(u - 1) * newSurfDimU, 0.0f, (float)(v - 1) * newSurfDimV);
                 }
             }
@@ -1318,7 +1307,6 @@ void GuiManager::refreshPreview(const Cursor& cursor)
         }
     }
 
-    // Przebudowa indeksów
     previewSurface->Init();
 }
 
@@ -1328,7 +1316,6 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
 {
     std::vector<std::shared_ptr<ScenePoint>> selectedPoints;
 
-    // Zbieramy tylko zaznaczone obiekty, które są punktami (nie wirtualnymi)
     for (auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::Point && obj->isSelected)
@@ -1337,7 +1324,6 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
         }
     }
 
-    // Funkcja działa TYLKO dla dokładnie 2 punktów
     if (selectedPoints.size() != 2)
     {
         return;
@@ -1351,11 +1337,9 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
     Vect3 pos2 = p2->transformations.getPosition();
     Vect3 avgPos = Vect3((pos1.x + pos2.x) * 0.5f, (pos1.y + pos2.y) * 0.5f, (pos1.z + pos2.z) * 0.5f);
 
-    // pierwszy punkt zostaje iprzejmuje wlłaściwośi 2, drugi znaika
     p1->transformations.setPosition(avgPos);
-    p1->wasGuiEdited = true; // Wymusza przeliczenie wirtualnych punktów
+    p1->wasGuiEdited = true; 
 
-    // Przepinamy wskazniki
     for (auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::BezierCurveC0 ||
@@ -1384,15 +1368,14 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
             }
         }
 
-        //Gregorego - punkty sa wirtualne, niewysaeitlane, niezaznacaalne
 
     }
 
-    //(Liczniki)
+    
     p1->globalCurvesCount += p2->globalCurvesCount;
     p1->globalSurfacesCount += p2->globalSurfacesCount;
 
-    // (Opcjonalnie przenosimy zaznaczenia, choć odświeżą się same przy kolejnej klatce GUI)
+    
     p1->selectedCurvesCount += p2->selectedCurvesCount;
     p1->selectedSurfacesCount += p2->selectedSurfacesCount;
 
@@ -1408,7 +1391,7 @@ void GuiManager::MergeSelectedPoints(std::vector<std::shared_ptr<SceneObject>>& 
 
     p2->pendingDelete = true;
 
-    //potencjalna zmaina liczby dziur
+   
     holesPotentialChanges = true;
 }
 
@@ -1421,7 +1404,6 @@ void GuiManager::UpdateHoles(const std::vector<std::shared_ptr<SceneObject>>& sc
     for (const auto& hole : allHoles)
     {
         bool alreadyCovered = false;
-        // czy na scenie jest już płat Gregory'ego z tym samym ID
         for (const auto& obj : sceneObjects)
         {
             if (obj->objectType == ObjectType::GregoryPatch)

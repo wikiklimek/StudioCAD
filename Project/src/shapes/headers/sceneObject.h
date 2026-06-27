@@ -35,13 +35,13 @@ public:
     Transformations transformations;
     std::string name;
     bool isSelected = false;
-    bool wasGuiSelectionChanged = false; //aktywne tylko 1 klatke - jak zmieniliśmy select
+    bool wasGuiSelectionChanged = false; 
     bool pendingDelete = false;
     float color[3] = {1.0f, 1.0f, 0.0f };
 
     unsigned int trimTexture = 0;
     bool useTrim = false;
-    bool trimFlip = false; // Pozwala odwrócić odcinaną stronę
+    bool trimFlip = false; 
 
     SceneObject(std::string n, Transformations spawnTransform, ObjectType type)
             : id(GLOBAL_ID_COUNTER++),

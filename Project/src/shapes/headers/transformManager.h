@@ -5,7 +5,7 @@
 #include "camera.h"
 #include "transformations.h"
 #include "sceneObject.h"
-#include "appState.h" // <--- DODANE
+#include "appState.h" 
 
 Vect3 calculateScreenSpaceTranslation(float dx_world, float dy_world, Vect3 centerOfTransformations, const Camera& camera);
 

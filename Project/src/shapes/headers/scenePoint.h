@@ -16,12 +16,10 @@ public:
     float virtualWeight = 0.0f;
 
 
-    // NOWE FLAGI
-    int globalSurfacesCount = 0;     // Blokada usuwania (wymóg zadania 7)
-    int selectedSurfacesCount = 0;// Czy płat, do którego należę, jest wybrany
-    int globalCurvesCount = 0;       // Całkowita liczba struktur używających tego punktu
+    int globalSurfacesCount = 0;     
+    int selectedSurfacesCount = 0;
+    int globalCurvesCount = 0;       
 
-    // Metoda pomocnicza dla GUI
     bool canBeDeleted() const {
         return globalSurfacesCount == 0;
     }

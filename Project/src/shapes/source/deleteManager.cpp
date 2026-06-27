@@ -3,14 +3,13 @@
 
 void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObject>>& sceneObjects)
 {
-    // zbieranie akcji usunięcia przyciskiem usuwajacym wszytsie zaznaczone obioekty
+    
     if (guiManager.deleteSelectedPressed)
     {
         for (auto& obj : sceneObjects)
         {
             if (obj->isSelected)
             {
-                // punkty pomijamy bo musimy najpierw usunąc im powiązania z usuwanymi krzywymi/płasczyznami
                 if (obj->objectType != ObjectType::Point)
                 {
                     obj->pendingDelete = true;
@@ -19,8 +18,6 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
         }
     }
 
-    // czyszczenie powiązań punktów, najpier tylko z krzywymi
-    // dla każdego pending delete - prywatnego i globalnego
     for (auto& obj : sceneObjects)
     {
         if (obj->pendingDelete)
@@ -69,8 +66,6 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
     }
 
 
-    // w osobnej pętli usuwamy powiązania z płatami - z uwagi na flage !!!globalCurvesCount == 0!!!
-    // dla każdego pending delete - prywatnego i globalnego
     for (auto& obj : sceneObjects)
     {
         if (obj->pendingDelete &&
@@ -82,16 +77,11 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             {
                 if (auto p = wp.lock())
                 {
-                    //p->belongsToPatch = false;
-
-                    //tymvzasowo to połaczmy, ale zmieimy na jeden guzik
                     if (guiManager.surfaceDeletionMode == 1 || guiManager.surfaceDeletionMode == 2)
                     {
-                        // Tryb 2: usuń punkt tylko jeśli nie jest w żadnej krzywej lub powierzchni
                         if (p->globalCurvesCount == 0 && p->globalSurfacesCount == 0)
                             p->pendingDelete = true;
                     }
-                    // Tryb 0: usuń tylko płat (punkty zostają)
                 }
             }
         }
@@ -124,8 +114,6 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
         }
     }
 
-    // wreszczie oznaczenie pynktów do usuniecia
-    // tylko tryb globalny
     if (guiManager.deleteSelectedPressed)
     {
         for (auto& obj : sceneObjects)
@@ -133,10 +121,7 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
             if (obj->objectType == ObjectType::Point && obj->isSelected)
             {
                 auto p = std::static_pointer_cast<ScenePoint>(obj);
-                if (p->globalSurfacesCount == 0
-                        //!p->belongsToPatch
-                    //&& p->globalCurvesCount == 0  // -> to jakbysmy chcieci aby NIE USUWALY sie nalezace do krzywych punkty
-                    )
+                if (p->globalSurfacesCount == 0)
                 {
                     p->pendingDelete = true;
                 }
@@ -145,7 +130,6 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
     }
 
 
-    // Przed kasowaniem, sprawdzamy czy cokolwiek zaraz zostanie usunięte
     bool anyObjectDeleted = false;
     for (const auto& obj : sceneObjects)
     {
@@ -158,11 +142,10 @@ void deleteObjects(GuiManager& guiManager, std::vector<std::shared_ptr<SceneObje
 
     if (anyObjectDeleted)
     {
-        guiManager.holesPotentialChanges = true; // potancjalna zmiana liczny dziur
+        guiManager.holesPotentialChanges = true; 
     }
 
 
-    // Skasuj obiekty (w tym puste krzywe)
     sceneObjects.erase(std::remove_if(sceneObjects.begin(), sceneObjects.end(),
                                       [](const std::shared_ptr<SceneObject>& o) { return o->pendingDelete; }), sceneObjects.end());
 

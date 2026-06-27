@@ -22,7 +22,7 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
         obj->objectType == ObjectType::BezierSurfaceC0 ||
         obj->objectType == ObjectType::BezierSurfaceC2 ||
         obj->objectType == ObjectType::GregoryPatch)
-            continue; // nie transformuje sie krzywej
+            continue; 
 
         bool shouldBake = obj->isSelected;
         bool asDeBoor = false;
@@ -58,7 +58,6 @@ inline void bakeGroupTransform(std::vector<std::shared_ptr<SceneObject>>& object
     }
 }
 
-//bardzo ważne że bakeTransformation działa niezaleznie od myszka/GUI
 inline void bakeTransformations(std::vector<std::shared_ptr<SceneObject>>& sceneObjects, const Transformations& delta, TransformMode mode, Vect3 centerOfTransformations)
 {
     if (mode == LOCAL)

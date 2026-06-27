@@ -12,12 +12,10 @@ void Cursor::Init()
 {
     std::vector<Vect3> vertices;
 
-    // linie (Indeksy 0 - 5)
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(1.0f, 0.0f, 0.0f)); // X
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(0.0f, 1.0f, 0.0f)); // Y
     vertices.push_back(Vect3(0.0f, 0.0f, 0.0f)); vertices.push_back(Vect3(0.0f, 0.0f, 1.0f)); // Z
 
-    // generowanie gortów
     auto appendArrowhead = [&](Vect3 A, Vect3 B) {
         Vect3 D = B - A;
         Vect3 dir = D.normalize();
@@ -55,12 +53,10 @@ void Cursor::Init()
         vertices.push_back(P1);
     };
 
-    // groty (Indeksy 6 - 41)
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(1.0f, 0.0f, 0.0f)); // Grot X
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 1.0f, 0.0f)); // Grot Y
     appendArrowhead(Vect3(0.0f, 0.0f, 0.0f), Vect3(0.0f, 0.0f, 1.0f)); // Grot Z
 
-    // Wgrywamy całość (linie + trójkąty) do pamięci karty graficznej RAZ na start (STATIC_DRAW)
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glBindVertexArray(VAO);
@@ -82,7 +78,6 @@ void Cursor::Draw(Shader& shader)
     float colorZ[3] = { 0.1f, 0.5f, 1.0f };
     float black[3]  = { 0.0f, 0.0f, 0.0f };
 
-    // rysowanie linnii w roznych kolorach
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorX);
     glDrawArrays(GL_LINES, 0, 2); // Linia X
 
@@ -92,7 +87,6 @@ void Cursor::Draw(Shader& shader)
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorZ);
     glDrawArrays(GL_LINES, 4, 2); // Linia Z
 
-    // rysowanie gortów
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
 
@@ -103,17 +97,13 @@ void Cursor::Draw(Shader& shader)
     glDrawArrays(GL_TRIANGLES, 18, 12); // Grot Y (indeksy 18-29)
 
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, colorZ);
-    glDrawArrays(GL_TRIANGLES, 30, 12); // Grot Z (indeksy 30-41)
+    glDrawArrays(GL_TRIANGLES, 30, 12); 
 
-    //rysowanie robramowania grotów
     glDisable(GL_POLYGON_OFFSET_FILL);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, black);
-    // Skoro wszystkie 3 groty to po prostu 36 wierzchołków pod rząd,
-    // możemy narysować obramowanie dla wszystkich naraz jednym wywołaniem!
     glDrawArrays(GL_TRIANGLES, 6, 36);
 
-    // Reset ustawień OpenGL
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }

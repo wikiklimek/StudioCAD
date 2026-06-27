@@ -1,19 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
 project(MG1_Project C CXX)
 
-# Ustawiamy standard C++17
 set(CMAKE_CXX_STANDARD 20)
 
-# Szukamy pakietów zainstalowanych wcześniej przez DNF na RHEL 10
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
 add_subdirectory("/home/wiktoria/projects/MG1/MathLib" "MathLib_build")
 
-# --- NOWA LINIJKA: Dodajemy submoduł JSON ---
 add_subdirectory(external/nlohmann_json)
 
-# Wskazujemy, gdzie leżą nagłówki GLAD i ImGui
 include_directories(
         external/glad/include
         external/imgui
@@ -21,14 +17,12 @@ include_directories(
         external/imgui-filebrowser
 )
 
-# Zbieramy pliki źródłowe interfejsu
 file(GLOB IMGUI_SOURCES
         "external/imgui/*.cpp"
         "external/imgui/backends/imgui_impl_glfw.cpp"
         "external/imgui/backends/imgui_impl_opengl3.cpp"
 )
 
-# Tworzymy plik wykonywalny z naszego main.cpp, GLAD i ImGui
 add_executable(${PROJECT_NAME}
         src/main.cpp
         external/glad/src/glad.c
@@ -94,11 +88,8 @@ add_executable(${PROJECT_NAME}
         src/shapes/source/sceneIntersectionCurve.cpp
 )
 
-# Wskazujemy kompilatorowi dodatkowe foldery z plikami nagłówkowymi (.h)
 target_include_directories(${PROJECT_NAME} PRIVATE src/shapes/headers)
 
-# Łączymy projekt z bibliotekami systemowymi
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL glfw MathLib)
 
-# Łączymy projekt z bibliotekami systemowymi
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL glfw MathLib nlohmann_json::nlohmann_json)

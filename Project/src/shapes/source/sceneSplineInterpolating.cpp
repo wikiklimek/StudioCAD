@@ -18,7 +18,6 @@ void SceneSplineInterpolating::UpdateVirtualPointsIfNeeded(const PreviewContext 
 
     int n = points.size() - 1;
 
-    // jest git bo czyszcze
     int expectedVpCount = (currentBasis == InterpolationBasisMode::BERNSTEIN) ? n * 3 : 0;
     int expectedCoeffsCount = (currentBasis == InterpolationBasisMode::ALGEBRAIC) ? n : 0;
 
@@ -44,7 +43,6 @@ void SceneSplineInterpolating::UpdateVirtualPointsIfNeeded(const PreviewContext 
     for (int i = 0; i < n; ++i)
         d[i] = std::max((liveP[i+1] - liveP[i]).length(), 0.001f);
 
-    // Algorytm Thomasa poczatek
     std::vector<Vect3> c(n + 1, Vect3(0.0f));
     if (n > 1)
     {
@@ -72,7 +70,6 @@ void SceneSplineInterpolating::UpdateVirtualPointsIfNeeded(const PreviewContext 
             c[i] = Rp[i] - c[i+1] * cp[i];
     }
 
-    // czyszcze
     segmentCoeffs.clear();
     virtualPoints.clear();
 
@@ -115,7 +112,7 @@ void SceneSplineInterpolating::DrawBezier(Shader& shader, Mat4 VP, int winWidth,
 {
     UpdateVirtualPointsIfNeeded(ctx);
     if (points.size() < 2)
-        return; // Zabezpieczenie przed rysowaniem pustej krzywej
+        return; 
 
     shader.use();
     glUniform3fv(glGetUniformLocation(shader.ID, "objectColor"), 1, getUpdatedColorToDraw());
@@ -141,7 +138,7 @@ void SceneSplineInterpolating::DrawBezier(Shader& shader, Mat4 VP, int winWidth,
             pts.push_back(vp->transformations.getPosition());
         }
 
-        //ostatni wezel zaginal z virtualnych punktów
+        
         if (!points.empty())
         {
             if (auto p = points.back().lock())
@@ -186,7 +183,6 @@ void SceneSplineInterpolating::DrawPolygon(Shader& lineShader, const PreviewCont
             polyPoints.push_back(vp->transformations.getPosition());
         }
 
-        // ostatni wirtualny zaginał
         if (!points.empty())
         {
             if (auto p = points.back().lock())

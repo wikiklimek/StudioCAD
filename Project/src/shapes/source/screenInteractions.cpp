@@ -102,10 +102,8 @@ bool handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
     };
 
 
-    // --- wszystkie punkty (Zwykłe + Wirtualne) ---
     for (auto& obj : sceneObjects)
     {
-        // Zbierz normalne punkty ze sceny
         if (obj->objectType == ObjectType::Point)
         {
             auto p = std::static_pointer_cast<ScenePoint>(obj);
@@ -115,7 +113,7 @@ bool handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
                 isSelectedClosestVirtualPointBezierOwner = false;
             }
         }
-        // Zajrzyj do kieszeni krzywych C2
+       
         else if (obj->objectType == ObjectType::BezierCurveC2)
         {
             auto b2 = std::static_pointer_cast<SceneBezierC2>(obj);
@@ -136,7 +134,7 @@ bool handleSingleClickSelection(double mouseX, double mouseY, int winWidth, int 
 
     if (closestPoint != nullptr)
     {
-        closestPoint->isSelected = true; //!closestPoint->isSelected;
+        closestPoint->isSelected = true; 
     }
 
 
@@ -158,22 +156,17 @@ void performBoxSelection(double boxStartX, double boxStartY, double boxEndX, dou
     float minY = (float)std::min(boxStartY, boxEndY);
     float maxY = (float)std::max(boxStartY, boxEndY);
 
-    //  Agregacja wszystkich zaznaczalnych obiektów
     std::vector<std::shared_ptr<SceneObject>> selectableObjects;
     for (auto& obj : sceneObjects)
     {
-        // Bezpośrednio zaznaczalne obiekty (Torusy, standardowe Punkty)
         if (obj->objectType == ObjectType::Point || obj->objectType == ObjectType::Torus)
         {
             selectableObjects.push_back(obj);
         }
 
 
-        // Krzywe Beziera C0 i same obiekty C2 ignorujemy
-        // nie chcemy tez box selectowa punktów wirtualnych z BezierC2 bo by sie logika rozjechała
     }
 
-    // Sprawdzenie kolizji Boxa z wyciągniętymi obiektami
     for (auto& obj : selectableObjects)
     {
         Vect3 pos = obj->transformations.getPosition();

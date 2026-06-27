@@ -16,6 +16,5 @@ struct PreviewContext{
     float localDeltaScale = 1.0f;
     Quaternion localDeltaRot = Quaternion(1.0f, 0.0f, 0.0f, 0.0f);
 
-    // gotowa macierz transformacji
     Mat4 groupMat = Mat4(1.0f);
 };

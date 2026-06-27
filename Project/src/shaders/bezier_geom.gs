@@ -35,7 +35,6 @@ void main()
             pos = u*p0 + t*p1;
         }
 
-        // Dopiero teraz mnożymy przez kamerę!
         gl_Position = projection * view * vec4(pos, 1.0);
         EmitVertex();
     }

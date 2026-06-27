@@ -25,19 +25,17 @@ public:
     int max_density_r = 80, min_density_r = 3;
 
 
-    // guiManager.h - dodaj do sekcji public
     int newSurfPatchesU = 1, newSurfPatchesV = 1;
     float newSurfDimU = 5.0f, newSurfDimV = 5.0f;
     int newSurfType = 0; // 0: C0, 1: C2
     bool newSurfIsCylinder = false;
     int surfaceDeletionMode = 2; // 0: Tylko płat, 1: Płat i pkt, 2: Smart
 
-    // guiManager.h
-// ... reszta pól ...
-    bool isNewSurfacePanelOpen = false; // Do sterowania otwarciem
-    bool forceClosePanel = false;       // Flaga do zamknięcia po stworzeniu
+  
+    bool isNewSurfacePanelOpen = false; 
+    bool forceClosePanel = false;      
     std::shared_ptr<SceneSurface> previewSurface = nullptr;
-    std::vector<std::shared_ptr<ScenePoint>> previewPoints; // shared_ptr trzymające punkty przy życiu!
+    std::vector<std::shared_ptr<ScenePoint>> previewPoints; 
 
     void refreshPreview(const Cursor& cursor);
 
@@ -46,7 +44,6 @@ public:
     float eyeSeparation = 0.5f;
     float focalDistance = 20.0f;
 
-    // Stan transformacji z poziomu GUI
     float guiDeltaPos[3] = {0.0f, 0.0f, 0.0f};
     float guiDeltaScale = 1.0f;
     int guiRotMode = 0;
@@ -61,10 +58,10 @@ public:
     bool deleteSelectedPressed = false;
 
 
-    bool holesPotentialChanges = true; // Na start true, aby wyliczyło przy odpaleniu
+    bool holesPotentialChanges = true; 
     std::vector<HoleCycle> currentFoundHoles;
 
-    // Metoda odświeżająca listę (z odfiltrowaniem zaklejonych)
+    
     void UpdateHoles(const std::vector<std::shared_ptr<SceneObject>>& sceneObjects);
 
 

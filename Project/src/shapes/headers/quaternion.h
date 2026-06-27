@@ -3,7 +3,7 @@
 #include <complex>
 
 struct Quaternion {
-    float w = 1.0f, x = 0.0f, y = 0.0f, z = 0.0f; // Domyślnie brak obrotu
+    float w = 1.0f, x = 0.0f, y = 0.0f, z = 0.0f; 
 
     Quaternion() = default;
     Quaternion(float _w, float _x, float _y, float _z) : w(_w), x(_x), y(_y), z(_z) {}

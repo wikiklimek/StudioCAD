@@ -256,7 +256,6 @@ int main()
         {
                 // if (checkHit((float)mouseX, (float)mouseY, winWidth, winHeight, D_M_prime))
                     isDragging = true;
-                    // Rozpoznawanie wciśniętego klawisza modyfikującego
                     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) currentMode = TRANSLATE;
                     else if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) currentMode = ROTATE_FREE;
                     else if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) currentMode = ROTATE_X;
@@ -401,7 +400,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        bool imguiChanged = false; // Flaga sprawdzająca ruch suwakami
+        bool imguiChanged = false; 
 
         ImGui::Begin("Sterowanie");
         ImGui::Text("Kliknij + przeciagnij:");

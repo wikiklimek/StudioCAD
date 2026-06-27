@@ -56,25 +56,24 @@ void SceneIntersectionCurve::Draw(Shader& shader)
 
 void SceneIntersectionCurve::Draw(Shader& shader, Mat4 parentMatrix)
 {
-    Draw(shader); // Nasza krzywa i tak jest już w World Space
+    Draw(shader); 
 }
 
 
 namespace {
-    // Funkcja licząca najkrótszą odległość punktu P od odcinka AB w 3D
     float pointToSegmentDistance(const Vect3& P, const Vect3& A, const Vect3& B)
     {
         Vect3 AB = B - A;
         Vect3 AP = P - A;
         float L2 = AB.x * AB.x + AB.y * AB.y + AB.z * AB.z;
 
-        if (L2 < 1e-6f) // Jeśli A i B leżą w tym samym miejscu
+        if (L2 < 1e-6f) 
         {
             Vect3 diff = P - A;
             return std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
         }
 
-        // Rzutujemy punkt P na prostą AB i sprawdzamy ułamek 't' (clamp upewnia się, że nie wyjdziemy poza odcinek)
+   
         float t = std::clamp(Vect3::dot(AP, AB) / L2, 0.0f, 1.0f);
         Vect3 proj = A + AB * t;
         Vect3 diff = P - proj;
@@ -82,12 +81,12 @@ namespace {
         return std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
     }
 
-    // Rekurencyjna funkcja adaptacyjna
+   
     void RamerDouglasPeucker(const std::vector<IntersectionPoint>& points, float epsilon, size_t start, size_t end, std::vector<bool>& keep) {
         float maxDist = 0.0f;
         size_t index = start;
 
-        // Szukamy najbardziej odstającego punktu pomiędzy start a end
+        
         for (size_t i = start + 1; i < end; ++i)
         {
             float dist = pointToSegmentDistance(points[i].worldPos, points[start].worldPos, points[end].worldPos);
@@ -98,7 +97,6 @@ namespace {
             }
         }
 
-        // Jeśli błąd jest większy niż założona tolerancja, zachowujemy ten punkt i dzielimy problem na pół
         if (maxDist > epsilon)
         {
             keep[index] = true;
@@ -117,14 +115,11 @@ std::shared_ptr<SceneSplineInterpolating> SceneIntersectionCurve::convertToSplin
     if (intersectionPoints.size() < 2)
         return spline;
 
-    // flagi czy zatzrmac punkt
     std::vector<bool> keepPoint(intersectionPoints.size(), false);
 
-    // firstlast always are
     keepPoint.front() = true;
     keepPoint.back() = true;
 
-    //divide and conquere - to see which one we keep
     RamerDouglasPeucker(intersectionPoints, tolerance, 0, intersectionPoints.size() - 1, keepPoint);
 
 
@@ -144,7 +139,7 @@ std::shared_ptr<SceneSplineInterpolating> SceneIntersectionCurve::convertToSplin
     return spline;
 }
 
-// maski - textury
+
 void SceneIntersectionCurve::GenerateParametricTextures()
 {
     const int res = 2048;
@@ -152,7 +147,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
     std::vector<unsigned char> bufferB(res * res * 4, 255);
 
 
-    // Pędzel 3x3 z obsługą płynnego zawijania (Modulo)
     auto drawThickPixel = [&](std::vector<unsigned char>& buf, int cx, int cy) {
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
@@ -193,7 +187,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
         }
     };
 
-    // rysujemy krzywa
     if (intersectionPoints.size() > 1)
     {
         for (size_t i = 0; i < intersectionPoints.size() - 1; ++i)
@@ -212,7 +205,7 @@ void SceneIntersectionCurve::GenerateParametricTextures()
             int yA1 = (int)(intersectionPoints[i+1].vA * res);
             yA1 = (yA1 % res + res) % res;
 
-            // Zawijanie najkrótszą drogą - biorac pod uwage zawijanie textury UV
+            
             if (xA1 - xA0 > res / 2)
                 xA1 -= res;
             else if (xA0 - xA1 > res / 2)
@@ -253,7 +246,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
     }
 
 
-    // Dociągamy końcówki krzywej bezpośrednio do ścian, żeby zamknąć luki wielkości piksela.
     auto sealGap = [&](std::vector<unsigned char>& buf, float u, float v, bool wU, bool wV) {
         int x = (int)(u * res);
         x = (x % res + res) % res;
@@ -285,7 +277,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
     }
 
 
-    // 1-texel tamka ochronna (Borders)
     auto drawBorder = [&](std::vector<unsigned char>& buf, bool wrapU, bool wrapV) {
         if (!wrapU)
         {
@@ -309,7 +300,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
     drawBorder(bufferB, wrapUB, wrapVB);
 
 
-    // ETAP 4: FLOOD FILL
     auto floodFill = [&](std::vector<unsigned char>& buf, bool wrapU, bool wrapV) {
         int startX = -1, startY = -1;
         // Szukamy pierwszego białego piksela
@@ -331,7 +321,7 @@ void SceneIntersectionCurve::GenerateParametricTextures()
             return;
 
         std::vector<std::pair<int, int>> queue;
-        queue.reserve(res * res); // Pre-alokacja
+        queue.reserve(res * res); 
         queue.push_back({startX, startY});
         buf[(startY * res + startX) * 4] = 128; // Odwiedzony (Szary)
 
@@ -384,7 +374,6 @@ void SceneIntersectionCurve::GenerateParametricTextures()
     floodFill(bufferB, wrapUB, wrapVB);
 
 
-    // usuwanie tych starych ramek a;le sprytne bo przepisujemy kolor z texela obok (wewnwtzreego) a nie na siłe jakis
     auto cleanupBorder = [&](std::vector<unsigned char>& buf, bool wrapU, bool wrapV) {
         if (!wrapU)
         {

@@ -7,6 +7,5 @@ uniform float c;
 
 void main()
 {
-    //gl_Position = vec4(aPos.x * a, aPos.y * b, aPos.z * c, 1.0);
     gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
 }

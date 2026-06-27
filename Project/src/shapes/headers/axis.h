@@ -11,7 +11,6 @@ public:
 
     void Init();
 
-    // Używamy Vect3 dla spójności z resztą silnika!
     void Draw(Shader& shader, const Vect3& position, const Vect3& rotations, float length);
 
 private:

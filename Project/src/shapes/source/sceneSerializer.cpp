@@ -10,7 +10,7 @@
 #include "sceneBezierC2.h"
 #include "sceneSplineInterpolating.h"
 #include "sceneSurface.h"
-#include "sceneGregoryPatch.h" // POTRZEBNE DO RZUTOWANIA I SPRAWDZENIA
+#include "sceneGregoryPatch.h" 
 
 using json = nlohmann::json;
 
@@ -46,7 +46,7 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
 
     std::unordered_map<int, std::shared_ptr<ScenePoint>> pointMap;
 
-    // WCZYTYWANIE PUNKTÓW
+  
     if (j.contains("points"))
     {
         for (const auto& pJson : j["points"])
@@ -64,7 +64,7 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
         }
     }
 
-    // 2. WCZYTYWANIE GEOMETRII
+   
     if (j.contains("geometry"))
     {
         for (const auto& gJson : j["geometry"])
@@ -85,7 +85,7 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
                 Vect3 pos = mapToUser(gJson["position"]["x"], gJson["position"]["y"], gJson["position"]["z"]);
                 t.setPosition(pos);
                 t.scale = gJson["scale"]["x"];
-                // Mapowanie kwaternionu
+                
                 t.rotation.w = gJson["rotation"]["w"];
                 t.rotation.x = gJson["rotation"]["x"];
                 t.rotation.y = -static_cast<float>(gJson["rotation"]["z"]);
@@ -139,7 +139,7 @@ void SceneSerializer::LoadScene(const std::string& filepath, std::vector<std::sh
                     p->globalSurfacesCount++;
                 }
 
-                // Wymóg z readme.md: Sprawdzanie zawinięcia walca po referencjach
+                
                 if (surface->sizeU > 1 && surface->sizeV > 0)
                 {
                     auto firstPoint = surface->points[0].lock();
@@ -168,7 +168,6 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
     std::unordered_map<ScenePoint*, int> pointToId;
     int pointIdCounter = 1;
 
-    // 1. ZAPIS PUNKTÓW
     for (const auto& obj : sceneObjects)
     {
         if (obj->objectType == ObjectType::Point)
@@ -191,11 +190,9 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
         }
     }
 
-    // 2. ZAPIS GEOMETRII
     int geomIdCounter = 1;
     for (const auto& obj : sceneObjects)
     {
-        // Omijamy punkty oraz Płaty Gregory'ego (zostaną odtworzone reaktywnie)
         if (obj->objectType == ObjectType::Point || obj->objectType == ObjectType::GregoryPatch)
             continue;
 
@@ -203,13 +200,11 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
         g["id"] = geomIdCounter++;
         g["name"] = obj->name;
 
-        // Pomocnicza do zapisu punktów kontrolnych
         auto writeCP = [&](const std::vector<std::weak_ptr<ScenePoint>>& pts){
             json cpArr = json::array();
             for (auto& wp : pts)
             {
                 if (auto p = wp.lock()) {
-                    // Zabezpieczenie: zapisz tylko, jeśli punkt przeszedł przez filtry i ma przydzielone ID
                     if (pointToId.find(p.get()) != pointToId.end()) {
                         cpArr.push_back({{"id", pointToId[p.get()]}});
                     }
@@ -227,7 +222,7 @@ void SceneSerializer::SaveScene(const std::string& filepath, const std::vector<s
             g["position"] = {{"x", x}, {"y", y}, {"z", z}};
             g["scale"] = {{"x", t->transformations.scale}, {"y", t->transformations.scale}, {"z", t->transformations.scale}};
 
-            // Mapowanie kwaternionu: User(w,x,y,z) -> JSON(w, x, z, -y)
+            
             g["rotation"] ={
                     {"w", t->transformations.rotation.w},
                     {"x", t->transformations.rotation.x},

@@ -38,44 +38,41 @@ void SceneGregoryPatch::InitPolygonIndices()
     {
         int offset = p * 20;
 
-        // ramka zewnetrzna(Ramka sub-płata)
-        // Górna
         polyIndices.push_back(offset + 0); polyIndices.push_back(offset + 1);
         polyIndices.push_back(offset + 1); polyIndices.push_back(offset + 2);
         polyIndices.push_back(offset + 2); polyIndices.push_back(offset + 3);
-        // Prawa
+        
         polyIndices.push_back(offset + 3); polyIndices.push_back(offset + 9);
         polyIndices.push_back(offset + 9); polyIndices.push_back(offset + 15);
         polyIndices.push_back(offset + 15); polyIndices.push_back(offset + 19);
-        // Dolna
+        
         polyIndices.push_back(offset + 19); polyIndices.push_back(offset + 18);
         polyIndices.push_back(offset + 18); polyIndices.push_back(offset + 17);
         polyIndices.push_back(offset + 17); polyIndices.push_back(offset + 16);
-        // Lewa
+        
         polyIndices.push_back(offset + 16); polyIndices.push_back(offset + 10);
         polyIndices.push_back(offset + 10); polyIndices.push_back(offset + 4);
         polyIndices.push_back(offset + 4); polyIndices.push_back(offset + 0);
 
-        // LINIE WEWNĘTRZNE (Powiązania do punktów C1 i zawiasów)
-        // Krawędź V=0 (dolna) w głąb do p11v i p12v
+        
         polyIndices.push_back(offset + 1); polyIndices.push_back(offset + 6);  // P01 -> p11v
         polyIndices.push_back(offset + 2); polyIndices.push_back(offset + 8);  // P02 -> p12v
 
-        // Krawędź U=0 (lewa) w głąb do p11u i p21u
+        
         polyIndices.push_back(offset + 4); polyIndices.push_back(offset + 5);  // P10 -> p11u
         polyIndices.push_back(offset + 10); polyIndices.push_back(offset + 11); // P20 -> p21u
 
-        // Krawędź V=1 (promienista od środka) w głąb do p21v i p22v
+        
         polyIndices.push_back(offset + 17); polyIndices.push_back(offset + 12); // P31 -> p21v
         polyIndices.push_back(offset + 18); polyIndices.push_back(offset + 14); // P32 -> p22v
 
-        // Krawędź U=1 (promienista od środka) w głąb do p12u i p22u
+        
         polyIndices.push_back(offset + 9); polyIndices.push_back(offset + 7);   // P13 -> p12u
         polyIndices.push_back(offset + 15); polyIndices.push_back(offset + 13); // P23 -> p22u
     }
 
     glBindVertexArray(VAO_poly);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO); // VBO współdzielone z punktami powierzchni
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vect3), (void*)0);
     glEnableVertexAttribArray(0);
 
@@ -105,19 +102,16 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
     std::vector<Vect3> linesGregory;
     std::vector<Vect3> linesBezier;
 
-    // Nowe bufory na trójkąty tworzące groty strzałek
     std::vector<Vect3> trisGregory;
     std::vector<Vect3> trisBezier;
 
-    // generowanie gortu
     auto appendArrowhead = [&](std::vector<Vect3>& tris, Vect3 A, Vect3 B) {
         Vect3 D = B - A;
         float len = std::sqrt(D.x*D.x + D.y*D.y + D.z*D.z);
-        if (len < 1e-5f) return; // Zabezpieczenie przed dzieleniem przez zero
+        if (len < 1e-5f) return; 
 
         Vect3 dir = Vect3(D.x/len, D.y/len, D.z/len);
 
-        // Rozmiar grotu: wysokość i promień podstawy dla czworościanu foremnego
         float h = 0.08f;
         float r = h / 1.4142f;
 
@@ -140,7 +134,6 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
         tris.push_back(P0); tris.push_back(P2); tris.push_back(P1);
     };
 
-    // Pobieramy wektory brzegowe dla każdego z 3 sub-płatów
     for (int p = 0; p < 3; ++p)
     {
         int off = p * 20;
@@ -153,28 +146,23 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
             Vect3 pInner = getPreviewPosition(p_inner, ctx);
             Vect3 vectorC1 = pInner - pEdge;
 
-            // Wektor wchodzący w płat Gregory'ego
             Vect3 endGregory = pInner;
             linesGregory.push_back(pEdge);
             linesGregory.push_back(endGregory);
             appendArrowhead(trisGregory, pEdge, endGregory);
 
-            // Odbicie wektora w drugą stronę (Bezier)
             Vect3 endBezier = pEdge - vectorC1;
             linesBezier.push_back(pEdge);
             linesBezier.push_back(endBezier);
             appendArrowhead(trisBezier, pEdge, endBezier);
         };
 
-        // Zewnętrzna krawędź stykająca się z Bezierem (V=0)
         addVectorLine(1, 6);
         addVectorLine(2, 8);
 
-        // Zewnętrzna krawędź stykająca się z Bezierem (U=0)
         addVectorLine(4, 5);
         addVectorLine(10, 11);
 
-        // Punkt brzegowy P30 (indeks 3) i punkt wewnętrzny Qi (indeks 9)
         addVectorLine(3, 9);
     }
 
@@ -189,14 +177,12 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
     float cyjan[3] = {0.0f, 1.0f, 1.0f};
 
 
-    // Linie Gregory'ego
     glBufferData(GL_ARRAY_BUFFER, linesGregory.size() * sizeof(Vect3), linesGregory.data(), GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vect3), (void*)0);
     glEnableVertexAttribArray(0);
     glUniform3fv(glGetUniformLocation(lineShader.ID, "objectColor"), 1, yellow);
     glDrawArrays(GL_LINES, 0, linesGregory.size());
 
-    // Linie Beziera
     glBufferData(GL_ARRAY_BUFFER, linesBezier.size() * sizeof(Vect3), linesBezier.data(), GL_DYNAMIC_DRAW);
     glUniform3fv(glGetUniformLocation(lineShader.ID, "objectColor"), 1, cyjan);
     glDrawArrays(GL_LINES, 0, linesBezier.size());
@@ -207,7 +193,6 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.0f, 1.0f);
 
-    // Groty Gregory'ego
     if (!trisGregory.empty()) {
         glBufferData(GL_ARRAY_BUFFER, trisGregory.size() * sizeof(Vect3), trisGregory.data(), GL_DYNAMIC_DRAW);
 
@@ -224,7 +209,6 @@ void SceneGregoryPatch::DrawVectors(Shader& lineShader, const PreviewContext& ct
         glEnable(GL_POLYGON_OFFSET_FILL);
     }
 
-    // Groty Beziera
     if (!trisBezier.empty()) {
         glBufferData(GL_ARRAY_BUFFER, trisBezier.size() * sizeof(Vect3), trisBezier.data(), GL_DYNAMIC_DRAW);
 
@@ -250,7 +234,7 @@ void SceneGregoryPatch::Init()
 
     glBindVertexArray(VAO_surface);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // Mówimy GPU: "Bierz 3 floaty z bufora jako 1 wierzchołek"
+  
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vect3), (void*)0);
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);

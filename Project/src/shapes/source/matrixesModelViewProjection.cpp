@@ -38,10 +38,7 @@ Mat4 createProjectionMatrix(float fov, float aspect, float n, float f)
 
 Mat4 createViewMatrix(Vect3 cameraPos, Vect3 target, Vect3 up)
 {
-    //Vect3 D = (target - cameraPos).normalize();
-    //Vect3 R = Vect3::cross(D, up).normalize();
-    //Vect3 U = Vect3::cross(R, D).normalize();
-
+ 
     Vect3 D = (cameraPos - target).normalize();
     Vect3 R = Vect3::cross(up, D).normalize();
     Vect3 U = Vect3::cross(D, R).normalize();

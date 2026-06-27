@@ -4,7 +4,6 @@
 #include "bakeTransform.h"
 
 
-// klikniecie na scene - rozpoczecie przeciagania
 void TransformManager::startTransformation(Vect3 centerOfSelection, Vect3 cursorPosition, const AppState& state)
 {
     isTransformationActive = true;
